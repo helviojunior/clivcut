@@ -34,3 +34,7 @@ endif()
 add_executable(tst_proxy tst_proxy.cpp)
 target_link_libraries(tst_proxy PRIVATE clivcut_engine Qt6::Test)
 add_test(NAME proxy COMMAND tst_proxy)
+
+add_executable(tst_audio tst_audio.cpp)
+target_link_libraries(tst_audio PRIVATE clivcut_engine Qt6::Test)
+add_test(NAME audio COMMAND tst_audio)

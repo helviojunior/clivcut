@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ProjectController.h"
 #include "engine/AudioMixer.h"
+#include "media/Loudness.h"
 #include "engine/WhisperModels.h"
 #include "media/MediaProbe.h"
 
@@ -370,6 +371,33 @@ private slots:
         m_ctrl->undo();
         QVERIFY(!clipsOf(0).first().toMap().value("audioMuted").toBool());
         QCOMPARE(m_ctrl->tracks().size(), 1);
+    }
+
+    void loudnessAndDenoise()
+    {
+        m_ctrl->newProject(640, 360, 30);
+        m_ctrl->importMedia({QUrl::fromLocalFile(m_video)});
+        m_ctrl->addAssetToTimeline(m_ctrl->assets().first().toMap().value("id").toString());
+        const QString id = clipsOf(0).first().toMap().value("id").toString();
+        m_ctrl->select(id);
+        m_ctrl->normalizeLoudness(-14);
+        QVERIFY(m_ctrl->normalizing());
+        QTRY_VERIFY_WITH_TIMEOUT(!m_ctrl->normalizing(), 30000);
+        QVERIFY(m_ctrl->selectedClip().value("gainDb").toDouble() > 0);
+        // A mixagem final fica no alvo.
+        clv::engine::AudioMixer mixer;
+        clv::media::LoudnessMeter meter;
+        std::vector<float> buf(4800 * 2);
+        for (clv::Micros t = 0; t < 3'000'000; t += 100'000) {
+            mixer.mix(*m_ctrl->snapshot(), t, buf.data(), 4800);
+            meter.add(buf.data(), 4800);
+        }
+        QVERIFY2(std::abs(meter.integrated() + 14) < 0.7, qPrintable(QString::number(meter.integrated())));
+
+        // Redução de ruído: processa em segundo plano até ficar pronta.
+        m_ctrl->setClipProperty(id, "denoise", 0.6);
+        QCOMPARE(m_ctrl->selectedClip().value("denoise").toDouble(), 0.6);
+        QTRY_COMPARE_WITH_TIMEOUT(m_ctrl->selectedClip().value("denoiseState").toString(), QStringLiteral("ready"), 30000);
     }
 
     void proxiesAutomatic()

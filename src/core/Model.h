@@ -172,6 +172,8 @@ struct Clip {
     bool reverse = false;
     double volume = 1;   ///< 1 = 100%
     bool audioMuted = false; ///< silencia o áudio deste clipe (ex.: depois de separar o áudio)
+    double gainDb = 0;       ///< ganho extra em dB (normalização de volume ou ajuste manual)
+    double denoise = 0;      ///< redução de ruído 0..1 (0 = desligada)
     bool audioOnly = false;  ///< usa só o áudio da mídia (clipe de áudio separado de um vídeo)
     Micros fadeIn = 0;
     Micros fadeOut = 0;

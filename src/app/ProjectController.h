@@ -79,6 +79,7 @@ class ProjectController : public QObject {
     Q_PROPERTY(bool useProxies READ useProxies WRITE setUseProxies NOTIFY proxiesChanged)
     Q_PROPERTY(int proxiesPending READ proxiesPending NOTIFY proxiesChanged)
     Q_PROPERTY(bool canPaste READ canPaste NOTIFY clipboardChanged)
+    Q_PROPERTY(bool normalizing READ normalizing NOTIFY audioJobsChanged)
     Q_PROPERTY(bool canPasteAttributes READ canPasteAttributes NOTIFY clipboardChanged)
 
 public:
@@ -133,6 +134,7 @@ public:
     QVariantList speedPresets() const;
     QString screenshotPage() const { return qEnvironmentVariable("CLIVCUT_SCREENSHOT_PAGE"); }
     bool canPaste() const;
+    bool normalizing() const { return m_normalizing; }
     bool canPasteAttributes() const { return m_attributeSource.has_value(); }
     bool useProxies() const { return m_useProxies; }
     void setUseProxies(bool on);
@@ -176,6 +178,8 @@ public:
     Q_INVOKABLE void freezeFrame();
     /// Separa o áudio dos clipes de vídeo selecionados em clipes de áudio.
     Q_INVOKABLE void detachAudio();
+    /// Mede a loudness (EBU R128) dos clipes selecionados e ajusta o ganho para o alvo (LUFS).
+    Q_INVOKABLE void normalizeLoudness(double targetLufs);
 
     // --- seleção e propriedades ---
     Q_INVOKABLE void select(const QString &clipId, bool additive = false);
@@ -276,6 +280,7 @@ signals:
     void transcribeChanged();
     void proxiesChanged();
     void clipboardChanged();
+    void audioJobsChanged();
 
 private:
     /** Executa uma edição com registro no histórico. `coalesceKey` agrupa edições contínuas. */
@@ -286,6 +291,8 @@ private:
     void setStatus(const QString &msg);
     void tick();
     void refreshProxies();
+    void refreshDenoise();
+    void startNextDenoise();
     void enqueueProxy(const QString &mediaPath);
     void startNextProxy();
     QString defaultTextFor(const QString &preset) const;
@@ -327,6 +334,11 @@ private:
     bool m_transcribing = false;
     double m_transcribeProgress = 0;
 
+    bool m_normalizing = false;
+    QStringList m_denoiseQueue;     ///< "caminho|intensidade" aguardando limpeza
+    QString m_denoiseBuilding;
+    double m_denoiseProgress = 0;
+    std::shared_ptr<std::atomic<bool>> m_denoiseCancel = std::make_shared<std::atomic<bool>>(false);
     clv::Clipboard m_clipboard;
     std::optional<clv::Clip> m_attributeSource;
     bool m_useProxies = true;

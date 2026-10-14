@@ -125,6 +125,8 @@ Micros sourceTimeAt(const Project &p, const Clip &c, Micros rel)
 double audioGainAt(const Clip &c, Micros rel)
 {
     double g = propAt(c, Prop::Volume, std::clamp<Micros>(rel, 0, c.duration));
+    if (c.gainDb != 0)
+        g *= std::pow(10.0, c.gainDb / 20.0);
     if (c.fadeIn > 0 && rel < c.fadeIn)
         g *= std::max(0.0, static_cast<double>(rel) / c.fadeIn);
     const Micros fromEnd = c.duration - rel;

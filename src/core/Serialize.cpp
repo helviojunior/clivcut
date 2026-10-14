@@ -269,6 +269,10 @@ QJsonObject clipToJson(const Clip &c)
     o.insert("volume", c.volume);
     if (c.audioMuted)
         o.insert("audioMuted", true);
+    if (c.gainDb != 0)
+        o.insert("gainDb", c.gainDb);
+    if (c.denoise > 0)
+        o.insert("denoise", c.denoise);
     if (c.audioOnly)
         o.insert("audioOnly", true);
     o.insert("fadeIn", us(c.fadeIn));
@@ -351,6 +355,8 @@ Clip clipFromJson(const QJsonObject &o)
     c.reverse = o.value("reverse").toBool();
     c.volume = o.value("volume").toDouble(1);
     c.audioMuted = o.value("audioMuted").toBool();
+    c.gainDb = o.value("gainDb").toDouble();
+    c.denoise = o.value("denoise").toDouble();
     c.audioOnly = o.value("audioOnly").toBool();
     c.fadeIn = toUs(o.value("fadeIn"));
     c.fadeOut = toUs(o.value("fadeOut"));

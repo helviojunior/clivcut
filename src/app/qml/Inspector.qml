@@ -551,6 +551,55 @@ Rectangle {
                     }
                     PropSlider {
                         enabled: root.isMedia && root.sel.hasAudio
+                        label: qsTr("Ganho")
+                        from: -24; to: 24; stepSize: 0.5; decimals: 1; suffix: " dB"
+                        value: root.isMedia ? root.sel.gainDb : 0
+                        onMoved: (v) => root.setProp("gainDb", v)
+                    }
+                    RowLayout {
+                        visible: root.isMedia && root.sel.hasAudio
+                        Layout.fillWidth: true
+                        ComboBox {
+                            id: loudTarget
+                            Layout.fillWidth: true
+                            focusPolicy: Qt.NoFocus
+                            model: [qsTr("Redes sociais (-14 LUFS)"), qsTr("Podcast (-16 LUFS)"), qsTr("TV/broadcast (-23 LUFS)")]
+                            readonly property var values: [-14, -16, -23]
+                        }
+                        Button {
+                            text: Project.normalizing ? qsTr("Medindo…") : qsTr("Normalizar")
+                            enabled: !Project.normalizing
+                            focusPolicy: Qt.NoFocus
+                            onClicked: Project.normalizeLoudness(loudTarget.values[loudTarget.currentIndex])
+                            ToolTip.visible: hovered
+                            ToolTip.text: qsTr("Mede a loudness (EBU R128) dos clipes selecionados e ajusta o ganho para o alvo")
+                        }
+                    }
+                    SectionLabel {
+                        visible: root.isMedia && root.sel.hasAudio
+                        text: qsTr("Redução de ruído")
+                    }
+                    PropSlider {
+                        visible: root.isMedia && root.sel.hasAudio
+                        label: qsTr("Intensidade")
+                        from: 0; to: 1; stepSize: 0.1; displayScale: 100; decimals: 0; suffix: "%"
+                        value: root.isMedia ? root.sel.denoise : 0
+                        onMoved: (v) => root.setProp("denoise", v)
+                    }
+                    Text {
+                        visible: root.isMedia && root.sel.hasAudio
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        color: root.isMedia && root.sel.denoiseState === "ready" ? Theme.accent : Theme.textFaint
+                        font.pixelSize: Theme.fontSmall
+                        text: !root.isMedia ? ""
+                              : root.sel.denoiseState === "processing" ? qsTr("Processando… %1%").arg(Math.round(root.sel.denoiseProgress * 100))
+                              : root.sel.denoiseState === "queued" ? qsTr("Na fila…")
+                              : root.sel.denoiseState === "ready" ? qsTr("✓ Áudio limpo em uso (processado localmente)")
+                              : qsTr("Remove chiado, zumbido e ruído de fundo constante. O processamento roda em segundo plano.")
+                    }
+                    PropSlider {
+                        enabled: root.isMedia && root.sel.hasAudio
                         label: qsTr("Fade in")
                         from: 0; to: 10; stepSize: 0.1; decimals: 1; suffix: "s"
                         value: root.isMedia ? root.sel.fadeIn / 1e6 : 0

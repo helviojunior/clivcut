@@ -21,7 +21,7 @@
 | 13 | Keyframes com easing | ✅ | editor gráfico com Bézier personalizada; falta arrastar keyframes direto na timeline |
 | 14 | Texto e animações | ✅ | |
 | 15 | Legendas: importar SRT/VTT, editar, exportar, legendas automáticas (whisper.cpp) | ✅ | falta editor de lista de legendas e tradução local |
-| 16 | Áudio: volume, fades, separar áudio do vídeo | ✅ | falta normalização de loudness e redução de ruído (Fase 2) |
+| 16 | Áudio: volume, fades, separar áudio, normalizar, reduzir ruído | ✅ | falta isolamento de voz por IA |
 | 17 | Ajustes de cor e LUT .cube | ✅ | exposição, brilho, contraste, saturação, realces, sombras, temperatura, matiz, vinheta e nitidez; LUT 3D/1D na GPU |
 | 18 | Filtros (LUTs prontos) | ✅ | 16 filtros próprios, prévia no quadro atual e camadas de ajuste na timeline; faltam curvas, HSL e rodas de cor (Fase 2) |
 | 19 | Transições | ✅ | 8 tipos |
@@ -38,7 +38,7 @@
 - Compound clips, curvas de velocidade, slow motion suave (RIFE).
 - Curvas, HSL, rodas de cor, escopos, camadas de ajuste.
 - Remoção de fundo local (RobustVideoMatting / MODNet em ONNX Runtime), recorte interativo (SAM 2).
-- Rastreamento de objetos, estabilização (vid.stab), redução de ruído (RNNoise / DeepFilterNet), normalização de loudness.
+- Rastreamento de objetos, estabilização (vid.stab). ✅ Redução de ruído (afftdn) e normalização de loudness (EBU R128); falta isolamento de voz por IA (DeepFilterNet/Demucs).
 - Edição pela transcrição, remoção de pausas, TTS local (Piper).
 - Stickers e formas, texto curvo, estilos por caractere.
 - Empacotamento:

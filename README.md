@@ -36,7 +36,11 @@ Escrito em **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. A composição de vídeo 
 - **Velocidade:**
   - Constante de 0,1× a 10× e reverso.
   - **Curvas de velocidade** (Montagem, Herói, Bala, Salto…), com editor gráfico de pontos. As curvas dos drafts também são importadas.
-- **Áudio:** volume (até 200%), fade in e fade out, mixagem de várias faixas, **separar o áudio do vídeo** (Ctrl+Shift+D) e silenciar clipe.
+- **Áudio:**
+  - Volume (até 200%), ganho em dB, fade in/out e mixagem de várias faixas.
+  - **Normalizar volume** (EBU R128) para redes sociais (-14 LUFS), podcast (-16) ou TV (-23).
+  - **Redução de ruído** local, processada em segundo plano e alinhada ao vídeo.
+  - **Separar o áudio do vídeo** (Ctrl+Shift+D) e silenciar clipe.
 - **Canvas:** 16:9, 9:16, 1:1, 4:3, 3:4, 4:5 e 21:9, com cor de fundo.
 - **Exportação:**
   - Codecs H.264, HEVC, AV1 e ProRes 422 HQ, conforme o FFmpeg instalado.

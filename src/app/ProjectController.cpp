@@ -11,11 +11,13 @@
 #include "core/Lut.h"
 #include "core/Serialize.h"
 #include "core/SpeedCurve.h"
+#include "engine/AudioCleanup.h"
 #include "engine/Exporter.h"
 #include "engine/Proxy.h"
 #include "engine/Transcriber.h"
 #include "engine/WhisperModels.h"
 #include "media/Encoder.h"
+#include "media/Loudness.h"
 #include "media/MediaProbe.h"
 #include "render/OffscreenRhi.h"
 
@@ -110,6 +112,7 @@ ProjectController::~ProjectController()
         removeRecovery();
     m_cancelExport = true;
     *m_proxyCancel = true;
+    *m_denoiseCancel = true;
     if (g_instance == this)
         g_instance = nullptr;
 }
@@ -169,6 +172,7 @@ void ProjectController::commitChange()
     if (m_selection.size() != before)
         emit selectionChanged();
     ++m_revisionCounter;
+    refreshDenoise();
     emit projectChanged();
     emit selectedClipChanged();
     emit historyChanged();
@@ -432,6 +436,20 @@ QVariantMap ProjectController::selectedClip() const
               {"hasAudio", a && a->hasAudio},
               {"audioOnly", c->audioOnly},
               {"audioMuted", c->audioMuted},
+              {"gainDb", c->gainDb},
+              {"denoise", c->denoise},
+              {"denoiseState", [&] {
+                   if (!a || c->denoise <= 0)
+                       return QStringLiteral("off");
+                   const QString job = a->path + QLatin1Char('|') + QString::number(engine::quantizedDenoise(c->denoise));
+                   if (m_denoiseBuilding == job)
+                       return QStringLiteral("processing");
+                   if (m_denoiseQueue.contains(job))
+                       return QStringLiteral("queued");
+                   return engine::registeredDenoised(a->path, c->denoise).isEmpty() ? QStringLiteral("off")
+                                                                                     : QStringLiteral("ready");
+               }()},
+              {"denoiseProgress", m_denoiseProgress},
               {"speed", c->speed},
               {"speedCurve", [&] {
                    QVariantList pts;
@@ -942,6 +960,8 @@ bool applyClipProperty(Project &p, Clip *c, Micros rel, const QString &key, cons
     else if (key == QLatin1String("fadeOut")) c->fadeOut = std::clamp<Micros>(static_cast<Micros>(value.toDouble()), 0, c->duration);
     else if (key == QLatin1String("reverse")) c->reverse = value.toBool();
     else if (key == QLatin1String("audioMuted")) c->audioMuted = value.toBool();
+    else if (key == QLatin1String("gainDb")) c->gainDb = std::clamp(value.toDouble(), -24.0, 24.0);
+    else if (key == QLatin1String("denoise")) c->denoise = engine::quantizedDenoise(value.toDouble());
     else if (key == QLatin1String("temperature")) c->color.temperature = value.toDouble();
     else if (key == QLatin1String("maskShape")) c->mask.shape = maskShapeFromName(value.toString());
     else if (key == QLatin1String("maskX")) c->mask.x = value.toDouble();
@@ -2111,4 +2131,127 @@ void ProjectController::setEasingForAll(const QString &clipId, const QString &pr
             k.ease = easingFromName(ease);
         return true;
     });
+}
+
+// ---------------------------------------------------------------------------
+// Volume (loudness) e redução de ruído
+
+void ProjectController::normalizeLoudness(double targetLufs)
+{
+    if (m_normalizing)
+        return;
+    struct Job {
+        QString clipId, path;
+        Micros start, duration;
+    };
+    std::vector<Job> jobs;
+    const QStringList ids = m_selection.isEmpty() ? QStringList{} : m_selection;
+    for (const auto &id : ids) {
+        const Clip *c = edit::clipById(m_project, id);
+        const MediaAsset *a = c && c->hasMedia() ? m_project.asset(c->assetId) : nullptr;
+        if (a && a->hasAudio && !c->audioMuted && c->speed > 0)
+            jobs.push_back({c->id, a->path, c->sourceIn, c->sourceDuration()});
+    }
+    if (jobs.empty()) {
+        setStatus(tr("Selecione clipes com áudio para normalizar"));
+        return;
+    }
+    m_normalizing = true;
+    emit audioJobsChanged();
+    std::thread([this, jobs, targetLufs] {
+        QVariantMap gains;
+        for (const Job &j : jobs) {
+            const double lufs = media::measureLoudness(j.path, j.start, j.duration);
+            if (std::isfinite(lufs))
+                gains.insert(j.clipId, std::clamp(targetLufs - lufs, -24.0, 24.0));
+        }
+        QMetaObject::invokeMethod(this, [this, gains, targetLufs] {
+            m_normalizing = false;
+            emit audioJobsChanged();
+            if (gains.isEmpty()) {
+                emit errorOccurred(tr("Não há áudio audível para medir"));
+                return;
+            }
+            edit(tr("Normalizar volume"), [&](Project &p) {
+                bool any = false;
+                for (auto it = gains.begin(); it != gains.end(); ++it)
+                    if (Clip *c = edit::clipById(p, it.key())) {
+                        c->gainDb = it.value().toDouble();
+                        any = true;
+                    }
+                return any;
+            });
+            setStatus(tr("Volume normalizado para %1 LUFS (%n clipe(s))", nullptr, static_cast<int>(gains.size()))
+                          .arg(targetLufs, 0, 'f', 0));
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+void ProjectController::refreshDenoise()
+{
+    bool changed = false;
+    for (const auto &t : m_project.tracks)
+        for (const auto &c : t.clips) {
+            const MediaAsset *a = c.hasMedia() && c.denoise > 0 ? m_project.asset(c.assetId) : nullptr;
+            if (!a || !a->hasAudio || !QFileInfo::exists(a->path))
+                continue;
+            if (!engine::registeredDenoised(a->path, c.denoise).isEmpty() || engine::discoverDenoised(a->path, c.denoise))
+                continue;
+            const QString job = a->path + QLatin1Char('|') + QString::number(engine::quantizedDenoise(c.denoise));
+            if (job != m_denoiseBuilding && !m_denoiseQueue.contains(job)) {
+                m_denoiseQueue << job;
+                changed = true;
+            }
+        }
+    if (changed) {
+        emit audioJobsChanged();
+        startNextDenoise();
+    }
+}
+
+void ProjectController::startNextDenoise()
+{
+    if (!m_denoiseBuilding.isEmpty() || m_denoiseQueue.isEmpty())
+        return;
+    m_denoiseBuilding = m_denoiseQueue.takeFirst();
+    m_denoiseProgress = 0;
+    m_denoiseCancel = std::make_shared<std::atomic<bool>>(false);
+    const QString path = m_denoiseBuilding.section(QLatin1Char('|'), 0, -2);
+    const double strength = m_denoiseBuilding.section(QLatin1Char('|'), -1).toDouble();
+    auto cancel = m_denoiseCancel;
+    emit selectedClipChanged();
+    std::thread([this, path, strength, cancel] {
+        const QString out = engine::denoisedPathFor(path, strength);
+        QString err;
+        double lastSent = 0;
+        const bool ok = engine::generateDenoised(
+            path, out, strength,
+            [&](double f) {
+                if (f - lastSent >= 0.03 && !*cancel) {
+                    lastSent = f;
+                    QMetaObject::invokeMethod(this, [this, f] {
+                        m_denoiseProgress = f;
+                        emit selectedClipChanged();
+                    }, Qt::QueuedConnection);
+                }
+                return !*cancel;
+            },
+            &err);
+        if (*cancel)
+            return;
+        QMetaObject::invokeMethod(this, [this, ok, err, path, strength, out] {
+            m_denoiseBuilding.clear();
+            if (ok) {
+                engine::registerDenoised(path, strength, out);
+                setStatus(tr("Ruído reduzido: %1").arg(QFileInfo(path).fileName()));
+                if (m_playing)
+                    m_audio->updateProject(snapshot());
+            } else {
+                emit errorOccurred(tr("Falha na redução de ruído: %1").arg(err));
+            }
+            emit audioJobsChanged();
+            emit selectedClipChanged();
+            startNextDenoise();
+        }, Qt::QueuedConnection);
+    }).detach();
 }
