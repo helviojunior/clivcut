@@ -149,14 +149,14 @@ Rectangle {
                             currentIndex: root.isText ? Math.max(0, model.indexOf(root.sel.fontFamily)) : 0
                             onActivated: (i) => root.setProp("fontFamily", model[i])
                         }
-                        IconButton { text: "B"; active: root.isText && root.sel.bold; onClicked: root.setProp("bold", !root.sel.bold) }
-                        IconButton { text: "I"; active: root.isText && root.sel.italic; onClicked: root.setProp("italic", !root.sel.italic) }
+                        IconButton { iconName: "bold"; tip: qsTr("Negrito"); active: root.isText && root.sel.bold; onClicked: root.setProp("bold", !root.sel.bold) }
+                        IconButton { iconName: "italic"; tip: qsTr("Itálico"); active: root.isText && root.sel.italic; onClicked: root.setProp("italic", !root.sel.italic) }
                     }
                     RowLayout {
                         Text { text: qsTr("Alinhamento"); color: Theme.textDim; font.pixelSize: Theme.fontSmall; Layout.preferredWidth: 78 }
-                        IconButton { glyph: "⫷"; tip: qsTr("Esquerda"); active: root.isText && root.sel.align === 0; onClicked: root.setProp("align", 0) }
-                        IconButton { glyph: "≡"; tip: qsTr("Centro"); active: root.isText && root.sel.align === 1; onClicked: root.setProp("align", 1) }
-                        IconButton { glyph: "⫸"; tip: qsTr("Direita"); active: root.isText && root.sel.align === 2; onClicked: root.setProp("align", 2) }
+                        IconButton { iconName: "text-align-start"; tip: qsTr("Esquerda"); active: root.isText && root.sel.align === 0; onClicked: root.setProp("align", 0) }
+                        IconButton { iconName: "text-align-center"; tip: qsTr("Centro"); active: root.isText && root.sel.align === 1; onClicked: root.setProp("align", 1) }
+                        IconButton { iconName: "text-align-end"; tip: qsTr("Direita"); active: root.isText && root.sel.align === 2; onClicked: root.setProp("align", 2) }
                     }
                     PropSlider {
                         label: qsTr("Tamanho")
@@ -234,8 +234,8 @@ Rectangle {
                     RowLayout {
                         visible: root.isMedia
                         Text { text: qsTr("Espelhar"); color: Theme.textDim; font.pixelSize: Theme.fontSmall; Layout.preferredWidth: 78 }
-                        IconButton { glyph: "⇋"; tip: qsTr("Horizontal"); active: root.hasSel && root.sel.flipH; onClicked: root.setProp("flipH", !root.sel.flipH) }
-                        IconButton { glyph: "⇅"; tip: qsTr("Vertical"); active: root.hasSel && root.sel.flipV; onClicked: root.setProp("flipV", !root.sel.flipV) }
+                        IconButton { iconName: "flip-horizontal-2"; tip: qsTr("Horizontal"); active: root.hasSel && root.sel.flipH; onClicked: root.setProp("flipH", !root.sel.flipH) }
+                        IconButton { iconName: "flip-vertical-2"; tip: qsTr("Vertical"); active: root.hasSel && root.sel.flipV; onClicked: root.setProp("flipV", !root.sel.flipV) }
                     }
                     SectionLabel { visible: root.isMedia; text: qsTr("Cortar (crop)") }
                     Repeater {

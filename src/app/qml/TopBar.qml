@@ -11,109 +11,164 @@ ToolBar {
     signal saveAsRequested()
     signal importDraftRequested()
     signal exportRequested()
+    signal commandsRequested()
+    signal homeRequested()
 
-    height: 46
+    height: 48
     background: Rectangle {
         color: Theme.panel
-        Rectangle {
-            anchors.bottom: parent.bottom
-            width: parent.width
-            height: 1
-            color: Theme.border
-        }
+        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.border }
     }
 
     RowLayout {
         anchors.fill: parent
         anchors.leftMargin: 12
         anchors.rightMargin: 12
-        spacing: 4
+        spacing: 6
 
-        Image {
-            source: "qrc:/qt/qml/Clivcut/icons/clivcut.svg"
-            sourceSize: Qt.size(24, 24)
-        }
-        Text {
-            text: "clivcut"
-            color: Theme.text
-            font.pixelSize: Theme.fontLarge
-            font.bold: true
-            Layout.rightMargin: 12
-        }
-
-        IconButton {
-            text: qsTr("Arquivo")
-            onClicked: fileMenu.popup()
+        // Logo abre o menu do projeto.
+        AbstractButton {
+            id: logo
+            implicitWidth: logoRow.implicitWidth + 12
+            implicitHeight: 34
+            hoverEnabled: true
+            onClicked: fileMenu.popup(0, height)
+            background: Rectangle { radius: Theme.radius; color: logo.hovered ? Theme.surface : "transparent" }
+            contentItem: Row {
+                id: logoRow
+                spacing: 8
+                leftPadding: 6
+                Image {
+                    anchors.verticalCenter: parent.verticalCenter
+                    source: "qrc:/qt/qml/Clivcut/icons/clivcut.svg"
+                    sourceSize: Qt.size(24, 24)
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "clivcut"
+                    color: Theme.text
+                    font.pixelSize: Theme.fontLarge
+                    font.bold: true
+                }
+                Icon { anchors.verticalCenter: parent.verticalCenter; name: "chevron-right"; size: 14; color: Theme.textFaint; rotation: 90 }
+            }
             Menu {
                 id: fileMenu
-                MenuItem { text: qsTr("Novo projeto…"); onTriggered: root.newRequested() }
-                MenuItem { text: qsTr("Abrir…"); onTriggered: root.openRequested() }
-                MenuItem { text: qsTr("Salvar"); onTriggered: root.saveRequested() }
-                MenuItem { text: qsTr("Salvar como…"); onTriggered: root.saveAsRequested() }
+                MenuItem { text: qsTr("Início"); onTriggered: root.homeRequested() }
+                MenuSeparator {}
+                MenuItem { text: qsTr("Novo projeto…\tCtrl+N"); onTriggered: root.newRequested() }
+                MenuItem { text: qsTr("Abrir…\tCtrl+O"); onTriggered: root.openRequested() }
+                MenuItem { text: qsTr("Salvar\tCtrl+S"); onTriggered: root.saveRequested() }
+                MenuItem { text: qsTr("Salvar como…\tCtrl+Shift+S"); onTriggered: root.saveAsRequested() }
                 MenuSeparator {}
                 MenuItem { text: qsTr("Importar draft JSON…"); onTriggered: root.importDraftRequested() }
-                MenuSeparator {}
-                MenuItem { text: qsTr("Exportar vídeo…"); onTriggered: root.exportRequested() }
+                MenuItem { text: qsTr("Exportar vídeo…\tCtrl+E"); onTriggered: root.exportRequested() }
             }
         }
-        IconButton {
-            glyph: "↶"
-            tip: Project.canUndo ? qsTr("Desfazer: %1 (Ctrl+Z)").arg(Project.undoText) : qsTr("Desfazer")
-            enabled: Project.canUndo
-            onClicked: Project.undo()
-        }
-        IconButton {
-            glyph: "↷"
-            tip: Project.canRedo ? qsTr("Refazer: %1 (Ctrl+Shift+Z)").arg(Project.redoText) : qsTr("Refazer")
-            enabled: Project.canRedo
-            onClicked: Project.redo()
-        }
 
-        Item { Layout.fillWidth: true }
+        Rectangle { width: 1; height: 22; color: Theme.border }
 
         TextField {
             id: nameField
-            Layout.preferredWidth: 260
-            horizontalAlignment: Text.AlignHCenter
+            Layout.preferredWidth: 220
             text: Project.projectName
             color: Theme.text
             font.pixelSize: Theme.fontNormal
             selectByMouse: true
             background: Rectangle {
                 radius: Theme.radius
-                color: nameField.activeFocus ? Theme.surface : "transparent"
+                color: nameField.activeFocus || nameHover.hovered ? Theme.surface : "transparent"
                 border.color: nameField.activeFocus ? Theme.accent : "transparent"
             }
+            HoverHandler { id: nameHover }
             onEditingFinished: {
                 Project.projectName = text;
                 focus = false;
             }
         }
-        Text {
-            text: Project.modified ? qsTr("não salvo") : (Project.filePath !== "" ? qsTr("salvo") : "")
-            color: Theme.textFaint
-            font.pixelSize: Theme.fontSmall
+        Rectangle {
+            width: 7
+            height: 7
+            radius: 4
+            color: Project.modified ? Theme.warning : Theme.success
+            ToolTip.visible: statusHover.hovered
+            ToolTip.text: Project.modified ? qsTr("Alterações não salvas (cópia de recuperação ativa)") : qsTr("Tudo salvo")
+            HoverHandler { id: statusHover }
         }
 
         Item { Layout.fillWidth: true }
 
+        // Busca de comandos
+        AbstractButton {
+            id: search
+            Layout.fillWidth: true
+            Layout.maximumWidth: 340
+            Layout.minimumWidth: 160
+            implicitHeight: 32
+            hoverEnabled: true
+            onClicked: root.commandsRequested()
+            background: Rectangle {
+                radius: 8
+                color: Theme.surface
+                border.color: search.hovered ? Theme.accent : Theme.border
+            }
+            contentItem: RowLayout {
+                spacing: 8
+                Item { width: 2 }
+                Icon { name: "search"; size: 15; color: Theme.textFaint }
+                Text {
+                    Layout.fillWidth: true
+                    text: qsTr("Buscar ações…")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontNormal
+                }
+                Rectangle {
+                    radius: 4
+                    color: Theme.surfaceHi
+                    implicitWidth: kText.implicitWidth + 10
+                    implicitHeight: 20
+                    Text { id: kText; anchors.centerIn: parent; text: "Ctrl K"; color: Theme.textDim; font.pixelSize: 10 }
+                }
+                Item { width: 2 }
+            }
+        }
+
+        Item { Layout.fillWidth: true }
+
+        IconButton {
+            iconName: "undo-2"
+            tip: Project.canUndo ? qsTr("Desfazer: %1").arg(Project.undoText) : qsTr("Desfazer")
+            shortcut: "Ctrl+Z"
+            enabled: Project.canUndo
+            onClicked: Project.undo()
+        }
+        IconButton {
+            iconName: "redo-2"
+            tip: Project.canRedo ? qsTr("Refazer: %1").arg(Project.redoText) : qsTr("Refazer")
+            shortcut: "Ctrl+Shift+Z"
+            enabled: Project.canRedo
+            onClicked: Project.redo()
+        }
+        Item { width: 6 }
         Button {
             id: exportButton
-            text: Project.exporting ? qsTr("Exportando %1%").arg(Math.round(Project.exportProgress * 100)) : qsTr("⇪  Exportar")
             focusPolicy: Qt.NoFocus
             onClicked: root.exportRequested()
-            contentItem: Text {
-                text: exportButton.text
-                color: "#06201e"
-                font.pixelSize: Theme.fontNormal
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
+            contentItem: Row {
+                spacing: 8
+                Icon { anchors.verticalCenter: parent.verticalCenter; name: "upload"; size: 16; color: Theme.accentInk }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: Project.exporting ? qsTr("Exportando %1%").arg(Math.round(Project.exportProgress * 100)) : qsTr("Exportar")
+                    color: Theme.accentInk
+                    font.pixelSize: Theme.fontNormal
+                    font.bold: true
+                }
             }
             background: Rectangle {
                 implicitWidth: 120
-                implicitHeight: 32
-                radius: Theme.radius
+                implicitHeight: 34
+                radius: 8
                 color: exportButton.down ? Theme.accentDim : Theme.accent
             }
         }

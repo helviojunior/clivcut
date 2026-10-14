@@ -162,17 +162,35 @@ Rectangle {
                 font.family: "monospace"
             }
             Item { Layout.fillWidth: true }
-            IconButton { glyph: "⏮"; tip: qsTr("Início (Home)"); onClicked: Project.jumpToEdge(false) }
-            IconButton { glyph: "⏴"; tip: qsTr("Quadro anterior (←)"); onClicked: Project.stepFrames(-1) }
-            IconButton {
-                glyph: Project.playing ? "⏸" : "▶"
-                tip: qsTr("Reproduzir/pausar (Espaço)")
-                glyphColor: Theme.text
+            IconButton { iconName: "skip-back"; tip: qsTr("Início"); shortcut: "Home"; onClicked: Project.jumpToEdge(false) }
+            IconButton { iconName: "chevron-left"; tip: qsTr("Quadro anterior"); shortcut: "←"; onClicked: Project.stepFrames(-1) }
+            // Play em destaque
+            AbstractButton {
+                id: playButton
                 implicitWidth: 40
+                implicitHeight: 40
+                focusPolicy: Qt.NoFocus
+                hoverEnabled: true
                 onClicked: Project.togglePlay()
+                background: Rectangle {
+                    radius: 20
+                    color: playButton.down ? Theme.accentDim : Theme.accent
+                }
+                contentItem: Item {
+                    Icon {
+                        anchors.centerIn: parent
+                        anchors.horizontalCenterOffset: Project.playing ? 0 : 1
+                        name: Project.playing ? "pause" : "play"
+                        size: 18
+                        color: Theme.accentInk
+                    }
+                }
+                ToolTip.visible: hovered
+                ToolTip.delay: 450
+                ToolTip.text: qsTr("Reproduzir/pausar") + "   Espaço"
             }
-            IconButton { glyph: "⏵"; tip: qsTr("Próximo quadro (→)"); onClicked: Project.stepFrames(1) }
-            IconButton { glyph: "⏭"; tip: qsTr("Fim (End)"); onClicked: Project.jumpToEdge(true) }
+            IconButton { iconName: "chevron-right"; tip: qsTr("Próximo quadro"); shortcut: "→"; onClicked: Project.stepFrames(1) }
+            IconButton { iconName: "skip-forward"; tip: qsTr("Fim"); shortcut: "End"; onClicked: Project.jumpToEdge(true) }
             Item { Layout.fillWidth: true }
             Text {
                 text: Project.fps.toFixed(Project.fps % 1 === 0 ? 0 : 2) + " fps"

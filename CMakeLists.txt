@@ -22,7 +22,7 @@ set(CLIVCUT_ONNXRUNTIME_ROOT "" CACHE PATH "ONNX Runtime já instalado (com incl
 
 find_package(Qt6 6.7 REQUIRED COMPONENTS Core Gui GuiPrivate ShaderTools)
 if(CLIVCUT_BUILD_APP)
-    find_package(Qt6 6.7 REQUIRED COMPONENTS Quick QuickControls2 Concurrent Network)
+    find_package(Qt6 6.7 REQUIRED COMPONENTS Quick QuickControls2 Concurrent Network Svg)
 endif()
 qt_standard_project_setup(REQUIRES 6.7)
 

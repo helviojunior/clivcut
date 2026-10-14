@@ -96,21 +96,18 @@ Rectangle {
                 anchors.leftMargin: 8
                 anchors.rightMargin: 12
                 spacing: 2
-                IconButton { glyph: "↶"; tip: qsTr("Desfazer (Ctrl+Z)"); enabled: Project.canUndo; onClicked: Project.undo() }
-                IconButton { glyph: "↷"; tip: qsTr("Refazer (Ctrl+Shift+Z)"); enabled: Project.canRedo; onClicked: Project.redo() }
-                Rectangle { width: 1; height: 18; color: Theme.border; Layout.leftMargin: 4; Layout.rightMargin: 4 }
-                IconButton { glyph: "✂"; tip: qsTr("Dividir no cursor (Ctrl+B)"); onClicked: Project.splitAtPlayhead() }
-                IconButton { glyph: "⇤"; tip: qsTr("Excluir à esquerda do cursor (Q)"); onClicked: Project.deleteLeft() }
-                IconButton { glyph: "⇥"; tip: qsTr("Excluir à direita do cursor (W)"); onClicked: Project.deleteRight() }
-                IconButton { glyph: "🗑"; tip: qsTr("Excluir seleção (Del)"); enabled: Project.selection.length > 0; onClicked: Project.deleteSelection(false) }
-                IconButton { glyph: "⧉"; tip: qsTr("Duplicar (Ctrl+D)"); enabled: Project.selection.length > 0; onClicked: Project.duplicateSelection() }
-                IconButton { glyph: "❄"; tip: qsTr("Congelar quadro (Alt+F)"); onClicked: Project.freezeFrame() }
-                IconButton { glyph: "⚑"; tip: qsTr("Adicionar marcador (M)"); onClicked: Project.addMarker() }
+                IconButton { iconName: "scissors"; tip: qsTr("Dividir no cursor"); shortcut: "Ctrl+B"; onClicked: Project.splitAtPlayhead() }
+                IconButton { iconName: "arrow-left-to-line"; tip: qsTr("Excluir à esquerda do cursor"); shortcut: "Q"; onClicked: Project.deleteLeft() }
+                IconButton { iconName: "arrow-right-to-line"; tip: qsTr("Excluir à direita do cursor"); shortcut: "W"; onClicked: Project.deleteRight() }
+                IconButton { iconName: "trash-2"; tip: qsTr("Excluir seleção"); shortcut: "Del"; enabled: Project.selection.length > 0; onClicked: Project.deleteSelection(false) }
+                IconButton { iconName: "copy"; tip: qsTr("Duplicar"); shortcut: "Ctrl+D"; enabled: Project.selection.length > 0; onClicked: Project.duplicateSelection() }
+                IconButton { iconName: "snowflake"; tip: qsTr("Congelar quadro"); shortcut: "Alt+F"; onClicked: Project.freezeFrame() }
+                IconButton { iconName: "bookmark"; tip: qsTr("Adicionar marcador"); shortcut: "M"; onClicked: Project.addMarker() }
                 Item { Layout.fillWidth: true }
-                IconButton { glyph: "🧲"; tip: qsTr("Ímã da faixa principal (sem espaços)"); active: Project.magnet; onClicked: Project.magnet = !Project.magnet }
-                IconButton { glyph: "⌖"; tip: qsTr("Encaixe automático (N)"); active: Project.snapping; onClicked: Project.snapping = !Project.snapping }
+                IconButton { iconName: "magnet"; tip: qsTr("Ímã da faixa principal (sem espaços)"); active: Project.magnet; onClicked: Project.magnet = !Project.magnet }
+                IconButton { iconName: "crosshair"; tip: qsTr("Encaixe automático"); shortcut: "N"; active: Project.snapping; onClicked: Project.snapping = !Project.snapping }
                 Rectangle { width: 1; height: 18; color: Theme.border; Layout.leftMargin: 4; Layout.rightMargin: 4 }
-                IconButton { glyph: "−"; tip: qsTr("Diminuir zoom (Ctrl+−)"); onClicked: root.zoomBy(0.8) }
+                IconButton { iconName: "zoom-out"; tip: qsTr("Diminuir zoom"); shortcut: "Ctrl+−"; onClicked: root.zoomBy(0.8) }
                 Slider {
                     Layout.preferredWidth: 120
                     focusPolicy: Qt.NoFocus
@@ -119,10 +116,11 @@ Rectangle {
                     value: Math.log(root.pxPerSec)
                     onMoved: root.zoomBy(Math.exp(value) / root.pxPerSec)
                 }
-                IconButton { glyph: "+"; tip: qsTr("Aumentar zoom (Ctrl++)"); onClicked: root.zoomBy(1.25) }
+                IconButton { iconName: "zoom-in"; tip: qsTr("Aumentar zoom"); shortcut: "Ctrl++"; onClicked: root.zoomBy(1.25) }
                 IconButton {
-                    glyph: "⤢"
-                    tip: qsTr("Ajustar à janela (Shift+Z)")
+                    iconName: "maximize-2"
+                    tip: qsTr("Ajustar à janela")
+                    shortcut: "Shift+Z"
                     onClicked: {
                         root.userZoomed = false;
                         root.zoomToFit();
@@ -243,7 +241,8 @@ Rectangle {
                                 IconButton {
                                     implicitWidth: 24; implicitHeight: 22
                                     visible: parent.parent.modelData.kind !== "text" && parent.parent.modelData.kind !== "adjust"
-                                    glyph: "♪"
+                                    iconName: parent.parent.modelData.muted ? "volume-x" : "volume-2"
+                                    iconSize: 14
                                     glyphColor: parent.parent.modelData.muted ? Theme.danger : Theme.textDim
                                     tip: parent.parent.modelData.muted ? qsTr("Ativar som") : qsTr("Silenciar faixa")
                                     onClicked: Project.setTrackFlag(parent.parent.modelData.index, "muted", !parent.parent.modelData.muted)
@@ -251,14 +250,16 @@ Rectangle {
                                 IconButton {
                                     implicitWidth: 24; implicitHeight: 22
                                     visible: parent.parent.modelData.kind !== "audio"
-                                    glyph: parent.parent.modelData.hidden ? "◌" : "◉"
+                                    iconName: parent.parent.modelData.hidden ? "eye-off" : "eye"
+                                    iconSize: 14
                                     glyphColor: parent.parent.modelData.hidden ? Theme.danger : Theme.textDim
                                     tip: parent.parent.modelData.hidden ? qsTr("Mostrar faixa") : qsTr("Ocultar faixa")
                                     onClicked: Project.setTrackFlag(parent.parent.modelData.index, "hidden", !parent.parent.modelData.hidden)
                                 }
                                 IconButton {
                                     implicitWidth: 24; implicitHeight: 22
-                                    glyph: parent.parent.modelData.locked ? "⊠" : "⊡"
+                                    iconName: parent.parent.modelData.locked ? "lock" : "lock-open"
+                                    iconSize: 14
                                     glyphColor: parent.parent.modelData.locked ? Theme.warning : Theme.textDim
                                     tip: parent.parent.modelData.locked ? qsTr("Desbloquear") : qsTr("Bloquear faixa")
                                     onClicked: Project.setTrackFlag(parent.parent.modelData.index, "locked", !parent.parent.modelData.locked)
@@ -401,7 +402,7 @@ Rectangle {
                             required property var modelData
                             width: flick.contentWidth
                             height: root.trackHeight(modelData)
-                            color: modelData.isMain ? "#1f2a2c" : (drop.containsDrag && drop.hoverTrack === modelData.index ? "#22282e" : "transparent")
+                            color: modelData.isMain ? Theme.mainLane : (drop.containsDrag && drop.hoverTrack === modelData.index ? Theme.surface : "transparent")
                             radius: 4
                             opacity: modelData.locked ? 0.6 : 1
 

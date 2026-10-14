@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtCore
 import Clivcut
 
 Rectangle {
@@ -12,10 +11,7 @@ Rectangle {
 
     color: Theme.panel
 
-    Settings {
-        category: "panels"
-        property alias mediaTab: tabs.currentIndex
-    }
+    property int section: 0
 
     readonly property var sel: Project.selectedClip
     readonly property bool hasSel: sel.id !== undefined
@@ -24,107 +20,83 @@ Rectangle {
         anchors.fill: parent
         spacing: 0
 
-        TabBar {
-            id: tabs
+        // Cabeçalho da seção (escolhida no trilho lateral).
+        RowLayout {
             Layout.fillWidth: true
-            background: Rectangle { color: Theme.panel }
-            Repeater {
-                model: [
-                    { glyph: "▣", label: qsTr("Mídia") },
-                    { glyph: "T", label: qsTr("Texto") },
-                    { glyph: "≋", label: qsTr("Legendas") },
-                    { glyph: "◐", label: qsTr("Filtros") },
-                    { glyph: "⇄", label: qsTr("Transições") },
-                    { glyph: "✦", label: qsTr("Animações") }
-                ]
-                TabButton {
-                    id: tabButton
-                    required property var modelData
-                    focusPolicy: Qt.NoFocus
-                    implicitHeight: 48
-                    contentItem: Column {
-                        spacing: 2
-                        topPadding: 4
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            height: 20
-                            verticalAlignment: Text.AlignVCenter
-                            text: tabButton.modelData.glyph
-                            color: tabButton.checked ? Theme.accent : Theme.textDim
-                            font.pixelSize: 16
-                            font.bold: true
-                        }
-                        Text {
-                            width: tabButton.width - 4
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            horizontalAlignment: Text.AlignHCenter
-                            text: tabButton.modelData.label
-                            color: tabButton.checked ? Theme.accent : Theme.textDim
-                            font.pixelSize: 10
-                            elide: Text.ElideRight
-                        }
-                    }
-                    background: Rectangle {
-                        color: tabButton.hovered ? Theme.surface : "transparent"
-                        Rectangle {
-                            anchors.bottom: parent.bottom
-                            width: parent.width
-                            height: 2
-                            color: tabButton.checked ? Theme.accent : "transparent"
-                        }
-                    }
-                }
+            Layout.leftMargin: 14
+            Layout.rightMargin: 10
+            Layout.topMargin: 12
+            Layout.bottomMargin: 4
+            Text {
+                Layout.fillWidth: true
+                text: [qsTr("Mídia"), qsTr("Texto"), qsTr("Legendas"), qsTr("Filtros"), qsTr("Transições"), qsTr("Animações")][root.section]
+                color: Theme.text
+                font.pixelSize: Theme.fontLarge
+                font.bold: true
+            }
+            IconButton {
+                visible: root.section === 0
+                iconName: "plus"
+                tip: qsTr("Importar mídia")
+                shortcut: "Ctrl+I"
+                onClicked: root.importRequested()
             }
         }
 
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: tabs.currentIndex
+            currentIndex: root.section
 
             // ---------------- Mídia ----------------
             ColumnLayout {
                 spacing: 8
-                RowLayout {
+                // Área de importação: clique ou arraste arquivos.
+                Rectangle {
                     Layout.fillWidth: true
-                    Layout.margins: 10
-                    Button {
-                        text: qsTr("+  Importar")
-                        Layout.fillWidth: true
-                        focusPolicy: Qt.NoFocus
-                        onClicked: root.importRequested()
+                    Layout.leftMargin: 10
+                    Layout.rightMargin: 10
+                    implicitHeight: Project.assets.length === 0 ? 150 : 44
+                    radius: 10
+                    color: dropHover.hovered ? Theme.accentSoft : "transparent"
+                    border.color: dropHover.hovered ? Theme.accent : Theme.border
+                    border.width: 1
+                    Behavior on implicitHeight { NumberAnimation { duration: 150 } }
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 8
+                        Icon {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            visible: Project.assets.length === 0
+                            name: "download"
+                            size: 30
+                            color: Theme.textFaint
+                        }
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 6
+                            Icon { name: "plus"; size: 16; color: Theme.accent }
+                            Text { text: qsTr("Importar mídia"); color: Theme.text; font.pixelSize: Theme.fontNormal; font.bold: true }
+                        }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            visible: Project.assets.length === 0
+                            width: 200
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.Wrap
+                            text: qsTr("ou arraste vídeos, áudios e imagens para a janela")
+                            color: Theme.textFaint
+                            font.pixelSize: Theme.fontSmall
+                        }
                     }
-                    Button {
-                        text: qsTr("Importar draft")
-                        focusPolicy: Qt.NoFocus
-                        onClicked: root.importDraftRequested()
-                        ToolTip.visible: hovered
-                        ToolTip.text: qsTr("Importar um projeto em formato draft JSON (pasta com draft_content.json)")
-                    }
+                    HoverHandler { id: dropHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: root.importRequested() }
                 }
 
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     visible: Project.assets.length === 0
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 10
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "⇩"
-                            color: Theme.textFaint
-                            font.pixelSize: 42
-                        }
-                        Text {
-                            width: 220
-                            horizontalAlignment: Text.AlignHCenter
-                            wrapMode: Text.Wrap
-                            text: qsTr("Arraste vídeos, áudios e imagens para cá ou clique em Importar")
-                            color: Theme.textDim
-                            font.pixelSize: Theme.fontNormal
-                        }
-                    }
                 }
 
                 GridView {

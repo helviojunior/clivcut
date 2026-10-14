@@ -22,7 +22,7 @@ ApplicationWindow {
     palette.button: Theme.surface
     palette.buttonText: Theme.text
     palette.highlight: Theme.accent
-    palette.highlightedText: "#000000"
+    palette.highlightedText: Theme.accentInk
     palette.toolTipBase: Theme.surfaceHi
     palette.toolTipText: Theme.text
     palette.placeholderText: Theme.textFaint
@@ -83,10 +83,47 @@ ApplicationWindow {
         onSaveAsRequested: saveDialog.open()
         onImportDraftRequested: window.guarded("draft")
         onExportRequested: exportDialog.open()
+        onCommandsRequested: commandPalette.open()
+        onHomeRequested: window.showWelcome = true
+    }
+
+    // Tela inicial enquanto o projeto está vazio (some ao importar/abrir).
+    property bool showWelcome: true
+    Connections {
+        target: Project
+        function onAssetsChanged() { if (Project.assets.length > 0) window.showWelcome = false }
+        function onFileChanged() { if (Project.filePath !== "" || Project.duration > 0) window.showWelcome = false }
+    }
+
+    ActivityRail {
+        id: rail
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        visible: !window.showWelcome
+        onShortcutsRequested: commandPalette.open()
+        Settings {
+            category: "panels"
+            property alias section: rail.current
+            property alias collapsed: rail.collapsed
+        }
+    }
+
+    WelcomeScreen {
+        anchors.fill: parent
+        visible: window.showWelcome
+        z: 10
+        onImportRequested: mediaDialog.open()
+        onOpenRequested: openDialog.open()
+        onDraftRequested: draftDialog.open()
+        onDismissed: window.showWelcome = false
     }
 
     SplitView {
-        anchors.fill: parent
+        anchors.left: rail.right
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
         orientation: Qt.Vertical
         handle: Rectangle {
             implicitHeight: 4
@@ -103,8 +140,10 @@ ApplicationWindow {
             }
 
             MediaPanel {
-                SplitView.preferredWidth: Math.max(220, window.width * 0.22)
-                SplitView.minimumWidth: 200
+                visible: !rail.collapsed
+                section: rail.current
+                SplitView.preferredWidth: Math.max(240, window.width * 0.22)
+                SplitView.minimumWidth: 220
                 onImportRequested: mediaDialog.open()
                 onImportDraftRequested: window.guarded("draft")
                 onRelinkRequested: (assetId) => {
@@ -198,6 +237,13 @@ ApplicationWindow {
     Shortcut { sequences: ["Ctrl+-"]; enabled: !window.typing; onActivated: timeline.zoomBy(0.8) }
     Shortcut { sequences: ["Shift+Z"]; enabled: !window.typing; onActivated: { timeline.userZoomed = false; timeline.zoomToFit() } }
     Shortcut { sequences: ["Escape"]; enabled: !window.typing; onActivated: Project.clearSelection() }
+    Shortcut { sequences: ["Ctrl+K", "Ctrl+Shift+P"]; onActivated: commandPalette.open() }
+    Shortcut { sequences: ["Alt+1"]; onActivated: rail.activate(0) }
+    Shortcut { sequences: ["Alt+2"]; onActivated: rail.activate(1) }
+    Shortcut { sequences: ["Alt+3"]; onActivated: rail.activate(2) }
+    Shortcut { sequences: ["Alt+4"]; onActivated: rail.activate(3) }
+    Shortcut { sequences: ["Alt+5"]; onActivated: rail.activate(4) }
+    Shortcut { sequences: ["Alt+6"]; onActivated: rail.activate(5) }
     Shortcut { sequences: [StandardKey.Save]; onActivated: window.save() }
     Shortcut { sequences: [StandardKey.SaveAs]; onActivated: saveDialog.open() }
     Shortcut { sequences: [StandardKey.Open]; onActivated: window.guarded("open") }
@@ -269,6 +315,50 @@ ApplicationWindow {
         onAccepted: Project.relinkAsset(assetId, selectedFile)
     }
     ExportDialog { id: exportDialog }
+
+    CommandPalette {
+        id: commandPalette
+        parent: Overlay.overlay
+        commands: [
+            { name: qsTr("Reproduzir / pausar"), shortcut: "Espaço", icon: "play", run: () => Project.togglePlay() },
+            { name: qsTr("Dividir no cursor"), shortcut: "Ctrl+B", icon: "scissors", run: () => Project.splitAtPlayhead() },
+            { name: qsTr("Excluir à esquerda do cursor"), shortcut: "Q", icon: "arrow-left-to-line", run: () => Project.deleteLeft() },
+            { name: qsTr("Excluir à direita do cursor"), shortcut: "W", icon: "arrow-right-to-line", run: () => Project.deleteRight() },
+            { name: qsTr("Excluir seleção"), shortcut: "Del", icon: "trash-2", run: () => Project.deleteSelection(false) },
+            { name: qsTr("Duplicar"), shortcut: "Ctrl+D", icon: "copy", run: () => Project.duplicateSelection() },
+            { name: qsTr("Copiar"), shortcut: "Ctrl+C", icon: "copy", run: () => Project.copySelection() },
+            { name: qsTr("Colar no cursor"), shortcut: "Ctrl+V", icon: "copy", run: () => Project.paste() },
+            { name: qsTr("Agrupar clipes"), shortcut: "Ctrl+G", icon: "link", run: () => Project.groupSelection() },
+            { name: qsTr("Desagrupar"), shortcut: "Ctrl+Shift+G", icon: "link", run: () => Project.ungroupSelection() },
+            { name: qsTr("Congelar quadro"), shortcut: "Alt+F", icon: "snowflake", run: () => Project.freezeFrame() },
+            { name: qsTr("Separar áudio do vídeo"), shortcut: "Ctrl+Shift+D", icon: "audio-lines", run: () => Project.detachAudio() },
+            { name: qsTr("Adicionar marcador"), shortcut: "M", icon: "bookmark", run: () => Project.addMarker() },
+            { name: qsTr("Adicionar texto"), shortcut: "Ctrl+T", icon: "type", run: () => Project.addText("", "") },
+            { name: qsTr("Adicionar camada de ajuste"), shortcut: "", icon: "sliders-horizontal", run: () => Project.addFilterClip("") },
+            { name: qsTr("Normalizar volume (-14 LUFS)"), shortcut: "", icon: "volume-2", run: () => Project.normalizeLoudness(-14) },
+            { name: qsTr("Gerar legendas automáticas"), shortcut: "Alt+3", icon: "captions", run: () => rail.activate(2) },
+            { name: qsTr("Importar mídia"), shortcut: "Ctrl+I", icon: "plus", run: () => mediaDialog.open() },
+            { name: qsTr("Importar legendas (SRT/VTT)"), shortcut: "", icon: "captions", run: () => rail.activate(2) },
+            { name: qsTr("Exportar vídeo"), shortcut: "Ctrl+E", icon: "upload", run: () => exportDialog.open() },
+            { name: qsTr("Salvar projeto"), shortcut: "Ctrl+S", icon: "download", run: () => window.save() },
+            { name: qsTr("Abrir projeto"), shortcut: "Ctrl+O", icon: "folder-open", run: () => window.guarded("open") },
+            { name: qsTr("Novo projeto"), shortcut: "Ctrl+N", icon: "file-plus-2", run: () => window.guarded("new") },
+            { name: qsTr("Tela inicial"), shortcut: "", icon: "clapperboard", run: () => window.showWelcome = true },
+            { name: qsTr("Desfazer"), shortcut: "Ctrl+Z", icon: "undo-2", run: () => Project.undo() },
+            { name: qsTr("Refazer"), shortcut: "Ctrl+Shift+Z", icon: "redo-2", run: () => Project.redo() },
+            { name: qsTr("Selecionar tudo"), shortcut: "Ctrl+A", icon: "layers", run: () => Project.selectAll() },
+            { name: qsTr("Ajustar timeline à janela"), shortcut: "Shift+Z", icon: "maximize-2", run: () => { timeline.userZoomed = false; timeline.zoomToFit() } },
+            { name: qsTr("Ligar/desligar ímã da faixa principal"), shortcut: "", icon: "magnet", run: () => Project.magnet = !Project.magnet },
+            { name: qsTr("Ligar/desligar encaixe automático"), shortcut: "N", icon: "crosshair", run: () => Project.snapping = !Project.snapping },
+            { name: qsTr("Usar proxies na reprodução"), shortcut: "", icon: "gauge", run: () => Project.useProxies = !Project.useProxies },
+            { name: Theme.dark ? qsTr("Tema claro") : qsTr("Tema escuro"), shortcut: "", icon: Theme.dark ? "sun" : "moon", run: () => Theme.dark = !Theme.dark },
+            { name: qsTr("Painel: Mídia"), shortcut: "Alt+1", icon: "image-play", run: () => rail.activate(0) },
+            { name: qsTr("Painel: Texto"), shortcut: "Alt+2", icon: "type", run: () => rail.activate(1) },
+            { name: qsTr("Painel: Filtros"), shortcut: "Alt+4", icon: "palette", run: () => rail.activate(3) },
+            { name: qsTr("Painel: Transições"), shortcut: "Alt+5", icon: "arrow-right-left", run: () => rail.activate(4) },
+            { name: qsTr("Painel: Animações"), shortcut: "Alt+6", icon: "sparkles", run: () => rail.activate(5) }
+        ]
+    }
     NewProjectDialog { id: newDialog }
 
     // --- mensagens ---

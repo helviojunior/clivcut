@@ -80,6 +80,7 @@ class ProjectController : public QObject {
     Q_PROPERTY(int proxiesPending READ proxiesPending NOTIFY proxiesChanged)
     Q_PROPERTY(bool canPaste READ canPaste NOTIFY clipboardChanged)
     Q_PROPERTY(bool normalizing READ normalizing NOTIFY audioJobsChanged)
+    Q_PROPERTY(QVariantList recentProjects READ recentProjects NOTIFY recentProjectsChanged)
     Q_PROPERTY(bool canPasteAttributes READ canPasteAttributes NOTIFY clipboardChanged)
 
 public:
@@ -135,6 +136,7 @@ public:
     QString screenshotPage() const { return qEnvironmentVariable("CLIVCUT_SCREENSHOT_PAGE"); }
     bool canPaste() const;
     bool normalizing() const { return m_normalizing; }
+    QVariantList recentProjects() const;
     bool canPasteAttributes() const { return m_attributeSource.has_value(); }
     bool useProxies() const { return m_useProxies; }
     void setUseProxies(bool on);
@@ -281,6 +283,7 @@ signals:
     void proxiesChanged();
     void clipboardChanged();
     void audioJobsChanged();
+    void recentProjectsChanged();
 
 private:
     /** Executa uma edição com registro no histórico. `coalesceKey` agrupa edições contínuas. */
@@ -292,6 +295,7 @@ private:
     void tick();
     void refreshProxies();
     void refreshDenoise();
+    void rememberRecent(const QString &path);
     void startNextDenoise();
     void enqueueProxy(const QString &mediaPath);
     void startNextProxy();

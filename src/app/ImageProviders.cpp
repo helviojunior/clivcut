@@ -10,7 +10,9 @@
 #include <QMutex>
 #include <QLinearGradient>
 #include <QPainter>
+#include <QFile>
 #include <QRunnable>
+#include <QSvgRenderer>
 #include <QThreadPool>
 
 #include <algorithm>
@@ -208,4 +210,34 @@ QQuickImageResponse *FilterPreviewProvider::requestImageResponse(const QString &
         resp->finish(lut ? clv::applyLut(frame, *lut, 1.0f) : frame.convertToFormat(QImage::Format_RGBA8888));
     });
     return resp;
+}
+
+QImage IconProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize)
+{
+    const QString name = id.section(QLatin1Char('/'), 0, 0);
+    const QString color = QStringLiteral("#") + id.section(QLatin1Char('/'), 1, 1);
+    const QSize out = requestedSize.isValid() && !requestedSize.isEmpty() ? requestedSize : QSize(24, 24);
+    if (size)
+        *size = out;
+    static QMutex mutex;
+    static QHash<QString, QByteArray> sources;
+    QByteArray svg;
+    {
+        QMutexLocker lock(&mutex);
+        auto it = sources.find(name);
+        if (it == sources.end()) {
+            QFile f(QStringLiteral(":/qt/qml/Clivcut/icons/ui/%1.svg").arg(name));
+            it = sources.insert(name, f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray());
+        }
+        svg = *it;
+    }
+    QImage img(out, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+    if (svg.isEmpty())
+        return img;
+    svg.replace("currentColor", color.toLatin1());
+    QSvgRenderer renderer(svg);
+    QPainter p(&img);
+    renderer.render(&p);
+    return img;
 }

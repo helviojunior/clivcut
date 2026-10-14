@@ -501,6 +501,7 @@ bool ProjectController::openProject(const QUrl &url)
         return false;
     }
     setProject(std::move(p), path);
+    rememberRecent(path);
     setStatus(tr("Projeto aberto: %1").arg(QFileInfo(path).fileName()));
     return true;
 }
@@ -516,6 +517,7 @@ bool ProjectController::saveProject()
     }
     m_savedRevision = m_history.revision();
     removeRecovery();
+    rememberRecent(m_filePath);
     emit modifiedChanged();
     setStatus(tr("Projeto salvo"));
     return true;
@@ -2254,4 +2256,37 @@ void ProjectController::startNextDenoise()
             startNextDenoise();
         }, Qt::QueuedConnection);
     }).detach();
+}
+
+// ---------------------------------------------------------------------------
+// Projetos recentes
+
+QVariantList ProjectController::recentProjects() const
+{
+    QVariantList out;
+    const QStringList paths = QSettings().value(QStringLiteral("recent/projects")).toStringList();
+    for (const QString &p : paths) {
+        const QFileInfo fi(p);
+        if (!fi.exists())
+            continue;
+        out << QVariantMap{{"path", p},
+                           {"name", fi.completeBaseName()},
+                           {"folder", fi.absolutePath()},
+                           {"modified", fi.lastModified().toString(QStringLiteral("dd/MM/yyyy HH:mm"))}};
+    }
+    return out;
+}
+
+void ProjectController::rememberRecent(const QString &path)
+{
+    if (path.isEmpty() || !path.endsWith(QLatin1String(".clivcut")))
+        return;
+    QSettings s;
+    QStringList paths = s.value(QStringLiteral("recent/projects")).toStringList();
+    paths.removeAll(path);
+    paths.prepend(path);
+    while (paths.size() > 10)
+        paths.removeLast();
+    s.setValue(QStringLiteral("recent/projects"), paths);
+    emit recentProjectsChanged();
 }

@@ -19,6 +19,9 @@ qt_add_executable(clivcut
 
 set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
+# Ícones da interface (Lucide, ISC: icons/ui/LICENSE).
+file(GLOB CLIVCUT_UI_ICONS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS icons/ui/*.svg)
+
 qt_add_qml_module(clivcut
     URI Clivcut
     VERSION 1.0
@@ -37,7 +40,12 @@ qt_add_qml_module(clivcut
         qml/NewProjectDialog.qml
         qml/RecoveryDialog.qml
         qml/UnsavedDialog.qml
+        qml/ActivityRail.qml
+        qml/CommandPalette.qml
+        qml/WelcomeScreen.qml
         qml/components/IconButton.qml
+        qml/components/Icon.qml
+        qml/components/PillButton.qml
         qml/components/PropSlider.qml
         qml/components/SectionLabel.qml
         qml/components/ColorField.qml
@@ -46,6 +54,7 @@ qt_add_qml_module(clivcut
         qml/components/KeyframeGraph.qml
     RESOURCES
         icons/clivcut.svg
+        ${CLIVCUT_UI_ICONS}
 )
 
 target_compile_definitions(clivcut PRIVATE CLIVCUT_VERSION="${PROJECT_VERSION}")
@@ -59,7 +68,7 @@ set_target_properties(clivcut PROPERTIES
     MACOSX_BUNDLE_ICON_FILE clivcut.icns)
 target_link_libraries(clivcut PRIVATE
     clivcut_engine
-    Qt6::Quick Qt6::QuickControls2 Qt6::Concurrent Qt6::Network
+    Qt6::Quick Qt6::QuickControls2 Qt6::Concurrent Qt6::Network Qt6::Svg
     clivcut::sdl2
 )
 

@@ -144,7 +144,7 @@ Flickable {
                             value: Project.modelDownloadProgress
                         }
                         IconButton {
-                            glyph: "✕"
+                            iconName: "x"
                             tip: qsTr("Cancelar download")
                             onClicked: Project.cancelModelDownload()
                         }

@@ -1,30 +1,49 @@
 pragma Singleton
 import QtQuick
+import QtCore
 
+// Identidade visual "Estúdio": grafite + âmbar, com tema claro opcional.
 QtObject {
-    readonly property color bg: "#141417"
-    readonly property color panel: "#1c1c21"
-    readonly property color surface: "#24242a"
-    readonly property color surfaceHi: "#2e2e36"
-    readonly property color border: "#2f2f37"
-    readonly property color text: "#ececf1"
-    readonly property color textDim: "#9a9aa6"
-    readonly property color textFaint: "#62626d"
-    readonly property color accent: "#22d3c5"
-    readonly property color accentDim: "#1a8f87"
-    readonly property color danger: "#ff5c6c"
-    readonly property color warning: "#f5c242"
-    readonly property color playhead: "#ffffff"
+    id: theme
+    property bool dark: true
+    property Settings prefs: Settings {
+        category: "appearance"
+        property alias darkTheme: theme.dark
+    }
 
-    readonly property color clipVideo: "#2a5d6e"
-    readonly property color clipImage: "#3a5a8a"
-    readonly property color clipAudio: "#2d6a4f"
-    readonly property color clipText: "#7c4fa8"
-    readonly property color clipAdjust: "#b8692e"
-    readonly property color clipSelected: "#ffffff"
+    readonly property color bg: dark ? "#111113" : "#eef0f3"
+    readonly property color panel: dark ? "#18181b" : "#ffffff"
+    readonly property color rail: dark ? "#0c0c0e" : "#e4e6ea"
+    readonly property color surface: dark ? "#212125" : "#f2f3f6"
+    readonly property color surfaceHi: dark ? "#2b2b30" : "#e5e7ec"
+    readonly property color border: dark ? "#2e2e34" : "#d9dce2"
+    readonly property color text: dark ? "#ececef" : "#1a1b20"
+    readonly property color textDim: dark ? "#a3a3ad" : "#5b5e69"
+    readonly property color textFaint: dark ? "#6c6c76" : "#979aa4"
+    readonly property color accent: dark ? "#f5a524" : "#d98500"
+    readonly property color accentDim: dark ? "#c9850f" : "#b56f00"
+    readonly property color accentSoft: dark ? "#33f5a524" : "#24d98500"
+    readonly property color accentInk: "#1b1203"
+    readonly property color danger: dark ? "#f0555b" : "#d93a40"
+    readonly property color warning: dark ? "#ff8a3d" : "#e0681a"
+    readonly property color success: dark ? "#4fc08d" : "#1f9d63"
+    readonly property color playhead: accent
+    readonly property color previewBg: dark ? "#0a0a0b" : "#d8dbe1"
+    readonly property color mainLane: dark ? "#1f2a2c" : "#dfeaea"
 
-    readonly property int radius: 6
+    readonly property color clipVideo: dark ? "#34537f" : "#5878aa"
+    readonly property color clipImage: dark ? "#3f5f8f" : "#6587b8"
+    readonly property color clipAudio: dark ? "#2f6e57" : "#3f8f6f"
+    readonly property color clipText: dark ? "#7a54a8" : "#8d68bd"
+    readonly property color clipAdjust: dark ? "#a3612f" : "#c27a43"
+    readonly property color clipSelected: accent
+
+    readonly property int radius: 7
     readonly property int fontSmall: 11
     readonly property int fontNormal: 13
     readonly property int fontLarge: 15
+    readonly property int fontTitle: 22
+
+    /// Cor no formato que o provedor de ícones aceita (sem '#').
+    function hex(c) { return c.toString().replace("#", "").slice(-6) }
 }

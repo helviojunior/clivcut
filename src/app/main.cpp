@@ -48,6 +48,7 @@ int main(int argc, char **argv)
     engine.addImageProvider(QStringLiteral("thumb"), new ThumbnailProvider);
     engine.addImageProvider(QStringLiteral("wave"), new WaveformProvider);
     engine.addImageProvider(QStringLiteral("filter"), new FilterPreviewProvider);
+    engine.addImageProvider(QStringLiteral("icon"), new IconProvider);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
                      Qt::QueuedConnection);
     engine.loadFromModule("Clivcut", "Main");
