@@ -97,6 +97,7 @@ ApplicationWindow {
 
     ActivityRail {
         id: rail
+        objectName: "rail"
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -156,6 +157,7 @@ ApplicationWindow {
                 SplitView.minimumWidth: 260
             }
             Inspector {
+                objectName: "inspector"
                 SplitView.preferredWidth: Math.max(250, window.width * 0.23)
                 SplitView.minimumWidth: 230
             }
@@ -318,6 +320,7 @@ ApplicationWindow {
 
     CommandPalette {
         id: commandPalette
+        objectName: "commandPalette"
         parent: Overlay.overlay
         commands: [
             { name: qsTr("Reproduzir / pausar"), shortcut: "Espaço", icon: "play", run: () => Project.togglePlay() },

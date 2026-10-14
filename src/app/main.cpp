@@ -67,7 +67,9 @@ int main(int argc, char **argv)
         controller.importMedia(media);
 
     // Captura automática da janela (testes visuais/CI): CLIVCUT_SCREENSHOT=arquivo.png
-    // CLIVCUT_SCREENSHOT_DELAY=ms, CLIVCUT_SCREENSHOT_SEEK=µs, CLIVCUT_SCREENSHOT_SELECT=1 (seleciona 1º clipe).
+    // CLIVCUT_SCREENSHOT_DELAY=ms, CLIVCUT_SCREENSHOT_SEEK=µs, CLIVCUT_SCREENSHOT_SELECT=1 (seleciona 1º clipe),
+    // CLIVCUT_SCREENSHOT_PANEL=índice do painel lateral, CLIVCUT_SCREENSHOT_TAB=aba do inspetor,
+    // CLIVCUT_SCREENSHOT_PALETTE=1 (abre a paleta de comandos).
     const QString shot = qEnvironmentVariable("CLIVCUT_SCREENSHOT");
     if (!shot.isEmpty() && !engine.rootObjects().isEmpty()) {
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
@@ -87,6 +89,21 @@ int main(int argc, char **argv)
                 }
             }
         }
+        // Metade do atraso: dá tempo de a interface reagir antes da captura.
+        QTimer::singleShot(delay / 2, window, [window] {
+            bool ok = false;
+            const int panel = qEnvironmentVariableIntValue("CLIVCUT_SCREENSHOT_PANEL", &ok);
+            if (ok)
+                if (auto *rail = window->findChild<QObject *>(QStringLiteral("rail")))
+                    QMetaObject::invokeMethod(rail, "activate", Q_ARG(QVariant, panel));
+            const QString tab = qEnvironmentVariable("CLIVCUT_SCREENSHOT_TAB");
+            if (!tab.isEmpty())
+                if (auto *inspector = window->findChild<QObject *>(QStringLiteral("inspector")))
+                    inspector->setProperty("page", tab);
+            if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_PALETTE"))
+                if (auto *palette = window->findChild<QObject *>(QStringLiteral("commandPalette")))
+                    QMetaObject::invokeMethod(palette, "open");
+        });
         QTimer::singleShot(delay, window, [window, shot] {
             window->grabWindow().save(shot);
             QCoreApplication::quit();
