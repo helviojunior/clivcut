@@ -34,6 +34,16 @@ QThreadPool *pool()
     return p;
 }
 
+} // namespace
+
+void waitForImageJobs()
+{
+    pool()->clear();
+    pool()->waitForDone();
+}
+
+namespace {
+
 QString pathFor(const QString &assetId)
 {
     auto *ctrl = ProjectController::instance();

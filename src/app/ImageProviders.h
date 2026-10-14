@@ -10,6 +10,9 @@
  *
  * Geração em thread pool com cache em memória.
  */
+/// Descarta pedidos pendentes e espera os em andamento (antes de encerrar o app).
+void waitForImageJobs();
+
 class ThumbnailProvider : public QQuickAsyncImageProvider {
 public:
     QQuickImageResponse *requestImageResponse(const QString &id, const QSize &requestedSize) override;

@@ -12,6 +12,7 @@
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QSurfaceFormat>
+#include <QThreadPool>
 #include <QTimer>
 #include <QUrl>
 
@@ -110,5 +111,10 @@ int main(int argc, char **argv)
         });
     }
 
-    return QGuiApplication::exec();
+    const int rc = QGuiApplication::exec();
+    // Miniaturas e formas de onda em andamento terminam antes de destruir o resto.
+    waitForImageJobs();
+    QThreadPool::globalInstance()->clear();
+    QThreadPool::globalInstance()->waitForDone();
+    return rc;
 }
