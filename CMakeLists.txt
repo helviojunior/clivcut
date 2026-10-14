@@ -20,7 +20,11 @@ option(CLIVCUT_WHISPER_VULKAN "Aceleração Vulkan no whisper.cpp (compilação 
 option(CLIVCUT_WITH_ONNX "IA local (remoção de fundo, isolamento de voz) com ONNX Runtime" ON)
 set(CLIVCUT_ONNXRUNTIME_ROOT "" CACHE PATH "ONNX Runtime já instalado (com include/ e lib/); vazio = baixar o pacote oficial")
 
-find_package(Qt6 6.7 REQUIRED COMPONENTS Core Gui GuiPrivate ShaderTools)
+find_package(Qt6 6.7 REQUIRED COMPONENTS Core Gui ShaderTools)
+# A partir do Qt 6.9 o Qt6::GuiPrivate é um componente à parte; antes vinha junto com o Gui.
+if(Qt6_VERSION VERSION_GREATER_EQUAL 6.9)
+    find_package(Qt6 REQUIRED COMPONENTS GuiPrivate)
+endif()
 if(CLIVCUT_BUILD_APP)
     find_package(Qt6 6.7 REQUIRED COMPONENTS Quick QuickControls2 Concurrent Network Svg)
 endif()
