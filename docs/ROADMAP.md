@@ -34,31 +34,45 @@
 
 ## Phase 2
 
-- Zero-copy hardware decoding (VA-API → dmabuf → Vulkan/GL texture) and frame prefetching on a thread.
-- Compound clips, speed curves, smooth slow motion (RIFE).
-- Curves, HSL, color wheels, scopes (histogram, waveform, vectorscope). ✅ Adjustment layers.
-- ✅ Local background removal (RobustVideoMatting on ONNX Runtime): the matte is generated in the background, cached and applied as the clip alpha in preview and export; the model is downloaded on demand from the Inspector. Interactive cutout (SAM 2) pending.
-- Object tracking, stabilization (vid.stab). ✅ Noise reduction (afftdn) and loudness normalization (EBU R128); AI voice isolation (DeepFilterNet/Demucs) missing.
-- Transcript-based editing, silence removal, local TTS (Piper).
-- Stickers and shapes, curved text, per-character styles.
-- Shader-based video effects library (glitch, shake, blur, VHS, glow, particles) and more transitions.
-- Audio: automatic music ducking under voice, voice effects (echo, reverb, voice changer), voiceover recording on the timeline.
-- Music beat detection with automatic markers.
-- Project templates with media slots and ready-made text templates.
-- Packaging:
-  - ✅ AppImage, tested.
-  - 🟡 Flatpak: manifest ready; needs validation with flatpak-builder and publishing on Flathub.
-  - 🟡 Windows (MSVC/vcpkg/NSIS) and macOS (Homebrew/DMG): CMake and CI ready, not yet run (no Windows/Mac machine and no active CI).
+| # | Feature | Status | Notes |
+|---|---|---|---|
+| 1 | Zero-copy hardware decoding and frame prefetching | 🟡 | VA-API decoding done (MVP #24); zero-copy (VA-API → dmabuf → Vulkan/GL texture) and prefetching on a thread missing |
+| 2 | Compound clips | ⬜ | |
+| 3 | Speed curves and smooth slow motion | 🟡 | speed curves done (MVP #12); frame interpolation (RIFE) missing |
+| 4 | Advanced color: curves, HSL, color wheels, adjustment layers | 🟡 | adjustment layers done; curves, HSL and color wheels missing |
+| 5 | Scopes (histogram, waveform, vectorscope) | ⬜ | |
+| 6 | Local background removal | 🟡 | RobustVideoMatting on ONNX Runtime: matte generated in the background, cached and applied as clip alpha in preview and export; model downloaded on demand from the Inspector. Interactive cutout (SAM 2) missing |
+| 7 | Object tracking | ⬜ | |
+| 8 | Stabilization (vid.stab) | ⬜ | |
+| 9 | Audio cleanup | 🟡 | noise reduction (afftdn) and loudness normalization (EBU R128) done; AI voice isolation (DeepFilterNet/Demucs) missing |
+| 10 | Transcript-based editing and silence removal | ⬜ | |
+| 11 | Local TTS (Piper) | ⬜ | |
+| 12 | Stickers and shapes, curved text, per-character styles | ⬜ | |
+| 13 | Shader-based video effects (glitch, shake, blur, VHS, glow, particles) and more transitions | ⬜ | |
+| 14 | Audio: music ducking under voice, voice effects (echo, reverb, voice changer), voiceover recording | ⬜ | |
+| 15 | Music beat detection with automatic markers | ⬜ | |
+| 16 | Project templates with media slots and ready-made text templates | ⬜ | |
+| 17 | Packaging: AppImage | ✅ | tested |
+| 18 | Packaging: Flatpak | 🟡 | manifest ready; needs validation with flatpak-builder and publishing on Flathub |
+| 19 | Packaging: Windows (MSVC/vcpkg/NSIS) and macOS (Homebrew/DMG) | 🟡 | CMake and CI ready, not yet run (no Windows/Mac machine and no active CI) |
 
 ## Phase 3
 
-- Automatic reframing, face retouching, super-resolution (Real-ESRGAN).
-- Generative AI plugins with configurable providers (local or remote), always optional.
-- Screen and webcam recording via PipeWire / portal.
-- Library of freely licensed music and sound effects.
-- Mobile versions (Android first, then iOS):
-  - Build FFmpeg, ONNX Runtime (AAR / xcframework) and whisper.cpp for arm64; replace SDL2 with `QAudioSink`.
-  - Hardware decoding with MediaCodec on Android (VideoToolbox already covers iOS).
-  - Dedicated QML touch UI reusing `ProjectController`: portrait layout, pinch on the timeline, long-press to drag clips.
-  - File access: `content://` URIs on Android, sandbox and photo library on iOS; memory limits during export.
-  - iOS: LGPL-only, dynamically linked FFmpeg build (App Store compatible), signing with an Apple Developer account.
+| # | Feature | Status | Notes |
+|---|---|---|---|
+| 1 | Automatic reframing | ⬜ | |
+| 2 | Face retouching | ⬜ | |
+| 3 | Super-resolution (Real-ESRGAN) | ⬜ | |
+| 4 | Generative AI plugins with configurable providers (local or remote), always optional | ⬜ | |
+| 5 | Screen and webcam recording via PipeWire / portal | ⬜ | |
+| 6 | Library of freely licensed music and sound effects | ⬜ | |
+| 7 | Mobile: Android | ⬜ | see plan below |
+| 8 | Mobile: iOS | ⬜ | after Android; see plan below |
+
+Mobile plan:
+
+- Build FFmpeg, ONNX Runtime (AAR / xcframework) and whisper.cpp for arm64; replace SDL2 with `QAudioSink`.
+- Hardware decoding with MediaCodec on Android (VideoToolbox already covers iOS).
+- Dedicated QML touch UI reusing `ProjectController`: portrait layout, pinch on the timeline, long-press to drag clips.
+- File access: `content://` URIs on Android, sandbox and photo library on iOS; memory limits during export.
+- iOS: LGPL-only, dynamically linked FFmpeg build (App Store compatible), signing with an Apple Developer account.
