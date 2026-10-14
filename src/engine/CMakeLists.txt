@@ -4,12 +4,18 @@ add_library(clivcut_engine STATIC
     Exporter.h Exporter.cpp
     Transcriber.h Transcriber.cpp
     WhisperModels.h WhisperModels.cpp
+    AiModels.h AiModels.cpp
     Proxy.h Proxy.cpp
     AudioCleanup.h AudioCleanup.cpp
+    Matting.h Matting.cpp
 )
 target_include_directories(clivcut_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
 target_link_libraries(clivcut_engine PUBLIC clivcut_core clivcut_media clivcut_render)
 if(TARGET whisper)
     target_link_libraries(clivcut_engine PRIVATE whisper)
     target_compile_definitions(clivcut_engine PRIVATE CLIVCUT_HAVE_WHISPER)
+endif()
+if(TARGET clivcut_onnxruntime)
+    target_link_libraries(clivcut_engine PUBLIC clivcut_onnxruntime)
+    target_compile_definitions(clivcut_engine PRIVATE CLIVCUT_HAVE_ONNX)
 endif()

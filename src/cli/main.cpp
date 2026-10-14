@@ -5,7 +5,9 @@
 #include "core/Captions.h"
 #include "core/Edit.h"
 #include "core/Serialize.h"
+#include "engine/AiModels.h"
 #include "engine/Exporter.h"
+#include "engine/Matting.h"
 #include "engine/Transcriber.h"
 #include "engine/WhisperModels.h"
 #include "media/FFmpegUtil.h"
@@ -112,7 +114,9 @@ int main(int argc, char **argv)
                                 QStringLiteral("n"), QStringLiteral("42"));
     QCommandLineOption bench(QStringLiteral("bench"), QStringLiteral("Mede a decodificação de um vídeo (quadros/s)"));
     QCommandLineOption noHw(QStringLiteral("no-hw"), QStringLiteral("Desliga a decodificação por hardware"));
-    cli.addOptions({codec, crf, height, fps, convert, probe, transcribe, model, language, maxChars, bench, noHw});
+    QCommandLineOption removeBg(QStringLiteral("remove-bg"),
+                                QStringLiteral("Gera o vídeo de matte (alfa) de um vídeo/imagem com IA (modelo rvm)"));
+    cli.addOptions({codec, crf, height, fps, convert, probe, transcribe, model, language, maxChars, bench, noHw, removeBg});
     cli.process(app);
 
     const QStringList args = cli.positionalArguments();
@@ -128,6 +132,30 @@ int main(int argc, char **argv)
         const char *kinds[] = {"video", "audio", "image"};
         std::printf("tipo: %s\nduração: %.3f s\ndimensões: %dx%d\nfps: %.3f\náudio: %s\n", kinds[static_cast<int>(a.kind)],
                     a.duration / 1e6, a.width, a.height, a.fps, a.hasAudio ? "sim" : "não");
+        return 0;
+    }
+    if (cli.isSet(removeBg)) {
+        if (args.size() != 2)
+            cli.showHelp(1);
+        const QString modelPath = engine::aiModelPath(engine::kMattingModel);
+        if (!engine::aiModelInstalled(engine::kMattingModel)) {
+            std::fprintf(stderr, "erro: modelo ausente em %s\nBaixe com: curl -L -o %s %s\n", qPrintable(modelPath),
+                         qPrintable(modelPath), qPrintable(engine::findAiModel(engine::kMattingModel)->url.toString()));
+            return 1;
+        }
+        QElapsedTimer timer;
+        timer.start();
+        QString err;
+        const bool ok = engine::generateMatte(args[0], modelPath, args[1], [](double f) {
+            std::fprintf(stderr, "\rRemovendo fundo... %3d%%", static_cast<int>(f * 100));
+            return true;
+        }, &err);
+        std::fprintf(stderr, "\n");
+        if (!ok) {
+            std::fprintf(stderr, "erro: %s\n", qPrintable(err));
+            return 1;
+        }
+        std::printf("Matte salvo em %s (%.1f s)\n", qPrintable(args[1]), timer.elapsed() / 1000.0);
         return 0;
     }
     if (cli.isSet(bench)) {
