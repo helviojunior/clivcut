@@ -37,7 +37,7 @@
 - Zero-copy hardware decoding (VA-API → dmabuf → Vulkan/GL texture) and frame prefetching on a thread.
 - Compound clips, speed curves, smooth slow motion (RIFE).
 - Curves, HSL, color wheels, scopes (histogram, waveform, vectorscope). ✅ Adjustment layers.
-- 🟡 Local background removal (RobustVideoMatting on ONNX Runtime): matte generated and cached; applying it in the compositor and UI controls are missing. Interactive cutout (SAM 2) pending.
+- ✅ Local background removal (RobustVideoMatting on ONNX Runtime): the matte is generated in the background, cached and applied as the clip alpha in preview and export; the model is downloaded on demand from the Inspector. Interactive cutout (SAM 2) pending.
 - Object tracking, stabilization (vid.stab). ✅ Noise reduction (afftdn) and loudness normalization (EBU R128); AI voice isolation (DeepFilterNet/Demucs) missing.
 - Transcript-based editing, silence removal, local TTS (Piper).
 - Stickers and shapes, curved text, per-character styles.

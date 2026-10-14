@@ -11,7 +11,9 @@
 #include "core/Lut.h"
 #include "core/Serialize.h"
 #include "core/SpeedCurve.h"
+#include "engine/AiModels.h"
 #include "engine/AudioCleanup.h"
+#include "engine/Matting.h"
 #include "engine/Exporter.h"
 #include "engine/Proxy.h"
 #include "engine/Transcriber.h"
@@ -113,6 +115,7 @@ ProjectController::~ProjectController()
     m_cancelExport = true;
     *m_proxyCancel = true;
     *m_denoiseCancel = true;
+    *m_matteCancel = true;
     if (g_instance == this)
         g_instance = nullptr;
 }
@@ -173,6 +176,7 @@ void ProjectController::commitChange()
         emit selectionChanged();
     ++m_revisionCounter;
     refreshDenoise();
+    refreshMattes();
     emit projectChanged();
     emit selectedClipChanged();
     emit historyChanged();
@@ -450,6 +454,21 @@ QVariantMap ProjectController::selectedClip() const
                                                                                      : QStringLiteral("ready");
                }()},
               {"denoiseProgress", m_denoiseProgress},
+              {"removeBackground", c->removeBackground},
+              {"matteState", [&] {
+                   if (!a || !c->removeBackground)
+                       return QStringLiteral("off");
+                   if (!engine::mattingAvailable() || a->kind != MediaKind::Video)
+                       return QStringLiteral("unavailable");
+                   if (!engine::registeredMatte(a->path).isEmpty())
+                       return QStringLiteral("ready");
+                   if (!engine::aiModelInstalled(engine::kMattingModel))
+                       return QStringLiteral("needsModel");
+                   if (m_matteBuilding == a->path)
+                       return QStringLiteral("processing");
+                   return m_matteQueue.contains(a->path) ? QStringLiteral("queued") : QStringLiteral("off");
+               }()},
+              {"matteProgress", m_matteProgress},
               {"speed", c->speed},
               {"speedCurve", [&] {
                    QVariantList pts;
@@ -964,6 +983,7 @@ bool applyClipProperty(Project &p, Clip *c, Micros rel, const QString &key, cons
     else if (key == QLatin1String("audioMuted")) c->audioMuted = value.toBool();
     else if (key == QLatin1String("gainDb")) c->gainDb = std::clamp(value.toDouble(), -24.0, 24.0);
     else if (key == QLatin1String("denoise")) c->denoise = engine::quantizedDenoise(value.toDouble());
+    else if (key == QLatin1String("removeBackground")) c->removeBackground = value.toBool();
     else if (key == QLatin1String("temperature")) c->color.temperature = value.toDouble();
     else if (key == QLatin1String("maskShape")) c->mask.shape = maskShapeFromName(value.toString());
     else if (key == QLatin1String("maskX")) c->mask.x = value.toDouble();
@@ -1389,19 +1409,20 @@ QVariantList ProjectController::audioTracks() const
 
 void ProjectController::downloadModel(const QString &id)
 {
-    if (m_modelReply || engine::whisperModelInstalled(id))
+    const engine::AiModel *model = engine::findAiModel(id);
+    if (m_modelReply || !model || engine::aiModelInstalled(id))
         return;
     if (!m_network)
         m_network = new QNetworkAccessManager(this);
     QDir().mkpath(engine::whisperModelsDir());
-    const QString finalPath = engine::whisperModelPath(id);
+    const QString finalPath = engine::aiModelPath(id);
     auto *file = new QFile(finalPath + QStringLiteral(".part"), this);
     if (!file->open(QIODevice::WriteOnly)) {
         emit errorOccurred(tr("Não foi possível gravar em %1").arg(file->fileName()));
         delete file;
         return;
     }
-    QNetworkRequest req(engine::whisperModelUrl(id));
+    QNetworkRequest req(model->url);
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     m_modelReply = m_network->get(req);
     m_downloadingModel = id;
@@ -1431,8 +1452,11 @@ void ProjectController::downloadModel(const QString &id)
         m_modelReply = nullptr;
         m_downloadingModel.clear();
         emit captionModelsChanged();
-        if (ok)
+        if (ok) {
             setStatus(tr("Modelo %1 instalado").arg(id));
+            if (id == engine::kMattingModel)
+                refreshMattes();
+        }
         else if (!cancelled)
             emit errorOccurred(tr("Falha ao baixar o modelo: %1").arg(err));
     });
@@ -2254,6 +2278,79 @@ void ProjectController::startNextDenoise()
             emit audioJobsChanged();
             emit selectedClipChanged();
             startNextDenoise();
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+// ---------------------------------------------------------------------------
+// Remoção de fundo (matte por IA, em segundo plano)
+
+void ProjectController::refreshMattes()
+{
+    if (!engine::mattingAvailable() || !engine::aiModelInstalled(engine::kMattingModel))
+        return;
+    bool changed = false;
+    for (const auto &t : m_project.tracks)
+        for (const auto &c : t.clips) {
+            const MediaAsset *a = c.hasMedia() && c.removeBackground ? m_project.asset(c.assetId) : nullptr;
+            if (!a || a->kind != MediaKind::Video || !QFileInfo::exists(a->path))
+                continue;
+            if (!engine::registeredMatte(a->path).isEmpty() || engine::discoverMatte(a->path))
+                continue;
+            if (a->path != m_matteBuilding && !m_matteQueue.contains(a->path)) {
+                m_matteQueue << a->path;
+                changed = true;
+            }
+        }
+    if (changed) {
+        emit selectedClipChanged();
+        startNextMatte();
+    }
+}
+
+void ProjectController::startNextMatte()
+{
+    if (!m_matteBuilding.isEmpty() || m_matteQueue.isEmpty())
+        return;
+    m_matteBuilding = m_matteQueue.takeFirst();
+    m_matteProgress = 0;
+    m_matteCancel = std::make_shared<std::atomic<bool>>(false);
+    const QString path = m_matteBuilding;
+    const QString model = engine::aiModelPath(engine::kMattingModel);
+    auto cancel = m_matteCancel;
+    emit selectedClipChanged();
+    setStatus(tr("Removendo fundo de %1…").arg(QFileInfo(path).fileName()));
+    std::thread([this, path, model, cancel] {
+        const QString out = engine::mattePathFor(path);
+        QString err;
+        double lastSent = 0;
+        const bool ok = engine::generateMatte(
+            path, model, out,
+            [&](double f) {
+                if (f - lastSent >= 0.01 && !*cancel) {
+                    lastSent = f;
+                    QMetaObject::invokeMethod(this, [this, f] {
+                        m_matteProgress = f;
+                        emit selectedClipChanged();
+                    }, Qt::QueuedConnection);
+                }
+                return !*cancel;
+            },
+            &err);
+        if (*cancel)
+            return;
+        QMetaObject::invokeMethod(this, [this, ok, err, path, out] {
+            m_matteBuilding.clear();
+            if (ok) {
+                engine::registerMatte(path, out);
+                setStatus(tr("Fundo removido: %1").arg(QFileInfo(path).fileName()));
+                ++m_revisionCounter;
+                emit revisionChanged();
+            } else {
+                emit errorOccurred(tr("Falha ao remover o fundo: %1").arg(err));
+            }
+            emit selectedClipChanged();
+            startNextMatte();
         }, Qt::QueuedConnection);
     }).detach();
 }

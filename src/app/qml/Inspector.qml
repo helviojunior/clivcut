@@ -773,6 +773,47 @@ Rectangle {
                         value: root.isMedia ? root.sel.chromaSmoothness : 0.1
                         onMoved: (v) => root.setProp("chromaSmoothness", v)
                     }
+
+                    SectionLabel {
+                        visible: root.isMedia && root.sel.mediaKind === "video"
+                        text: qsTr("Remover fundo (IA)")
+                    }
+                    CheckBox {
+                        visible: root.isMedia && root.sel.mediaKind === "video"
+                        text: qsTr("Recortar pessoas automaticamente")
+                        checked: root.isMedia && root.sel.removeBackground
+                        enabled: root.isMedia && root.sel.matteState !== "unavailable"
+                        focusPolicy: Qt.NoFocus
+                        onToggled: root.setProp("removeBackground", checked)
+                    }
+                    ProgressBar {
+                        visible: root.isMedia && (root.sel.matteState === "processing"
+                                                  || (root.sel.matteState === "needsModel" && Project.downloadingModel === "rvm"))
+                        Layout.fillWidth: true
+                        value: root.sel.matteState === "processing" ? root.sel.matteProgress : Project.modelDownloadProgress
+                    }
+                    PillButton {
+                        visible: root.isMedia && root.sel.matteState === "needsModel" && Project.downloadingModel !== "rvm"
+                        enabled: Project.downloadingModel === ""
+                        text: qsTr("Baixar modelo (15 MB)")
+                        iconName: "download"
+                        onClicked: Project.downloadModel("rvm")
+                    }
+                    Text {
+                        visible: root.isMedia && root.sel.mediaKind === "video"
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        color: root.isMedia && root.sel.matteState === "ready" ? Theme.accent : Theme.textFaint
+                        font.pixelSize: Theme.fontSmall
+                        text: !root.isMedia ? ""
+                              : root.sel.matteState === "unavailable" ? qsTr("Indisponível nesta versão (compilada sem ONNX Runtime).")
+                              : root.sel.matteState === "needsModel" ? (Project.downloadingModel === "rvm" ? qsTr("Baixando o modelo de recorte…")
+                                                                         : qsTr("Requer o modelo de recorte de pessoas (RobustVideoMatting, GPL-3.0), baixado uma única vez."))
+                              : root.sel.matteState === "processing" ? qsTr("Analisando o vídeo… %1%").arg(Math.round(root.sel.matteProgress * 100))
+                              : root.sel.matteState === "queued" ? qsTr("Na fila…")
+                              : root.sel.matteState === "ready" ? qsTr("✓ Fundo removido (processado localmente)")
+                              : qsTr("Separa pessoas do fundo sem tela verde. Tudo roda no seu computador, em segundo plano.")
+                    }
                 }
 
                 // ---------------- Animação (texto) ----------------

@@ -297,6 +297,8 @@ private:
     void refreshDenoise();
     void rememberRecent(const QString &path);
     void startNextDenoise();
+    void refreshMattes();
+    void startNextMatte();
     void enqueueProxy(const QString &mediaPath);
     void startNextProxy();
     QString defaultTextFor(const QString &preset) const;
@@ -343,6 +345,10 @@ private:
     QString m_denoiseBuilding;
     double m_denoiseProgress = 0;
     std::shared_ptr<std::atomic<bool>> m_denoiseCancel = std::make_shared<std::atomic<bool>>(false);
+    QStringList m_matteQueue;       ///< mídias aguardando remoção de fundo
+    QString m_matteBuilding;
+    double m_matteProgress = 0;
+    std::shared_ptr<std::atomic<bool>> m_matteCancel = std::make_shared<std::atomic<bool>>(false);
     clv::Clipboard m_clipboard;
     std::optional<clv::Clip> m_attributeSource;
     bool m_useProxies = true;

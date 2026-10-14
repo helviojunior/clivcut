@@ -2,6 +2,7 @@
 #include "core/Edit.h"
 #include "core/Evaluate.h"
 #include "engine/DecoderFrameSource.h"
+#include "engine/Matting.h"
 #include "engine/Proxy.h"
 #include "media/MediaProbe.h"
 
@@ -78,6 +79,43 @@ private slots:
         // Arquivo original alterado → outro caminho de proxy.
         engine::unregisterProxy(m_video);
         QVERIFY(engine::registeredProxy(m_video).isEmpty());
+    }
+
+    void matteAlpha()
+    {
+        // Matte sintético: metade esquerda branca (pessoa), direita preta (fundo).
+        const QString matte = m_dir.filePath(QStringLiteral("matte.mp4"));
+        QProcess p;
+        p.start(QStringLiteral("ffmpeg"),
+                {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                 "color=black:size=640x360:rate=30:duration=3,drawbox=x=0:y=0:w=320:h=360:color=white:t=fill",
+                 "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", matte});
+        QVERIFY(p.waitForFinished(120000) && p.exitCode() == 0);
+
+        Project proj = createProject(QStringLiteral("t"), 2560, 1440, 30);
+        MediaAsset a;
+        QVERIFY(media::probe(m_video, a));
+        a.id = newId("ast");
+        proj.assets.emplace(a.id, a);
+        edit::insertClip(proj, createMediaClip(a, 0), 0);
+        proj.tracks[0].clips[0].removeBackground = true;
+        const VisualLayer layer = evaluate(proj, kSecond).layers.front();
+        engine::DecoderFrameSource source(QSize(1280, 720), false);
+
+        // Sem matte pronto: quadro opaco.
+        QCOMPARE(qAlpha(source.frameFor(layer).pixel(100, 360)), 255);
+
+        engine::registerMatte(m_video, matte);
+        const QImage img = source.frameFor(layer);
+        QCOMPARE(img.size(), QSize(1280, 720));
+        QVERIFY(qAlpha(img.pixel(200, 360)) > 240);
+        QVERIFY(qAlpha(img.pixel(1080, 360)) < 15);
+        // Mesmo quadro de novo: reaproveitado (mesma textura no compositor).
+        QCOMPARE(source.frameFor(layer).cacheKey(), img.cacheKey());
+
+        proj.tracks[0].clips[0].removeBackground = false;
+        const VisualLayer plain = evaluate(proj, kSecond).layers.front();
+        QCOMPARE(qAlpha(source.frameFor(plain).pixel(1080, 360)), 255);
     }
 
     void cancel()

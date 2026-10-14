@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "DecoderFrameSource.h"
 
+#include "Matting.h"
 #include "Proxy.h"
 
 #include <QFileInfo>
@@ -34,7 +35,57 @@ QImage DecoderFrameSource::frameFor(const VisualLayer &layer)
             return {};
         }
     }
-    return e.dec->frameAt(layer.sourceTime);
+    QImage img = e.dec->frameAt(layer.sourceTime);
+    if (layer.clip->removeBackground && !img.isNull())
+        applyMatte(e, a.path, layer.sourceTime, img);
+    return img;
+}
+
+void DecoderFrameSource::applyMatte(Entry &e, const QString &mediaPath, Micros t, QImage &img)
+{
+    // Sem matte pronto (ainda gerando), o quadro segue opaco.
+    const QString path = registeredMatte(mediaPath);
+    if (path.isEmpty())
+        return;
+    if (e.mattePath != path) {
+        e.matte.reset();
+        e.mattePath = path;
+        e.matteFailed = false;
+        e.lastMatted = {};
+    }
+    if (e.matteFailed)
+        return;
+    // Mesmo quadro de origem (pausado): reaproveita o resultado e a textura.
+    const qint64 sourceKey = img.cacheKey();
+    if (sourceKey == e.lastSourceKey && !e.lastMatted.isNull()) {
+        img = e.lastMatted;
+        return;
+    }
+    if (!e.matte) {
+        e.matte = std::make_unique<media::VideoDecoder>();
+        if (!e.matte->open(path)) {
+            e.matteFailed = true;
+            e.matte.reset();
+            return;
+        }
+    }
+    QImage m = e.matte->frameAt(t);
+    if (m.isNull())
+        return;
+    if (m.size() != img.size())
+        m = m.scaled(img.size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    m = m.convertToFormat(QImage::Format_RGBA8888);
+    if (img.format() != QImage::Format_RGBA8888)
+        img = img.convertToFormat(QImage::Format_RGBA8888);
+    // O matte é cinza: o canal R vira o alfa (reto) do quadro.
+    for (int y = 0; y < img.height(); ++y) {
+        uchar *dst = img.scanLine(y);
+        const uchar *src = m.constScanLine(y);
+        for (int x = 0; x < img.width(); ++x)
+            dst[x * 4 + 3] = src[x * 4];
+    }
+    e.lastSourceKey = sourceKey;
+    e.lastMatted = img;
 }
 
 void DecoderFrameSource::setMaxSize(QSize s)

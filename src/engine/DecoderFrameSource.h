@@ -36,7 +36,13 @@ private:
         std::unique_ptr<media::VideoDecoder> dec;
         QString path;
         bool failed = false;
+        std::unique_ptr<media::VideoDecoder> matte; ///< matte de remoção de fundo
+        QString mattePath;
+        bool matteFailed = false;
+        qint64 lastSourceKey = 0; ///< quadro decodificado que gerou lastMatted
+        QImage lastMatted;
     };
+    void applyMatte(Entry &e, const QString &mediaPath, Micros t, QImage &img);
     std::unordered_map<QString, Entry> m_decoders;
     QSize m_maxSize;
     bool m_preferProxy;

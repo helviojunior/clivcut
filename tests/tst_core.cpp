@@ -230,6 +230,7 @@ private slots:
         c.transitionIn = Transition{TransitionKind::WipeLeft, 700'000};
         c.chroma.enabled = true;
         c.blend = BlendMode::Screen;
+        c.removeBackground = true;
         c.mask = Mask{MaskShape::Rectangle, 0.3, 0.6, 0.2, 0.4, 15, 0.1, 0.5, true};
         edit::insertClip(p, c, 0);
         auto t = createTextClip(QStringLiteral("Olá ✓"), 0);
@@ -243,6 +244,8 @@ private slots:
         QCOMPARE(serializeProject(q), serializeProject(p));
         QCOMPARE(q.tracks[0].clips[0].keyframes[static_cast<int>(Prop::Scale)][0].ease, Easing::EaseIn);
         QCOMPARE(q.tracks[1].clips[0].text, QStringLiteral("Olá ✓"));
+        QVERIFY(q.tracks[0].clips[0].removeBackground);
+        QVERIFY(!q.tracks[1].clips[0].removeBackground);
         QCOMPARE(q.tracks[0].clips[0].mask.shape, MaskShape::Rectangle);
         QVERIFY(q.tracks[0].clips[0].mask.invert);
         QCOMPARE(q.tracks[0].clips[0].mask.rotation, 15.0);
