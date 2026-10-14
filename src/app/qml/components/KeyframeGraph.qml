@@ -195,9 +195,9 @@ ColumnLayout {
         wrapMode: Text.Wrap
         color: Theme.textFaint
         font.pixelSize: Theme.fontSmall
-        text: root.selected < 0 ? qsTr("Clique num keyframe (◆) para escolher a curva até o próximo. Arraste para mudar tempo e valor.")
-              : root.selected + 1 >= root.kfs.length ? qsTr("Último keyframe: a curva vale entre ele e o anterior — selecione o anterior.")
-              : qsTr("Curva de %1 até o próximo keyframe:").arg(Project.formatTime(root.kfs[root.selected].t))
+        text: root.selected < 0 ? qsTr("Click a keyframe (◆) to pick the curve to the next one. Drag to change time and value.")
+              : root.selected + 1 >= root.kfs.length ? qsTr("Last keyframe: the curve applies between it and the previous one — select the previous one.")
+              : qsTr("Curve from %1 to the next keyframe:").arg(Project.formatTime(root.kfs[root.selected].t))
     }
     Flow {
         visible: root.selected >= 0 && root.selected + 1 < root.kfs.length
@@ -205,9 +205,9 @@ ColumnLayout {
         spacing: 4
         Repeater {
             model: [
-                { e: "linear", t: qsTr("Linear") }, { e: "easeIn", t: qsTr("Entrada") },
-                { e: "easeOut", t: qsTr("Saída") }, { e: "easeInOut", t: qsTr("Suave") },
-                { e: "hold", t: qsTr("Manter") }, { e: "bezier", t: qsTr("Personalizada") }
+                { e: "linear", t: qsTr("Linear") }, { e: "easeIn", t: qsTr("In") },
+                { e: "easeOut", t: qsTr("Out") }, { e: "easeInOut", t: qsTr("Smooth") },
+                { e: "hold", t: qsTr("Hold") }, { e: "bezier", t: qsTr("Custom") }
             ]
             Rectangle {
                 required property var modelData
@@ -234,9 +234,9 @@ ColumnLayout {
     }
     RowLayout {
         visible: root.kfs.length > 1
-        Text { text: qsTr("Todos:"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
+        Text { text: qsTr("All:"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
         Repeater {
-            model: [{ e: "linear", t: qsTr("Linear") }, { e: "easeInOut", t: qsTr("Suave") }]
+            model: [{ e: "linear", t: qsTr("Linear") }, { e: "easeInOut", t: qsTr("Smooth") }]
             Button {
                 required property var modelData
                 text: modelData.t

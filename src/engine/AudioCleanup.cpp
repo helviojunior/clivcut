@@ -13,6 +13,7 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
+#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -219,7 +220,7 @@ bool generateDenoised(const QString &mediaPath, const QString &outPath, double s
         return false;
     const std::int64_t total = av_rescale(dec.duration(), kSampleRate, kSecond);
     if (total <= 0)
-        return fail(QStringLiteral("Áudio sem duração"));
+        return fail(QCoreApplication::translate("Engine", "Audio has no duration"));
     // 1ª passada (20% do progresso): nível de ruído. 2ª: filtragem.
     bool cancelled = false;
     const int floorDb = estimateNoiseFloor(dec, total, [&](double f) {
@@ -227,11 +228,11 @@ bool generateDenoised(const QString &mediaPath, const QString &outPath, double s
         return !cancelled;
     });
     if (cancelled)
-        return fail(QStringLiteral("Redução de ruído cancelada"));
+        return fail(QCoreApplication::translate("Engine", "Noise reduction cancelled"));
     const int latency = measureLatency(strength, floorDb);
     Graph g;
     if (!g.init(strength, floorDb))
-        return fail(QStringLiteral("Filtro de redução de ruído indisponível neste FFmpeg"));
+        return fail(QCoreApplication::translate("Engine", "Noise reduction filter not available in this FFmpeg"));
 
     QDir().mkpath(QFileInfo(outPath).absolutePath());
     const QString tmp = outPath + QStringLiteral(".part");
@@ -293,7 +294,7 @@ bool generateDenoised(const QString &mediaPath, const QString &outPath, double s
         if (progress && !progress(0.2 + 0.8 * static_cast<double>(fed) / total)) {
             ok = false;
             if (error)
-                *error = QStringLiteral("Redução de ruído cancelada");
+                *error = QCoreApplication::translate("Engine", "Noise reduction cancelled");
         }
     }
     if (ok && latency > 0) {
@@ -320,12 +321,12 @@ bool generateDenoised(const QString &mediaPath, const QString &outPath, double s
     if (!ok) {
         QFile::remove(tmp);
         if (error && error->isEmpty())
-            *error = QStringLiteral("Falha no filtro de áudio");
+            *error = QCoreApplication::translate("Engine", "Audio filter failed");
         return false;
     }
     QFile::remove(outPath);
     if (!QFile::rename(tmp, outPath))
-        return fail(QStringLiteral("Não foi possível gravar %1").arg(outPath));
+        return fail(QCoreApplication::translate("Engine", "Could not write %1").arg(outPath));
     return true;
 }
 

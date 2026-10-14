@@ -27,9 +27,9 @@ Rectangle {
         : sel.mediaKind === "image" ? ["transform", "color", "mask", "keyframes", "advanced"]
         : ["transform", "color", "mask", "keyframes", "audio", "speed", "advanced"]
     readonly property var pageNames: ({
-        project: qsTr("Projeto"), text: qsTr("Texto"), transform: qsTr("Vídeo"), color: isAdjust ? qsTr("Ajuste/Filtro") : qsTr("Ajustes"),
-        audio: qsTr("Áudio"), speed: qsTr("Velocidade"), advanced: qsTr("Avançado"), animation: qsTr("Animação"),
-        mask: qsTr("Máscara"), keyframes: qsTr("Keyframes")
+        project: qsTr("Project"), text: qsTr("Text"), transform: qsTr("Video"), color: isAdjust ? qsTr("Adjustment/Filter") : qsTr("Adjust"),
+        audio: qsTr("Audio"), speed: qsTr("Speed"), advanced: qsTr("Advanced"), animation: qsTr("Animation"),
+        mask: qsTr("Mask"), keyframes: qsTr("Keyframes")
     })
     property string page: pages[0]
     onPagesChanged: {
@@ -91,22 +91,22 @@ Rectangle {
                 ColumnLayout {
                     visible: root.page === "project"
                     Layout.fillWidth: true
-                    SectionLabel { text: qsTr("Projeto") }
+                    SectionLabel { text: qsTr("Project") }
                     GridLayout {
                         columns: 2
                         columnSpacing: 10
-                        Text { text: qsTr("Resolução"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
+                        Text { text: qsTr("Resolution"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
                         Text { text: Project.canvasWidth + " × " + Project.canvasHeight; color: Theme.text; font.pixelSize: Theme.fontNormal }
-                        Text { text: qsTr("Quadros/s"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
+                        Text { text: qsTr("Frame rate"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
                         Text { text: Project.fps; color: Theme.text; font.pixelSize: Theme.fontNormal }
-                        Text { text: qsTr("Duração"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
+                        Text { text: qsTr("Duration"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
                         Text { text: Project.formatTime(Project.duration); color: Theme.text; font.pixelSize: Theme.fontNormal }
-                        Text { text: qsTr("Mídias"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
+                        Text { text: qsTr("Media files"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
                         Text { text: Project.assets.length; color: Theme.text; font.pixelSize: Theme.fontNormal }
                     }
-                    SectionLabel { text: qsTr("Fundo do canvas") }
+                    SectionLabel { text: qsTr("Canvas background") }
                     ColorField {
-                        label: qsTr("Cor")
+                        label: qsTr("Color")
                         color: Project.background
                         onPicked: (c) => Project.setBackground(c === "" ? "#000000" : c)
                     }
@@ -116,7 +116,7 @@ Rectangle {
                         wrapMode: Text.Wrap
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSmall
-                        text: qsTr("Selecione um clipe na timeline para editar posição, cor, áudio, velocidade e animações.\n\nAtalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · Del exclui · Ctrl+D duplica · M marcador · ←/→ quadro a quadro.")
+                        text: qsTr("Select a clip on the timeline to edit position, color, audio, speed and animations.\n\nShortcuts: Space plays · Ctrl+B splits · Q/W delete left/right · Del deletes · Ctrl+D duplicates · M marker · ←/→ frame by frame.")
                     }
                 }
 
@@ -124,7 +124,7 @@ Rectangle {
                 ColumnLayout {
                     visible: root.page === "text" && root.isText
                     Layout.fillWidth: true
-                    SectionLabel { text: qsTr("Conteúdo") }
+                    SectionLabel { text: qsTr("Content") }
                     ScrollView {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 80
@@ -138,7 +138,7 @@ Rectangle {
                             onTextChanged: if (activeFocus && root.isText && text !== root.sel.text) root.setProp("text", text)
                         }
                     }
-                    SectionLabel { text: qsTr("Estilo") }
+                    SectionLabel { text: qsTr("Style") }
                     RowLayout {
                         Layout.fillWidth: true
                         ComboBox {
@@ -149,38 +149,38 @@ Rectangle {
                             currentIndex: root.isText ? Math.max(0, model.indexOf(root.sel.fontFamily)) : 0
                             onActivated: (i) => root.setProp("fontFamily", model[i])
                         }
-                        IconButton { iconName: "bold"; tip: qsTr("Negrito"); active: root.isText && root.sel.bold; onClicked: root.setProp("bold", !root.sel.bold) }
-                        IconButton { iconName: "italic"; tip: qsTr("Itálico"); active: root.isText && root.sel.italic; onClicked: root.setProp("italic", !root.sel.italic) }
+                        IconButton { iconName: "bold"; tip: qsTr("Bold"); active: root.isText && root.sel.bold; onClicked: root.setProp("bold", !root.sel.bold) }
+                        IconButton { iconName: "italic"; tip: qsTr("Italic"); active: root.isText && root.sel.italic; onClicked: root.setProp("italic", !root.sel.italic) }
                     }
                     RowLayout {
-                        Text { text: qsTr("Alinhamento"); color: Theme.textDim; font.pixelSize: Theme.fontSmall; Layout.preferredWidth: 78 }
-                        IconButton { iconName: "text-align-start"; tip: qsTr("Esquerda"); active: root.isText && root.sel.align === 0; onClicked: root.setProp("align", 0) }
-                        IconButton { iconName: "text-align-center"; tip: qsTr("Centro"); active: root.isText && root.sel.align === 1; onClicked: root.setProp("align", 1) }
-                        IconButton { iconName: "text-align-end"; tip: qsTr("Direita"); active: root.isText && root.sel.align === 2; onClicked: root.setProp("align", 2) }
+                        Text { text: qsTr("Alignment"); color: Theme.textDim; font.pixelSize: Theme.fontSmall; Layout.preferredWidth: 78 }
+                        IconButton { iconName: "text-align-start"; tip: qsTr("Left"); active: root.isText && root.sel.align === 0; onClicked: root.setProp("align", 0) }
+                        IconButton { iconName: "text-align-center"; tip: qsTr("Center"); active: root.isText && root.sel.align === 1; onClicked: root.setProp("align", 1) }
+                        IconButton { iconName: "text-align-end"; tip: qsTr("Right"); active: root.isText && root.sel.align === 2; onClicked: root.setProp("align", 2) }
                     }
                     PropSlider {
-                        label: qsTr("Tamanho")
+                        label: qsTr("Size")
                         from: 10; to: 400; stepSize: 1; decimals: 0
                         value: root.isText ? root.sel.fontSize : 72
                         onMoved: (v) => root.setProp("fontSize", v)
                     }
-                    ColorField { label: qsTr("Cor"); color: root.isText ? root.sel.color : "white"; onPicked: (c) => root.setProp("color", c === "" ? "#ffffff" : c) }
-                    ColorField { label: qsTr("Contorno"); color: root.isText ? root.sel.strokeColor : "black"; onPicked: (c) => root.setProp("strokeColor", c === "" ? "#000000" : c) }
+                    ColorField { label: qsTr("Color"); color: root.isText ? root.sel.color : "white"; onPicked: (c) => root.setProp("color", c === "" ? "#ffffff" : c) }
+                    ColorField { label: qsTr("Outline"); color: root.isText ? root.sel.strokeColor : "black"; onPicked: (c) => root.setProp("strokeColor", c === "" ? "#000000" : c) }
                     PropSlider {
-                        label: qsTr("Espessura")
+                        label: qsTr("Thickness")
                         from: 0; to: 20; stepSize: 0.5; decimals: 1
                         value: root.isText ? root.sel.strokeWidth : 0
                         onMoved: (v) => root.setProp("strokeWidth", v)
                     }
                     ColorField {
-                        label: qsTr("Fundo")
+                        label: qsTr("Background")
                         allowNone: true
                         isNone: !root.isText || root.sel.background === ""
                         color: root.isText && root.sel.background !== "" ? root.sel.background : "black"
                         onPicked: (c) => root.setProp("background", c)
                     }
                     CheckBox {
-                        text: qsTr("Sombra")
+                        text: qsTr("Shadow")
                         checked: root.isText && root.sel.shadow
                         focusPolicy: Qt.NoFocus
                         onToggled: root.setProp("shadow", checked)
@@ -189,11 +189,11 @@ Rectangle {
                         visible: root.isText && root.sel.inCaptionTrack
                         Layout.fillWidth: true
                         Layout.topMargin: 6
-                        text: qsTr("Aplicar a todas as legendas")
+                        text: qsTr("Apply to all captions")
                         focusPolicy: Qt.NoFocus
                         onClicked: Project.applyStyleToTrack(root.sel.id)
                         ToolTip.visible: hovered
-                        ToolTip.text: qsTr("Copia estilo, posição e animações deste texto para toda a faixa")
+                        ToolTip.text: qsTr("Copies this text's style, position and animations to the whole track")
                     }
                 }
 
@@ -202,17 +202,17 @@ Rectangle {
                     visible: root.page === "transform" && root.hasVisual
                     Layout.fillWidth: true
                     SectionLabel {
-                        text: qsTr("Transformação")
-                        actionText: qsTr("Redefinir")
+                        text: qsTr("Transform")
+                        actionText: qsTr("Reset")
                         onActionClicked: Project.resetClipProperties(root.sel.id, "transform")
                     }
                     Repeater {
                         model: [
-                            { key: "scale", label: qsTr("Escala"), from: 0.05, to: 5, scale: 100, suffix: "%", dec: 0 },
-                            { key: "x", label: qsTr("Posição X"), from: -2, to: 2, scale: 100, suffix: "", dec: 0 },
-                            { key: "y", label: qsTr("Posição Y"), from: -2, to: 2, scale: 100, suffix: "", dec: 0 },
-                            { key: "rotation", label: qsTr("Rotação"), from: -360, to: 360, scale: 1, suffix: "°", dec: 0 },
-                            { key: "opacity", label: qsTr("Opacidade"), from: 0, to: 1, scale: 100, suffix: "%", dec: 0 }
+                            { key: "scale", label: qsTr("Scale"), from: 0.05, to: 5, scale: 100, suffix: "%", dec: 0 },
+                            { key: "x", label: qsTr("Position X"), from: -2, to: 2, scale: 100, suffix: "", dec: 0 },
+                            { key: "y", label: qsTr("Position Y"), from: -2, to: 2, scale: 100, suffix: "", dec: 0 },
+                            { key: "rotation", label: qsTr("Rotation"), from: -360, to: 360, scale: 1, suffix: "°", dec: 0 },
+                            { key: "opacity", label: qsTr("Opacity"), from: 0, to: 1, scale: 100, suffix: "%", dec: 0 }
                         ]
                         PropSlider {
                             required property var modelData
@@ -233,15 +233,15 @@ Rectangle {
                     }
                     RowLayout {
                         visible: root.isMedia
-                        Text { text: qsTr("Espelhar"); color: Theme.textDim; font.pixelSize: Theme.fontSmall; Layout.preferredWidth: 78 }
+                        Text { text: qsTr("Mirror"); color: Theme.textDim; font.pixelSize: Theme.fontSmall; Layout.preferredWidth: 78 }
                         IconButton { iconName: "flip-horizontal-2"; tip: qsTr("Horizontal"); active: root.hasSel && root.sel.flipH; onClicked: root.setProp("flipH", !root.sel.flipH) }
                         IconButton { iconName: "flip-vertical-2"; tip: qsTr("Vertical"); active: root.hasSel && root.sel.flipV; onClicked: root.setProp("flipV", !root.sel.flipV) }
                     }
-                    SectionLabel { visible: root.isMedia; text: qsTr("Cortar (crop)") }
+                    SectionLabel { visible: root.isMedia; text: qsTr("Crop") }
                     Repeater {
                         model: root.isMedia ? [
-                            { key: "cropLeft", label: qsTr("Esquerda") }, { key: "cropRight", label: qsTr("Direita") },
-                            { key: "cropTop", label: qsTr("Topo") }, { key: "cropBottom", label: qsTr("Base") }
+                            { key: "cropLeft", label: qsTr("Left") }, { key: "cropRight", label: qsTr("Right") },
+                            { key: "cropTop", label: qsTr("Top") }, { key: "cropBottom", label: qsTr("Bottom") }
                         ] : []
                         PropSlider {
                             required property var modelData
@@ -261,7 +261,7 @@ Rectangle {
 
                     PropSlider {
                         visible: root.isAdjust
-                        label: qsTr("Intensidade")
+                        label: qsTr("Intensity")
                         from: 0; to: 1; displayScale: 100; decimals: 0; suffix: "%"
                         value: root.isAdjust ? root.sel.opacity : 1
                         keyframable: true
@@ -273,41 +273,41 @@ Rectangle {
 
                     // Filtro
                     SectionLabel {
-                        text: root.hasColor && root.sel.filter !== "" ? qsTr("Filtro: %1").arg(root.sel.filterName) : qsTr("Filtro")
-                        actionText: root.hasColor && root.sel.filter !== "" ? qsTr("Remover") : ""
+                        text: root.hasColor && root.sel.filter !== "" ? qsTr("Filter: %1").arg(root.sel.filterName) : qsTr("Filter")
+                        actionText: root.hasColor && root.sel.filter !== "" ? qsTr("Remove") : ""
                         onActionClicked: Project.applyFilter(root.sel.id, "")
                     }
                     Text {
                         visible: root.hasColor && root.sel.filter === ""
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
-                        text: qsTr("Escolha um filtro na aba Filtros do painel esquerdo.")
+                        text: qsTr("Pick a filter in the Filters tab of the left panel.")
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSmall
                     }
                     PropSlider {
                         visible: root.hasColor && root.sel.filter !== ""
-                        label: qsTr("Intensidade")
+                        label: qsTr("Intensity")
                         from: 0; to: 1; displayScale: 100; decimals: 0; suffix: "%"
                         value: root.hasColor ? root.sel.filterIntensity : 0.8
                         onMoved: (v) => root.setProp("filterIntensity", v)
                     }
 
                     SectionLabel {
-                        text: qsTr("Ajustes básicos")
-                        actionText: qsTr("Redefinir")
+                        text: qsTr("Basic adjustments")
+                        actionText: qsTr("Reset")
                         onActionClicked: Project.resetClipProperties(root.sel.id, "color")
                     }
                     Repeater {
                         model: [
-                            { key: "exposure", label: qsTr("Exposição"), kf: false },
-                            { key: "brightness", label: qsTr("Brilho"), kf: true },
-                            { key: "contrast", label: qsTr("Contraste"), kf: true },
-                            { key: "saturation", label: qsTr("Saturação"), kf: true },
-                            { key: "highlights", label: qsTr("Realces"), kf: false },
-                            { key: "shadows", label: qsTr("Sombras"), kf: false },
-                            { key: "temperature", label: qsTr("Temperatura"), kf: false },
-                            { key: "tint", label: qsTr("Matiz"), kf: false }
+                            { key: "exposure", label: qsTr("Exposure"), kf: false },
+                            { key: "brightness", label: qsTr("Brightness"), kf: true },
+                            { key: "contrast", label: qsTr("Contrast"), kf: true },
+                            { key: "saturation", label: qsTr("Saturation"), kf: true },
+                            { key: "highlights", label: qsTr("Highlights"), kf: false },
+                            { key: "shadows", label: qsTr("Shadows"), kf: false },
+                            { key: "temperature", label: qsTr("Temperature"), kf: false },
+                            { key: "tint", label: qsTr("Tint"), kf: false }
                         ]
                         PropSlider {
                             required property var modelData
@@ -322,16 +322,16 @@ Rectangle {
                             onKeyframeToggled: Project.toggleKeyframe(root.sel.id, modelData.key)
                         }
                     }
-                    SectionLabel { text: qsTr("Efeitos de imagem") }
+                    SectionLabel { text: qsTr("Image effects") }
                     PropSlider {
-                        label: qsTr("Vinheta")
+                        label: qsTr("Vignette")
                         from: 0; to: 1; displayScale: 100; decimals: 0
                         value: root.hasColor ? root.sel.vignette : 0
                         onMoved: (v) => root.setProp("vignette", v)
                     }
                     PropSlider {
                         visible: root.isMedia
-                        label: qsTr("Nitidez")
+                        label: qsTr("Sharpen")
                         from: 0; to: 1; displayScale: 100; decimals: 0
                         value: root.hasColor ? root.sel.sharpen : 0
                         onMoved: (v) => root.setProp("sharpen", v)
@@ -340,27 +340,27 @@ Rectangle {
                     // LUT do usuário
                     SectionLabel {
                         text: qsTr("LUT (.cube)")
-                        actionText: root.hasColor && root.sel.lutPath !== "" ? qsTr("Remover") : ""
+                        actionText: root.hasColor && root.sel.lutPath !== "" ? qsTr("Remove") : ""
                         onActionClicked: root.setProp("lutPath", "")
                     }
                     RowLayout {
                         Layout.fillWidth: true
                         Text {
                             Layout.fillWidth: true
-                            text: root.hasColor && root.sel.lutPath !== "" ? root.sel.lutName : qsTr("Nenhum LUT carregado")
+                            text: root.hasColor && root.sel.lutPath !== "" ? root.sel.lutName : qsTr("No LUT loaded")
                             color: root.hasColor && root.sel.lutPath !== "" ? Theme.text : Theme.textFaint
                             font.pixelSize: Theme.fontSmall
                             elide: Text.ElideMiddle
                         }
                         Button {
-                            text: qsTr("Carregar…")
+                            text: qsTr("Load…")
                             focusPolicy: Qt.NoFocus
                             onClicked: lutDialog.open()
                         }
                     }
                     PropSlider {
                         visible: root.hasColor && root.sel.lutPath !== ""
-                        label: qsTr("Intensidade")
+                        label: qsTr("Intensity")
                         from: 0; to: 1; displayScale: 100; decimals: 0; suffix: "%"
                         value: root.hasColor ? root.sel.lutIntensity : 1
                         onMoved: (v) => root.setProp("lutIntensity", v)
@@ -374,8 +374,8 @@ Rectangle {
                     Layout.fillWidth: true
                     readonly property string shape: root.hasColor ? root.sel.maskShape : "none"
                     SectionLabel {
-                        text: qsTr("Máscara")
-                        actionText: maskPage.shape !== "none" ? qsTr("Redefinir") : ""
+                        text: qsTr("Mask")
+                        actionText: maskPage.shape !== "none" ? qsTr("Reset") : ""
                         onActionClicked: Project.resetClipProperties(root.sel.id, "mask")
                     }
                     Flow {
@@ -383,11 +383,11 @@ Rectangle {
                         spacing: 6
                         Repeater {
                             model: [
-                                { shape: "none", glyph: "∅", name: qsTr("Nenhuma") },
+                                { shape: "none", glyph: "∅", name: qsTr("None", "transition, mask or animation") },
                                 { shape: "linear", glyph: "⊟", name: qsTr("Linear") },
-                                { shape: "mirror", glyph: "☰", name: qsTr("Espelho") },
-                                { shape: "circle", glyph: "◯", name: qsTr("Círculo") },
-                                { shape: "rectangle", glyph: "▢", name: qsTr("Retângulo") }
+                                { shape: "mirror", glyph: "☰", name: qsTr("Mirrored") },
+                                { shape: "circle", glyph: "◯", name: qsTr("Circle") },
+                                { shape: "rectangle", glyph: "▢", name: qsTr("Rectangle") }
                             ]
                             TileButton {
                                 required property var modelData
@@ -402,13 +402,13 @@ Rectangle {
                     }
                     Repeater {
                         model: [
-                            { key: "maskX", label: qsTr("Posição X"), from: -0.5, to: 1.5, shapes: ["linear", "mirror", "circle", "rectangle"] },
-                            { key: "maskY", label: qsTr("Posição Y"), from: -0.5, to: 1.5, shapes: ["linear", "mirror", "circle", "rectangle"] },
-                            { key: "maskWidth", label: qsTr("Largura"), from: 0.01, to: 2, shapes: ["circle", "rectangle"] },
-                            { key: "maskHeight", label: qsTr("Altura"), from: 0.01, to: 2, shapes: ["mirror", "circle", "rectangle"] },
-                            { key: "maskRotation", label: qsTr("Rotação"), from: -180, to: 180, shapes: ["linear", "mirror", "circle", "rectangle"] },
-                            { key: "maskFeather", label: qsTr("Suavização"), from: 0, to: 1, shapes: ["linear", "mirror", "circle", "rectangle"] },
-                            { key: "maskRoundness", label: qsTr("Arredondar"), from: 0, to: 1, shapes: ["rectangle"] }
+                            { key: "maskX", label: qsTr("Position X"), from: -0.5, to: 1.5, shapes: ["linear", "mirror", "circle", "rectangle"] },
+                            { key: "maskY", label: qsTr("Position Y"), from: -0.5, to: 1.5, shapes: ["linear", "mirror", "circle", "rectangle"] },
+                            { key: "maskWidth", label: qsTr("Width"), from: 0.01, to: 2, shapes: ["circle", "rectangle"] },
+                            { key: "maskHeight", label: qsTr("Height"), from: 0.01, to: 2, shapes: ["mirror", "circle", "rectangle"] },
+                            { key: "maskRotation", label: qsTr("Rotation"), from: -180, to: 180, shapes: ["linear", "mirror", "circle", "rectangle"] },
+                            { key: "maskFeather", label: qsTr("Feather"), from: 0, to: 1, shapes: ["linear", "mirror", "circle", "rectangle"] },
+                            { key: "maskRoundness", label: qsTr("Roundness"), from: 0, to: 1, shapes: ["rectangle"] }
                         ]
                         PropSlider {
                             required property var modelData
@@ -426,7 +426,7 @@ Rectangle {
                     }
                     CheckBox {
                         visible: maskPage.shape !== "none"
-                        text: qsTr("Inverter")
+                        text: qsTr("Invert")
                         checked: root.hasColor && root.sel.maskInvert
                         focusPolicy: Qt.NoFocus
                         onToggled: root.setProp("maskInvert", checked)
@@ -437,8 +437,8 @@ Rectangle {
                         wrapMode: Text.Wrap
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSmall
-                        text: root.isAdjust ? qsTr("Com máscara, o ajuste/filtro vale só dentro da forma (ex.: escurecer o céu).")
-                                            : qsTr("Mostre só parte do clipe: útil para telas divididas, molduras e efeitos de recorte.")
+                        text: root.isAdjust ? qsTr("With a mask, the adjustment/filter applies only inside the shape (e.g. darken the sky).")
+                                            : qsTr("Show only part of the clip: useful for split screens, frames and cutout effects.")
                     }
                 }
 
@@ -448,9 +448,9 @@ Rectangle {
                     visible: root.page === "keyframes" && root.hasSel
                     Layout.fillWidth: true
                     readonly property var labels: ({
-                        x: qsTr("Posição X"), y: qsTr("Posição Y"), scale: qsTr("Escala"), rotation: qsTr("Rotação"),
-                        opacity: root.isAdjust ? qsTr("Intensidade") : qsTr("Opacidade"), volume: qsTr("Volume"),
-                        brightness: qsTr("Brilho"), contrast: qsTr("Contraste"), saturation: qsTr("Saturação")
+                        x: qsTr("Position X"), y: qsTr("Position Y"), scale: qsTr("Scale"), rotation: qsTr("Rotation"),
+                        opacity: root.isAdjust ? qsTr("Intensity") : qsTr("Opacity"), volume: qsTr("Volume"),
+                        brightness: qsTr("Brightness"), contrast: qsTr("Contrast"), saturation: qsTr("Saturation")
                     })
                     readonly property var animated: root.hasSel
                         ? ["x", "y", "scale", "rotation", "opacity", "volume", "brightness", "contrast", "saturation"].filter(p => root.sel["kf_" + p])
@@ -458,14 +458,14 @@ Rectangle {
                     property string current: ""
                     readonly property string prop: animated.indexOf(current) >= 0 ? current : (animated.length > 0 ? animated[0] : "")
 
-                    SectionLabel { text: qsTr("Propriedades animadas") }
+                    SectionLabel { text: qsTr("Animated properties") }
                     Text {
                         visible: kfPage.animated.length === 0
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSmall
-                        text: qsTr("Nenhuma propriedade animada. Use o ◇ ao lado de Escala, Posição, Opacidade, Volume ou Cor (nas outras abas) para criar keyframes no cursor.")
+                        text: qsTr("No animated properties. Use the ◇ next to Scale, Position, Opacity, Volume or Color (in the other tabs) to create keyframes at the playhead.")
                     }
                     Flow {
                         Layout.fillWidth: true
@@ -509,20 +509,20 @@ Rectangle {
                     visible: root.page === "audio" && root.isMedia
                     Layout.fillWidth: true
                     SectionLabel {
-                        text: qsTr("Áudio")
-                        actionText: qsTr("Redefinir")
+                        text: qsTr("Audio")
+                        actionText: qsTr("Reset")
                         onActionClicked: Project.resetClipProperties(root.sel.id, "audio")
                     }
                     Text {
                         visible: root.isMedia && !root.sel.hasAudio
-                        text: qsTr("Este clipe não tem áudio.")
+                        text: qsTr("This clip has no audio.")
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSmall
                     }
                     RowLayout {
                         visible: root.isMedia && root.sel.hasAudio
                         CheckBox {
-                            text: qsTr("Silenciar clipe")
+                            text: qsTr("Mute clip")
                             checked: root.isMedia && root.sel.audioMuted
                             focusPolicy: Qt.NoFocus
                             onToggled: root.setProp("audioMuted", checked)
@@ -530,11 +530,11 @@ Rectangle {
                         Item { Layout.fillWidth: true }
                         Button {
                             visible: root.isMedia && root.sel.mediaKind === "video" && !root.sel.audioOnly && !root.sel.audioMuted
-                            text: qsTr("Separar áudio")
+                            text: qsTr("Detach audio")
                             focusPolicy: Qt.NoFocus
                             onClicked: Project.detachAudio()
                             ToolTip.visible: hovered
-                            ToolTip.text: qsTr("Cria um clipe de áudio independente e silencia o vídeo")
+                            ToolTip.text: qsTr("Creates a separate audio clip and mutes the video")
                         }
                     }
                     PropSlider {
@@ -551,7 +551,7 @@ Rectangle {
                     }
                     PropSlider {
                         enabled: root.isMedia && root.sel.hasAudio
-                        label: qsTr("Ganho")
+                        label: qsTr("Gain")
                         from: -24; to: 24; stepSize: 0.5; decimals: 1; suffix: " dB"
                         value: root.isMedia ? root.sel.gainDb : 0
                         onMoved: (v) => root.setProp("gainDb", v)
@@ -563,25 +563,25 @@ Rectangle {
                             id: loudTarget
                             Layout.fillWidth: true
                             focusPolicy: Qt.NoFocus
-                            model: [qsTr("Redes sociais (-14 LUFS)"), qsTr("Podcast (-16 LUFS)"), qsTr("TV/broadcast (-23 LUFS)")]
+                            model: [qsTr("Social media (-14 LUFS)"), qsTr("Podcast (-16 LUFS)"), qsTr("TV/broadcast (-23 LUFS)")]
                             readonly property var values: [-14, -16, -23]
                         }
                         Button {
-                            text: Project.normalizing ? qsTr("Medindo…") : qsTr("Normalizar")
+                            text: Project.normalizing ? qsTr("Measuring…") : qsTr("Normalize")
                             enabled: !Project.normalizing
                             focusPolicy: Qt.NoFocus
                             onClicked: Project.normalizeLoudness(loudTarget.values[loudTarget.currentIndex])
                             ToolTip.visible: hovered
-                            ToolTip.text: qsTr("Mede a loudness (EBU R128) dos clipes selecionados e ajusta o ganho para o alvo")
+                            ToolTip.text: qsTr("Measures the loudness (EBU R128) of the selected clips and adjusts the gain to the target")
                         }
                     }
                     SectionLabel {
                         visible: root.isMedia && root.sel.hasAudio
-                        text: qsTr("Redução de ruído")
+                        text: qsTr("Noise reduction")
                     }
                     PropSlider {
                         visible: root.isMedia && root.sel.hasAudio
-                        label: qsTr("Intensidade")
+                        label: qsTr("Intensity")
                         from: 0; to: 1; stepSize: 0.1; displayScale: 100; decimals: 0; suffix: "%"
                         value: root.isMedia ? root.sel.denoise : 0
                         onMoved: (v) => root.setProp("denoise", v)
@@ -593,10 +593,10 @@ Rectangle {
                         color: root.isMedia && root.sel.denoiseState === "ready" ? Theme.accent : Theme.textFaint
                         font.pixelSize: Theme.fontSmall
                         text: !root.isMedia ? ""
-                              : root.sel.denoiseState === "processing" ? qsTr("Processando… %1%").arg(Math.round(root.sel.denoiseProgress * 100))
-                              : root.sel.denoiseState === "queued" ? qsTr("Na fila…")
-                              : root.sel.denoiseState === "ready" ? qsTr("✓ Áudio limpo em uso (processado localmente)")
-                              : qsTr("Remove chiado, zumbido e ruído de fundo constante. O processamento roda em segundo plano.")
+                              : root.sel.denoiseState === "processing" ? qsTr("Processing… %1%").arg(Math.round(root.sel.denoiseProgress * 100))
+                              : root.sel.denoiseState === "queued" ? qsTr("Queued…")
+                              : root.sel.denoiseState === "ready" ? qsTr("✓ Clean audio in use (processed locally)")
+                              : qsTr("Removes hiss, hum and constant background noise. Processing runs in the background.")
                     }
                     PropSlider {
                         enabled: root.isMedia && root.sel.hasAudio
@@ -618,10 +618,10 @@ Rectangle {
                 ColumnLayout {
                     visible: root.page === "speed" && root.isMedia
                     Layout.fillWidth: true
-                    SectionLabel { text: qsTr("Velocidade") }
+                    SectionLabel { text: qsTr("Speed") }
                     Text {
                         visible: root.isMedia && root.sel.speed <= 0
-                        text: qsTr("Quadro congelado")
+                        text: qsTr("Frozen frame")
                         color: Theme.textDim
                         font.pixelSize: Theme.fontSmall
                     }
@@ -634,7 +634,7 @@ Rectangle {
                         property bool showCurve: curve
                         onCurveChanged: showCurve = curve
                         Repeater {
-                            model: [{ c: false, t: qsTr("Normal") }, { c: true, t: qsTr("Curva") }]
+                            model: [{ c: false, t: qsTr("Normal") }, { c: true, t: qsTr("Curve") }]
                             Rectangle {
                                 required property var modelData
                                 width: modeText.implicitWidth + 22
@@ -664,7 +664,7 @@ Rectangle {
                     // --- Normal ---
                     PropSlider {
                         visible: speedMode.visible && !speedMode.showCurve
-                        label: qsTr("Velocidade")
+                        label: qsTr("Speed")
                         from: 0.1; to: 10; stepSize: 0.05; decimals: 2; suffix: "x"
                         value: root.isMedia ? root.sel.speed : 1
                         onMoved: (v) => Project.setSpeed(root.sel.id, v)
@@ -714,20 +714,20 @@ Rectangle {
                         wrapMode: Text.Wrap
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSmall
-                        text: qsTr("Arraste os pontos; duplo clique adiciona ou remove. Duração: %1 (média %2×)")
+                        text: qsTr("Drag the points; double-click adds or removes one. Duration: %1 (average %2×)")
                               .arg(root.isMedia ? Project.formatTime(root.sel.duration) : "")
                               .arg(root.isMedia ? root.sel.speed.toFixed(2) : "1")
                     }
                     CheckBox {
                         visible: root.isMedia && root.sel.mediaKind === "video" && root.sel.speed > 0
-                        text: qsTr("Reproduzir ao contrário")
+                        text: qsTr("Play in reverse")
                         checked: root.isMedia && root.sel.reverse
                         focusPolicy: Qt.NoFocus
                         onToggled: root.setProp("reverse", checked)
                     }
                     Button {
                         visible: root.isMedia && root.sel.mediaKind === "video"
-                        text: qsTr("❄ Congelar quadro no cursor (Alt+F)")
+                        text: qsTr("❄ Freeze frame at playhead (Alt+F)")
                         focusPolicy: Qt.NoFocus
                         onClicked: Project.freezeFrame()
                     }
@@ -737,38 +737,38 @@ Rectangle {
                 ColumnLayout {
                     visible: root.page === "advanced" && root.isMedia
                     Layout.fillWidth: true
-                    SectionLabel { text: qsTr("Modo de mesclagem") }
+                    SectionLabel { text: qsTr("Blend mode") }
                     ComboBox {
                         Layout.fillWidth: true
                         focusPolicy: Qt.NoFocus
                         readonly property var modes: ["normal", "multiply", "screen", "overlay", "darken", "lighten", "colorDodge", "colorBurn", "softLight", "difference"]
-                        model: [qsTr("Normal"), qsTr("Multiplicar"), qsTr("Tela"), qsTr("Sobrepor"), qsTr("Escurecer"), qsTr("Clarear"), qsTr("Subexposição de cor"), qsTr("Superexposição de cor"), qsTr("Luz suave"), qsTr("Diferença")]
+                        model: [qsTr("Normal"), qsTr("Multiply"), qsTr("Screen"), qsTr("Overlay"), qsTr("Darken"), qsTr("Lighten"), qsTr("Color dodge"), qsTr("Color burn"), qsTr("Soft light"), qsTr("Difference")]
                         currentIndex: root.isMedia ? Math.max(0, modes.indexOf(root.sel.blend)) : 0
                         onActivated: (i) => root.setProp("blend", modes[i])
                     }
-                    SectionLabel { text: qsTr("Chroma key (fundo verde)") }
+                    SectionLabel { text: qsTr("Chroma key (green screen)") }
                     CheckBox {
-                        text: qsTr("Remover cor")
+                        text: qsTr("Remove color")
                         checked: root.isMedia && root.sel.chromaEnabled
                         focusPolicy: Qt.NoFocus
                         onToggled: root.setProp("chromaEnabled", checked)
                     }
                     ColorField {
                         visible: root.isMedia && root.sel.chromaEnabled
-                        label: qsTr("Cor-chave")
+                        label: qsTr("Key color")
                         color: root.isMedia ? root.sel.chromaColor : "#00ff00"
                         onPicked: (c) => root.setProp("chromaColor", c === "" ? "#00ff00" : c)
                     }
                     PropSlider {
                         visible: root.isMedia && root.sel.chromaEnabled
-                        label: qsTr("Intensidade")
+                        label: qsTr("Intensity")
                         from: 0; to: 1; displayScale: 100; decimals: 0
                         value: root.isMedia ? root.sel.chromaSimilarity : 0.3
                         onMoved: (v) => root.setProp("chromaSimilarity", v)
                     }
                     PropSlider {
                         visible: root.isMedia && root.sel.chromaEnabled
-                        label: qsTr("Suavidade")
+                        label: qsTr("Smoothness")
                         from: 0; to: 1; displayScale: 100; decimals: 0
                         value: root.isMedia ? root.sel.chromaSmoothness : 0.1
                         onMoved: (v) => root.setProp("chromaSmoothness", v)
@@ -776,11 +776,11 @@ Rectangle {
 
                     SectionLabel {
                         visible: root.isMedia && root.sel.mediaKind === "video"
-                        text: qsTr("Remover fundo (IA)")
+                        text: qsTr("Remove background (AI)")
                     }
                     CheckBox {
                         visible: root.isMedia && root.sel.mediaKind === "video"
-                        text: qsTr("Recortar pessoas automaticamente")
+                        text: qsTr("Cut out people automatically")
                         checked: root.isMedia && root.sel.removeBackground
                         enabled: root.isMedia && root.sel.matteState !== "unavailable"
                         focusPolicy: Qt.NoFocus
@@ -795,7 +795,7 @@ Rectangle {
                     PillButton {
                         visible: root.isMedia && root.sel.matteState === "needsModel" && Project.downloadingModel !== "rvm"
                         enabled: Project.downloadingModel === ""
-                        text: qsTr("Baixar modelo (15 MB)")
+                        text: qsTr("Download model (15 MB)")
                         iconName: "download"
                         onClicked: Project.downloadModel("rvm")
                     }
@@ -806,13 +806,13 @@ Rectangle {
                         color: root.isMedia && root.sel.matteState === "ready" ? Theme.accent : Theme.textFaint
                         font.pixelSize: Theme.fontSmall
                         text: !root.isMedia ? ""
-                              : root.sel.matteState === "unavailable" ? qsTr("Indisponível nesta versão (compilada sem ONNX Runtime).")
-                              : root.sel.matteState === "needsModel" ? (Project.downloadingModel === "rvm" ? qsTr("Baixando o modelo de recorte…")
-                                                                         : qsTr("Requer o modelo de recorte de pessoas (RobustVideoMatting, GPL-3.0), baixado uma única vez."))
-                              : root.sel.matteState === "processing" ? qsTr("Analisando o vídeo… %1%").arg(Math.round(root.sel.matteProgress * 100))
-                              : root.sel.matteState === "queued" ? qsTr("Na fila…")
-                              : root.sel.matteState === "ready" ? qsTr("✓ Fundo removido (processado localmente)")
-                              : qsTr("Separa pessoas do fundo sem tela verde. Tudo roda no seu computador, em segundo plano.")
+                              : root.sel.matteState === "unavailable" ? qsTr("Not available in this build (compiled without ONNX Runtime).")
+                              : root.sel.matteState === "needsModel" ? (Project.downloadingModel === "rvm" ? qsTr("Downloading the cutout model…")
+                                                                         : qsTr("Requires the people cutout model (RobustVideoMatting, GPL-3.0), downloaded only once."))
+                              : root.sel.matteState === "processing" ? qsTr("Analyzing the video… %1%").arg(Math.round(root.sel.matteProgress * 100))
+                              : root.sel.matteState === "queued" ? qsTr("Queued…")
+                              : root.sel.matteState === "ready" ? qsTr("✓ Background removed (processed locally)")
+                              : qsTr("Separates people from the background without a green screen. Everything runs on your computer, in the background.")
                     }
                 }
 
@@ -825,7 +825,7 @@ Rectangle {
                         wrapMode: Text.Wrap
                         color: Theme.textDim
                         font.pixelSize: Theme.fontSmall
-                        text: qsTr("Escolha animações de entrada e saída na aba \"Animações\" do painel à esquerda.")
+                        text: qsTr("Pick in and out animations in the \"Animations\" tab of the left panel.")
                     }
                 }
             }
@@ -834,8 +834,8 @@ Rectangle {
 
     FileDialog {
         id: lutDialog
-        title: qsTr("Carregar LUT")
-        nameFilters: [qsTr("LUT 3D (*.cube)")]
+        title: qsTr("Load LUT")
+        nameFilters: [qsTr("3D LUT (*.cube)")]
         onAccepted: Project.loadLut(root.sel.id, selectedFile)
     }
 }

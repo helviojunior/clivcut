@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "Captions.h"
 
+#include <QCoreApplication>
+
 #include <QRegularExpression>
 #include <QStringList>
 
@@ -119,7 +121,7 @@ Transform captionTransform()
 
 int addCaptionTrack(Project &p, const std::vector<CaptionSegment> &segments, const QString &name)
 {
-    Track track = createTrack(TrackKind::Text, name.isEmpty() ? QStringLiteral("Legendas") : name);
+    Track track = createTrack(TrackKind::Text, name.isEmpty() ? QCoreApplication::translate("Track", "Captions") : name);
     track.captions = true;
     const Micros minLen = p.frameDuration();
     for (size_t i = 0; i < segments.size(); ++i) {

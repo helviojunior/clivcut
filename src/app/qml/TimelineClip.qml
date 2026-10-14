@@ -153,7 +153,7 @@ Item {
             color: "black"
         }
         ToolTip.visible: trHover.hovered
-        ToolTip.text: qsTr("Transição: %1 (%2 s)").arg(root.clipData.transition).arg((root.clipData.transitionDuration / 1e6).toFixed(1))
+        ToolTip.text: qsTr("Transition: %1 (%2 s)").arg(root.clipData.transition).arg((root.clipData.transitionDuration / 1e6).toFixed(1))
         HoverHandler { id: trHover }
     }
 

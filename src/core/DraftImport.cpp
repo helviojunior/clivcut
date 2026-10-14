@@ -4,6 +4,7 @@
 #include "Edit.h"
 #include "SpeedCurve.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -71,19 +72,18 @@ DraftImportResult importDraftJson(const QByteArray &json, const QString &draftDi
     DraftImportResult r;
     const QByteArray trimmed = json.trimmed();
     if (trimmed.isEmpty() || trimmed.at(0) != '{') {
-        r.error = QStringLiteral("O draft parece estar criptografado (não é JSON em texto). "
-                                 "Este formato não é suportado; exporte o projeto sem criptografia.");
+        r.error = QCoreApplication::translate("Core", "The draft appears to be encrypted (it is not plain-text JSON). This format is not supported; export the project without encryption.");
         return r;
     }
     QJsonParseError pe;
     const auto doc = QJsonDocument::fromJson(json, &pe);
     if (pe.error != QJsonParseError::NoError || !doc.isObject()) {
-        r.error = QStringLiteral("JSON do draft inválido: %1").arg(pe.errorString());
+        r.error = QCoreApplication::translate("Core", "Invalid draft JSON: %1").arg(pe.errorString());
         return r;
     }
     const QJsonObject root = doc.object();
     if (!root.contains(QLatin1String("tracks")) || !root.contains(QLatin1String("materials"))) {
-        r.error = QStringLiteral("O arquivo não parece ser um draft JSON (faltam tracks/materials).");
+        r.error = QCoreApplication::translate("Core", "The file does not look like a draft JSON (tracks/materials are missing).");
         return r;
     }
 
@@ -139,7 +139,7 @@ DraftImportResult importDraftJson(const QByteArray &json, const QString &draftDi
                 a.duration = 0;
         }
         if (!a.path.isEmpty() && !QFileInfo::exists(a.path))
-            r.warnings << QStringLiteral("Mídia não encontrada (será preciso reconectar): %1").arg(a.path);
+            r.warnings << QCoreApplication::translate("Core", "Media not found (it will need to be relinked): %1").arg(a.path);
         p.assets.emplace(id, a);
         return id;
     };
@@ -156,7 +156,7 @@ DraftImportResult importDraftJson(const QByteArray &json, const QString &draftDi
         else if (type == QLatin1String("text"))
             track = createTrack(TrackKind::Text);
         else {
-            r.warnings << QStringLiteral("Faixa do tipo \"%1\" ignorada (efeitos/stickers proprietários não são suportados).")
+            r.warnings << QCoreApplication::translate("Core", "Track of type \"%1\" ignored (proprietary effects/stickers are not supported).")
                               .arg(type);
             continue;
         }
@@ -167,7 +167,7 @@ DraftImportResult importDraftJson(const QByteArray &json, const QString &draftDi
             const auto so = sv.toObject();
             const auto mit = index.find(so.value("material_id").toString());
             if (mit == index.end()) {
-                r.warnings << QStringLiteral("Segmento %1 sem material; ignorado.").arg(so.value("id").toString());
+                r.warnings << QCoreApplication::translate("Core", "Segment %1 has no material; ignored.").arg(so.value("id").toString());
                 continue;
             }
             const MaterialRef &mat = mit->second;
@@ -223,7 +223,7 @@ DraftImportResult importDraftJson(const QByteArray &json, const QString &draftDi
                 c.reverse = so.value("reverse").toBool();
                 c.volume = so.value("volume").toDouble(1);
             } else {
-                r.warnings << QStringLiteral("Material \"%1\" não suportado; segmento ignorado.").arg(mat.category);
+                r.warnings << QCoreApplication::translate("Core", "Unsupported material \"%1\"; segment ignored.").arg(mat.category);
                 continue;
             }
 
@@ -241,7 +241,7 @@ DraftImportResult importDraftJson(const QByteArray &json, const QString &draftDi
                 c.transform.flipH = flip.value("horizontal").toBool();
                 c.transform.flipV = flip.value("vertical").toBool();
                 if (std::abs(sc.value("x").toDouble(1) - sc.value("y").toDouble(1)) > 1e-6)
-                    r.warnings << QStringLiteral("Escala não uniforme simplificada para uniforme no clipe %1.").arg(c.id);
+                    r.warnings << QCoreApplication::translate("Core", "Non-uniform scale simplified to uniform in clip %1.").arg(c.id);
             }
 
             // Keyframes (modelo atual: common_keyframes).
@@ -363,14 +363,14 @@ DraftImportResult importDraft(const QString &path)
         }
         if (file.isEmpty()) {
             DraftImportResult r;
-            r.error = QStringLiteral("A pasta não contém draft_content.json nem draft_info.json.");
+            r.error = QCoreApplication::translate("Core", "The folder contains neither draft_content.json nor draft_info.json.");
             return r;
         }
     }
     QFile f(file);
     if (!f.open(QIODevice::ReadOnly)) {
         DraftImportResult r;
-        r.error = QStringLiteral("Não foi possível abrir %1: %2").arg(file, f.errorString());
+        r.error = QCoreApplication::translate("Core", "Could not open %1: %2").arg(file, f.errorString());
         return r;
     }
     return importDraftJson(f.readAll(), dir);

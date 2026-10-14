@@ -72,8 +72,12 @@ class ProjectController : public QObject {
     Q_PROPERTY(bool transcribing READ transcribing NOTIFY transcribeChanged)
     Q_PROPERTY(double transcribeProgress READ transcribeProgress NOTIFY transcribeChanged)
     Q_PROPERTY(QVariantList audioTracks READ audioTracks NOTIFY projectChanged)
-    Q_PROPERTY(QVariantList filters READ filters CONSTANT)
-    Q_PROPERTY(QVariantList speedPresets READ speedPresets CONSTANT)
+    Q_PROPERTY(QVariantList filters READ filters NOTIFY languageChanged)
+    Q_PROPERTY(QVariantList speedPresets READ speedPresets NOTIFY languageChanged)
+    /// Idioma escolhido ("" = do sistema) e o efetivamente em uso.
+    Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
+    Q_PROPERTY(QString activeLanguage READ activeLanguage NOTIFY languageChanged)
+    Q_PROPERTY(QVariantList languages READ languages CONSTANT)
     /// Aba inicial do inspetor para capturas automáticas (CLIVCUT_SCREENSHOT_PAGE).
     Q_PROPERTY(QString screenshotPage READ screenshotPage CONSTANT)
     Q_PROPERTY(bool useProxies READ useProxies WRITE setUseProxies NOTIFY proxiesChanged)
@@ -91,6 +95,11 @@ public:
     static ProjectController *instance();
     /// Fábrica do singleton QML: devolve a instância criada em main().
     static ProjectController *create(QQmlEngine *, QJSEngine *);
+
+    QString language() const;
+    void setLanguage(const QString &code);
+    QString activeLanguage() const;
+    QVariantList languages() const;
 
     /// Cópia imutável do projeto para outras threads (render, áudio).
     std::shared_ptr<const clv::Project> snapshot() const;
@@ -283,6 +292,7 @@ signals:
     void proxiesChanged();
     void clipboardChanged();
     void audioJobsChanged();
+    void languageChanged();
     void recentProjectsChanged();
 
 private:
@@ -345,6 +355,7 @@ private:
     QString m_denoiseBuilding;
     double m_denoiseProgress = 0;
     std::shared_ptr<std::atomic<bool>> m_denoiseCancel = std::make_shared<std::atomic<bool>>(false);
+    QQmlEngine *m_engine = nullptr; ///< para retraduzir a interface ao trocar o idioma
     QStringList m_matteQueue;       ///< mídias aguardando remoção de fundo
     QString m_matteBuilding;
     double m_matteProgress = 0;

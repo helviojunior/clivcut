@@ -29,7 +29,7 @@ Rectangle {
             Layout.bottomMargin: 4
             Text {
                 Layout.fillWidth: true
-                text: [qsTr("Mídia"), qsTr("Texto"), qsTr("Legendas"), qsTr("Filtros"), qsTr("Transições"), qsTr("Animações")][root.section]
+                text: [qsTr("Media"), qsTr("Text"), qsTr("Captions"), qsTr("Filters"), qsTr("Transitions"), qsTr("Animations")][root.section]
                 color: Theme.text
                 font.pixelSize: Theme.fontLarge
                 font.bold: true
@@ -37,7 +37,7 @@ Rectangle {
             IconButton {
                 visible: root.section === 0
                 iconName: "plus"
-                tip: qsTr("Importar mídia")
+                tip: qsTr("Import media")
                 shortcut: "Ctrl+I"
                 onClicked: root.importRequested()
             }
@@ -76,7 +76,7 @@ Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
                             spacing: 6
                             Icon { name: "plus"; size: 16; color: Theme.accent }
-                            Text { text: qsTr("Importar mídia"); color: Theme.text; font.pixelSize: Theme.fontNormal; font.bold: true }
+                            Text { text: qsTr("Import media"); color: Theme.text; font.pixelSize: Theme.fontNormal; font.bold: true }
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -84,7 +84,7 @@ Rectangle {
                             width: 200
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.Wrap
-                            text: qsTr("ou arraste vídeos, áudios e imagens para a janela")
+                            text: qsTr("or drag videos, audio and images into the window")
                             color: Theme.textFaint
                             font.pixelSize: Theme.fontSmall
                         }
@@ -202,8 +202,8 @@ Rectangle {
                                     font.bold: true
                                 }
                                 ToolTip.visible: proxyHover.hovered
-                                ToolTip.text: tile.modelData.proxyState === "ready" ? qsTr("Proxy pronto: reprodução leve")
-                                                                                   : qsTr("Proxy na fila")
+                                ToolTip.text: tile.modelData.proxyState === "ready" ? qsTr("Proxy ready: lightweight playback")
+                                                                                   : qsTr("Proxy queued")
                                 HoverHandler { id: proxyHover }
                             }
                             ProgressBar {
@@ -214,7 +214,7 @@ Rectangle {
                                 anchors.margins: 4
                                 value: tile.modelData.proxyProgress
                                 ToolTip.visible: visible && barHover.hovered
-                                ToolTip.text: qsTr("Gerando proxy… %1%").arg(Math.round(value * 100))
+                                ToolTip.text: qsTr("Generating proxy… %1%").arg(Math.round(value * 100))
                                 HoverHandler { id: barHover }
                             }
                             Text {
@@ -253,19 +253,19 @@ Rectangle {
                         Menu {
                             id: tileMenu
                             MenuItem {
-                                text: qsTr("Adicionar à timeline")
+                                text: qsTr("Add to timeline")
                                 enabled: !tile.modelData.missing
                                 onTriggered: Project.addAssetToTimeline(tile.modelData.id, -1, -1)
                             }
                             MenuItem {
-                                text: tile.modelData.proxyState === "ready" ? qsTr("Proxy pronto") : qsTr("Gerar proxy")
+                                text: tile.modelData.proxyState === "ready" ? qsTr("Proxy ready") : qsTr("Generate proxy")
                                 visible: tile.modelData.kind === "video"
                                 height: visible ? implicitHeight : 0
                                 enabled: tile.modelData.proxyState === "none" && !tile.modelData.missing
                                 onTriggered: Project.generateProxy(tile.modelData.id)
                             }
                             MenuItem {
-                                text: qsTr("Reconectar mídia…")
+                                text: qsTr("Relink media…")
                                 onTriggered: root.relinkRequested(tile.modelData.id)
                             }
                         }
@@ -307,14 +307,14 @@ Rectangle {
                     x: 10
                     y: 10
                     width: parent.width - 20
-                    SectionLabel { text: qsTr("Adicionar texto") }
+                    SectionLabel { text: qsTr("Add text") }
                     Flow {
                         Layout.fillWidth: true
                         spacing: 8
-                        TileButton { glyph: "Aa"; caption: qsTr("Texto padrão"); onClicked: Project.addText("", "") }
-                        TileButton { glyph: "T"; caption: qsTr("Título"); tint: "#3a2a55"; onClicked: Project.addText("", "title") }
-                        TileButton { glyph: "▭"; caption: qsTr("Legenda"); tint: "#202024"; onClicked: Project.addText("", "subtitle") }
-                        TileButton { glyph: "★"; caption: qsTr("Destaque"); tint: "#4d4310"; onClicked: Project.addText("", "highlight") }
+                        TileButton { glyph: "Aa"; caption: qsTr("Default text"); onClicked: Project.addText("", "") }
+                        TileButton { glyph: "T"; caption: qsTr("Title"); tint: "#3a2a55"; onClicked: Project.addText("", "title") }
+                        TileButton { glyph: "▭"; caption: qsTr("Subtitle"); tint: "#202024"; onClicked: Project.addText("", "subtitle") }
+                        TileButton { glyph: "★"; caption: qsTr("Highlight"); tint: "#4d4310"; onClicked: Project.addText("", "highlight") }
                     }
                     Text {
                         Layout.fillWidth: true
@@ -322,7 +322,7 @@ Rectangle {
                         wrapMode: Text.Wrap
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSmall
-                        text: qsTr("O texto entra no cursor da timeline, numa faixa de texto. Edite o conteúdo e o estilo no painel à direita.")
+                        text: qsTr("Text is added at the timeline playhead, on a text track. Edit the content and style in the right panel.")
                     }
                 }
             }
@@ -342,14 +342,14 @@ Rectangle {
                     x: 10
                     y: 10
                     width: parent.width - 20
-                    SectionLabel { text: qsTr("Transição de entrada do clipe selecionado") }
+                    SectionLabel { text: qsTr("In transition of the selected clip") }
                     Text {
                         Layout.fillWidth: true
                         visible: !root.hasSel || root.sel.type !== "media"
                         wrapMode: Text.Wrap
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSmall
-                        text: qsTr("Selecione um clipe que venha logo depois de outro na mesma faixa.")
+                        text: qsTr("Select a clip that comes right after another on the same track.")
                     }
                     Flow {
                         Layout.fillWidth: true
@@ -358,14 +358,14 @@ Rectangle {
                         opacity: enabled ? 1 : 0.4
                         Repeater {
                             model: [
-                                { kind: "none", glyph: "∅", name: qsTr("Nenhuma") },
-                                { kind: "dissolve", glyph: "◐", name: qsTr("Dissolver") },
-                                { kind: "fadeBlack", glyph: "■", name: qsTr("Escurecer") },
-                                { kind: "wipeLeft", glyph: "⇥", name: qsTr("Cortina →") },
-                                { kind: "wipeRight", glyph: "⇤", name: qsTr("Cortina ←") },
-                                { kind: "slideLeft", glyph: "⇠", name: qsTr("Deslizar ←") },
-                                { kind: "slideRight", glyph: "⇢", name: qsTr("Deslizar →") },
-                                { kind: "circleOpen", glyph: "◎", name: qsTr("Círculo") },
+                                { kind: "none", glyph: "∅", name: qsTr("None", "transition, mask or animation") },
+                                { kind: "dissolve", glyph: "◐", name: qsTr("Dissolve") },
+                                { kind: "fadeBlack", glyph: "■", name: qsTr("Darken") },
+                                { kind: "wipeLeft", glyph: "⇥", name: qsTr("Wipe →") },
+                                { kind: "wipeRight", glyph: "⇤", name: qsTr("Wipe ←") },
+                                { kind: "slideLeft", glyph: "⇠", name: qsTr("Slide ←") },
+                                { kind: "slideRight", glyph: "⇢", name: qsTr("Slide →") },
+                                { kind: "circleOpen", glyph: "◎", name: qsTr("Circle") },
                                 { kind: "zoomIn", glyph: "⤢", name: qsTr("Zoom") }
                             ]
                             TileButton {
@@ -379,7 +379,7 @@ Rectangle {
                     }
                     PropSlider {
                         visible: root.hasSel && root.sel.transition !== undefined && root.sel.transition !== ""
-                        label: qsTr("Duração")
+                        label: qsTr("Duration")
                         from: 0.1
                         to: 3
                         stepSize: 0.1
@@ -406,10 +406,10 @@ Rectangle {
                         wrapMode: Text.Wrap
                         color: Theme.textFaint
                         font.pixelSize: Theme.fontSmall
-                        text: qsTr("Selecione um clipe para aplicar animações de entrada e saída.")
+                        text: qsTr("Select a clip to apply in and out animations.")
                     }
                     Repeater {
-                        model: [{ isIn: true, title: qsTr("Entrada") }, { isIn: false, title: qsTr("Saída") }]
+                        model: [{ isIn: true, title: qsTr("In") }, { isIn: false, title: qsTr("Out") }]
                         ColumnLayout {
                             id: animGroup
                             required property var modelData
@@ -424,13 +424,13 @@ Rectangle {
                                 spacing: 8
                                 Repeater {
                                     model: [
-                                        { kind: "none", glyph: "∅", name: qsTr("Nenhuma") },
-                                        { kind: "fade", glyph: "◐", name: qsTr("Esmaecer") },
+                                        { kind: "none", glyph: "∅", name: qsTr("None", "transition, mask or animation") },
+                                        { kind: "fade", glyph: "◐", name: qsTr("Fade") },
                                         { kind: "zoom", glyph: "⤢", name: qsTr("Zoom") },
-                                        { kind: "slideUp", glyph: "↑", name: qsTr("Subir") },
-                                        { kind: "slideDown", glyph: "↓", name: qsTr("Descer") },
-                                        { kind: "slideLeft", glyph: "←", name: qsTr("Esquerda") },
-                                        { kind: "slideRight", glyph: "→", name: qsTr("Direita") }
+                                        { kind: "slideUp", glyph: "↑", name: qsTr("Rise") },
+                                        { kind: "slideDown", glyph: "↓", name: qsTr("Drop") },
+                                        { kind: "slideLeft", glyph: "←", name: qsTr("Left") },
+                                        { kind: "slideRight", glyph: "→", name: qsTr("Right") }
                                     ]
                                     TileButton {
                                         required property var modelData
@@ -443,7 +443,7 @@ Rectangle {
                             }
                             PropSlider {
                                 visible: animGroup.current !== "none"
-                                label: qsTr("Duração")
+                                label: qsTr("Duration")
                                 from: 0.1
                                 to: 3
                                 stepSize: 0.1

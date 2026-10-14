@@ -54,15 +54,35 @@ ToolBar {
             }
             Menu {
                 id: fileMenu
-                MenuItem { text: qsTr("Início"); onTriggered: root.homeRequested() }
+                MenuItem { text: qsTr("Home"); onTriggered: root.homeRequested() }
                 MenuSeparator {}
-                MenuItem { text: qsTr("Novo projeto…\tCtrl+N"); onTriggered: root.newRequested() }
-                MenuItem { text: qsTr("Abrir…\tCtrl+O"); onTriggered: root.openRequested() }
-                MenuItem { text: qsTr("Salvar\tCtrl+S"); onTriggered: root.saveRequested() }
-                MenuItem { text: qsTr("Salvar como…\tCtrl+Shift+S"); onTriggered: root.saveAsRequested() }
+                MenuItem { text: qsTr("New project…\tCtrl+N"); onTriggered: root.newRequested() }
+                MenuItem { text: qsTr("Open…\tCtrl+O"); onTriggered: root.openRequested() }
+                MenuItem { text: qsTr("Save\tCtrl+S"); onTriggered: root.saveRequested() }
+                MenuItem { text: qsTr("Save as…\tCtrl+Shift+S"); onTriggered: root.saveAsRequested() }
                 MenuSeparator {}
-                MenuItem { text: qsTr("Importar draft JSON…"); onTriggered: root.importDraftRequested() }
-                MenuItem { text: qsTr("Exportar vídeo…\tCtrl+E"); onTriggered: root.exportRequested() }
+                MenuItem { text: qsTr("Import draft JSON…"); onTriggered: root.importDraftRequested() }
+                MenuItem { text: qsTr("Export video…\tCtrl+E"); onTriggered: root.exportRequested() }
+                MenuSeparator {}
+                Menu {
+                    title: qsTr("Language")
+                    MenuItem {
+                        text: qsTr("System default")
+                        checkable: true
+                        checked: Project.language === ""
+                        onTriggered: Project.language = ""
+                    }
+                    Repeater {
+                        model: Project.languages
+                        MenuItem {
+                            required property var modelData
+                            text: modelData.name
+                            checkable: true
+                            checked: Project.language === modelData.code
+                            onTriggered: Project.language = modelData.code
+                        }
+                    }
+                }
             }
         }
 
@@ -92,7 +112,7 @@ ToolBar {
             radius: 4
             color: Project.modified ? Theme.warning : Theme.success
             ToolTip.visible: statusHover.hovered
-            ToolTip.text: Project.modified ? qsTr("Alterações não salvas (cópia de recuperação ativa)") : qsTr("Tudo salvo")
+            ToolTip.text: Project.modified ? qsTr("Unsaved changes (recovery copy active)") : qsTr("All saved")
             HoverHandler { id: statusHover }
         }
 
@@ -118,7 +138,7 @@ ToolBar {
                 Icon { name: "search"; size: 15; color: Theme.textFaint }
                 Text {
                     Layout.fillWidth: true
-                    text: qsTr("Buscar ações…")
+                    text: qsTr("Search actions…")
                     color: Theme.textFaint
                     font.pixelSize: Theme.fontNormal
                 }
@@ -137,14 +157,14 @@ ToolBar {
 
         IconButton {
             iconName: "undo-2"
-            tip: Project.canUndo ? qsTr("Desfazer: %1").arg(Project.undoText) : qsTr("Desfazer")
+            tip: Project.canUndo ? qsTr("Undo: %1").arg(Project.undoText) : qsTr("Undo")
             shortcut: "Ctrl+Z"
             enabled: Project.canUndo
             onClicked: Project.undo()
         }
         IconButton {
             iconName: "redo-2"
-            tip: Project.canRedo ? qsTr("Refazer: %1").arg(Project.redoText) : qsTr("Refazer")
+            tip: Project.canRedo ? qsTr("Redo: %1").arg(Project.redoText) : qsTr("Redo")
             shortcut: "Ctrl+Shift+Z"
             enabled: Project.canRedo
             onClicked: Project.redo()
@@ -159,7 +179,7 @@ ToolBar {
                 Icon { anchors.verticalCenter: parent.verticalCenter; name: "upload"; size: 16; color: Theme.accentInk }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: Project.exporting ? qsTr("Exportando %1%").arg(Math.round(Project.exportProgress * 100)) : qsTr("Exportar")
+                    text: Project.exporting ? qsTr("Exporting %1%").arg(Math.round(Project.exportProgress * 100)) : qsTr("Export")
                     color: Theme.accentInk
                     font.pixelSize: Theme.fontNormal
                     font.bold: true

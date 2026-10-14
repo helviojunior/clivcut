@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ImageProviders.h"
+#include "Language.h"
 #include "ProjectController.h"
 #include "media/FFmpegUtil.h"
 
@@ -33,11 +34,12 @@ int main(int argc, char **argv)
     QGuiApplication::setDesktopFileName(QStringLiteral("io.github.clivcut"));
     QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/qt/qml/Clivcut/icons/clivcut.svg")));
     QQuickStyle::setStyle(QStringLiteral("Basic"));
+    clv::app::installLanguage(clv::app::savedLanguage());
 
     QCommandLineParser cli;
     cli.addHelpOption();
     cli.addVersionOption();
-    cli.addPositionalArgument(QStringLiteral("projeto"), QStringLiteral("Projeto .clivcut, pasta de draft JSON ou mídias"));
+    cli.addPositionalArgument(QStringLiteral("project"), QStringLiteral(".clivcut project, draft JSON folder or media files"));
     cli.process(app);
 
     ProjectController controller(nullptr);

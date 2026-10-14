@@ -24,7 +24,7 @@ AudioOutput::AudioOutput()
 {
     m_ring.resize(static_cast<size_t>(kRingFrames) * kChannels);
     if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
-        qWarning() << "Áudio indisponível:" << SDL_GetError();
+        qWarning() << "Audio unavailable:" << SDL_GetError();
         return;
     }
     SDL_AudioSpec want{};
@@ -37,7 +37,7 @@ AudioOutput::AudioOutput()
     SDL_AudioSpec have{};
     m_device = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
     if (m_device == 0) {
-        qWarning() << "Não foi possível abrir o dispositivo de áudio:" << SDL_GetError();
+        qWarning() << "Could not open the audio device:" << SDL_GetError();
         return;
     }
     m_deviceLatencyFrames = have.samples;

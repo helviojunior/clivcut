@@ -6,6 +6,7 @@
 #include "media/MediaProbe.h"
 #include "media/VideoDecoder.h"
 
+#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -63,15 +64,15 @@ bool generateMatte(const QString &mediaPath, const QString &modelPath, const QSt
     (void)modelPath;
     (void)outPath;
     (void)progress;
-    return fail(QStringLiteral("Este build foi compilado sem ONNX Runtime"));
+    return fail(QCoreApplication::translate("Engine", "This build was compiled without ONNX Runtime"));
 #else
     if (!QFileInfo::exists(modelPath))
-        return fail(QStringLiteral("Modelo de recorte não encontrado: %1").arg(modelPath));
+        return fail(QCoreApplication::translate("Engine", "Cutout model not found: %1").arg(modelPath));
     MediaAsset info;
     if (!media::probe(mediaPath, info, error))
         return false;
     if (info.kind == MediaKind::Audio)
-        return fail(QStringLiteral("Remoção de fundo só se aplica a vídeos e imagens"));
+        return fail(QCoreApplication::translate("Engine", "Background removal only applies to videos and images"));
 
     media::VideoDecoder dec;
     if (!dec.open(mediaPath, QSize(kMatteMaxSide, kMatteMaxSide), error, true))
@@ -162,11 +163,11 @@ bool generateMatte(const QString &mediaPath, const QString &modelPath, const QSt
             for (int r = 1; r <= 4; ++r)
                 rec.push_back(std::move(outputs[r]));
             if (!enc.writeVideo(matte))
-                return fail(QStringLiteral("Falha ao gravar o matte"));
+                return fail(QCoreApplication::translate("Engine", "Failed to write the matte"));
             if (progress && !progress(static_cast<double>(i + 1) / total)) {
                 enc.finish();
                 QFile::remove(tmp);
-                return fail(QStringLiteral("Remoção de fundo cancelada"));
+                return fail(QCoreApplication::translate("Engine", "Background removal cancelled"));
             }
         }
         if (!enc.finish(&err)) {
@@ -175,10 +176,10 @@ bool generateMatte(const QString &mediaPath, const QString &modelPath, const QSt
         }
         QFile::remove(outPath);
         if (!QFile::rename(tmp, outPath))
-            return fail(QStringLiteral("Não foi possível gravar %1").arg(outPath));
+            return fail(QCoreApplication::translate("Engine", "Could not write %1").arg(outPath));
         return true;
     } catch (const Ort::Exception &e) {
-        return fail(QStringLiteral("Erro no modelo de IA: %1").arg(QString::fromUtf8(e.what())));
+        return fail(QCoreApplication::translate("Engine", "AI model error: %1").arg(QString::fromUtf8(e.what())));
     }
 #endif
 }

@@ -47,19 +47,19 @@ Flickable {
             wrapMode: Text.Wrap
             color: Theme.textFaint
             font.pixelSize: Theme.fontSmall
-            text: root.hasTarget ? qsTr("Clique para aplicar ao clipe selecionado. Use + para criar um clipe de filtro, que afeta tudo abaixo dele na timeline.")
-                                 : qsTr("Sem clipe selecionado: o filtro entra como clipe na faixa de filtros, a partir do cursor, e afeta tudo abaixo.")
+            text: root.hasTarget ? qsTr("Click to apply to the selected clip. Use + to create a filter clip that affects everything below it on the timeline.")
+                                 : qsTr("No clip selected: the filter is added as a clip on the filter track, starting at the playhead, and affects everything below.")
         }
 
         RowLayout {
             Layout.fillWidth: true
             Button {
                 Layout.fillWidth: true
-                text: qsTr("+ Camada de ajuste")
+                text: qsTr("+ Adjustment layer")
                 focusPolicy: Qt.NoFocus
                 onClicked: Project.addFilterClip("")
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Clipe de ajuste de cor (brilho, contraste, LUT…) aplicado a tudo abaixo")
+                ToolTip.text: qsTr("Color adjustment clip (brightness, contrast, LUT…) applied to everything below")
             }
         }
 
@@ -68,12 +68,12 @@ Flickable {
             visible: root.hasTarget && root.currentFilter !== ""
             Layout.fillWidth: true
             SectionLabel {
-                text: qsTr("Filtro: %1").arg(root.hasTarget ? root.sel.filterName : "")
-                actionText: qsTr("Remover")
+                text: qsTr("Filter: %1").arg(root.hasTarget ? root.sel.filterName : "")
+                actionText: qsTr("Remove")
                 onActionClicked: Project.applyFilter(root.sel.id, "")
             }
             PropSlider {
-                label: qsTr("Intensidade")
+                label: qsTr("Intensity")
                 from: 0; to: 1; displayScale: 100; decimals: 0; suffix: "%"
                 value: root.hasTarget ? root.sel.filterIntensity : 0.8
                 onMoved: (v) => Project.setClipProperty(root.sel.id, "filterIntensity", v)
@@ -81,12 +81,12 @@ Flickable {
         }
 
         Repeater {
-            model: ["Cor", "Cinema", "Retrô", "P&B"]
+            model: ["color", "cinema", "retro", "bw"]
             ColumnLayout {
                 id: group
                 required property string modelData
                 Layout.fillWidth: true
-                SectionLabel { text: group.modelData === "Cor" ? qsTr("Cor") : group.modelData === "Retrô" ? qsTr("Retrô") : group.modelData === "P&B" ? qsTr("Preto e branco") : qsTr("Cinema") }
+                SectionLabel { text: group.modelData === "color" ? qsTr("Color") : group.modelData === "retro" ? qsTr("Retro") : group.modelData === "bw" ? qsTr("Black & white") : qsTr("Cinema") }
                 Flow {
                     Layout.fillWidth: true
                     spacing: 6
@@ -143,7 +143,7 @@ Flickable {
                                         onClicked: Project.addFilterClip(tile.modelData.id)
                                     }
                                     ToolTip.visible: plusHover.hovered
-                                    ToolTip.text: qsTr("Adicionar como clipe de filtro")
+                                    ToolTip.text: qsTr("Add as filter clip")
                                     HoverHandler { id: plusHover }
                                 }
                             }

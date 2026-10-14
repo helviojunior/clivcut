@@ -8,6 +8,7 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
+#include <QCoreApplication>
 #include <QThread>
 
 #include <cstring>
@@ -69,7 +70,7 @@ bool Encoder::open(const QString &path, const EncodeSettings &s, QString *error)
     AVFormatContext *oc = nullptr;
     int err = avformat_alloc_output_context2(&oc, nullptr, nullptr, path.toUtf8().constData());
     if (err < 0 || !oc)
-        return fail(QStringLiteral("Formato de saída não suportado: %1").arg(avError(err)));
+        return fail(QCoreApplication::translate("Media", "Unsupported output format: %1").arg(avError(err)));
     m_out = oc;
 
     // --- vídeo ---
@@ -82,7 +83,7 @@ bool Encoder::open(const QString &path, const EncodeSettings &s, QString *error)
         }
     }
     if (!vcodec)
-        return fail(QStringLiteral("Nenhum encoder disponível para o codec escolhido neste FFmpeg"));
+        return fail(QCoreApplication::translate("Media", "No encoder available for the chosen codec in this FFmpeg"));
     m_codecName = QString::fromLatin1(vcodec->name);
     m_vst = avformat_new_stream(oc, nullptr);
     m_venc.reset(avcodec_alloc_context3(vcodec));
@@ -121,7 +122,7 @@ bool Encoder::open(const QString &path, const EncodeSettings &s, QString *error)
         av_opt_set(v->priv_data, "tag", "hvc1", 0);
     err = avcodec_open2(v, vcodec, nullptr);
     if (err < 0)
-        return fail(QStringLiteral("Falha ao abrir o encoder %1: %2").arg(m_codecName, avError(err)));
+        return fail(QCoreApplication::translate("Media", "Failed to open encoder %1: %2").arg(m_codecName, avError(err)));
     avcodec_parameters_from_context(m_vst->codecpar, v);
     m_vst->time_base = v->time_base;
     m_vst->avg_frame_rate = fr;
@@ -152,7 +153,7 @@ bool Encoder::open(const QString &path, const EncodeSettings &s, QString *error)
                 a->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
             err = avcodec_open2(a, acodec, nullptr);
             if (err < 0)
-                return fail(QStringLiteral("Falha ao abrir o encoder de áudio: %1").arg(avError(err)));
+                return fail(QCoreApplication::translate("Media", "Failed to open the audio encoder: %1").arg(avError(err)));
             avcodec_parameters_from_context(m_ast->codecpar, a);
             m_ast->time_base = a->time_base;
             m_aframe.reset(av_frame_alloc());
@@ -167,7 +168,7 @@ bool Encoder::open(const QString &path, const EncodeSettings &s, QString *error)
     if (!(oc->oformat->flags & AVFMT_NOFILE)) {
         err = avio_open(&oc->pb, path.toUtf8().constData(), AVIO_FLAG_WRITE);
         if (err < 0)
-            return fail(QStringLiteral("Não foi possível criar %1: %2").arg(path, avError(err)));
+            return fail(QCoreApplication::translate("Media", "Could not create %1: %2").arg(path, avError(err)));
     }
     AVDictionary *opts = nullptr;
     if (path.endsWith(QLatin1String(".mp4"), Qt::CaseInsensitive) || path.endsWith(QLatin1String(".mov"), Qt::CaseInsensitive))
@@ -175,7 +176,7 @@ bool Encoder::open(const QString &path, const EncodeSettings &s, QString *error)
     err = avformat_write_header(oc, &opts);
     av_dict_free(&opts);
     if (err < 0)
-        return fail(QStringLiteral("Falha ao escrever cabeçalho: %1").arg(avError(err)));
+        return fail(QCoreApplication::translate("Media", "Failed to write header: %1").arg(avError(err)));
     m_headerWritten = true;
     m_pkt.reset(av_packet_alloc());
     return true;
@@ -265,7 +266,7 @@ bool Encoder::finish(QString *error)
     const int err = av_write_trailer(m_out);
     if (err < 0 || !ok) {
         if (error)
-            *error = QStringLiteral("Falha ao finalizar o arquivo: %1").arg(avError(err));
+            *error = QCoreApplication::translate("Media", "Failed to finalize the file: %1").arg(avError(err));
         return false;
     }
     return true;

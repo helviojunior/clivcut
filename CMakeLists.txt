@@ -26,7 +26,7 @@ if(Qt6_VERSION VERSION_GREATER_EQUAL 6.9)
     find_package(Qt6 REQUIRED COMPONENTS GuiPrivate)
 endif()
 if(CLIVCUT_BUILD_APP)
-    find_package(Qt6 6.7 REQUIRED COMPONENTS Quick QuickControls2 Concurrent Network Svg)
+    find_package(Qt6 6.7 REQUIRED COMPONENTS Quick QuickControls2 Concurrent Network Svg LinguistTools)
 endif()
 qt_standard_project_setup(REQUIRES 6.7)
 

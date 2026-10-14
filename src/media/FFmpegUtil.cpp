@@ -6,6 +6,7 @@ extern "C" {
 #include <libavutil/pixdesc.h>
 }
 
+#include <QCoreApplication>
 #include <QMutex>
 #include <QThread>
 
@@ -25,14 +26,14 @@ FormatCtxPtr openInput(const QString &path, QString *error)
     int err = avformat_open_input(&raw, path.toUtf8().constData(), nullptr, nullptr);
     if (err < 0) {
         if (error)
-            *error = QStringLiteral("Não foi possível abrir %1: %2").arg(path, avError(err));
+            *error = QCoreApplication::translate("Media", "Could not open %1: %2").arg(path, avError(err));
         return {};
     }
     FormatCtxPtr ctx(raw);
     err = avformat_find_stream_info(ctx.get(), nullptr);
     if (err < 0) {
         if (error)
-            *error = QStringLiteral("Falha ao ler streams: %1").arg(avError(err));
+            *error = QCoreApplication::translate("Media", "Failed to read streams: %1").arg(avError(err));
         return {};
     }
     return ctx;
@@ -43,7 +44,7 @@ CodecCtxPtr openDecoder(AVStream *stream, QString *error)
     const AVCodec *codec = avcodec_find_decoder(stream->codecpar->codec_id);
     if (!codec) {
         if (error)
-            *error = QStringLiteral("Codec não suportado: %1").arg(QString::fromLatin1(avcodec_get_name(stream->codecpar->codec_id)));
+            *error = QCoreApplication::translate("Media", "Unsupported codec: %1").arg(QString::fromLatin1(avcodec_get_name(stream->codecpar->codec_id)));
         return {};
     }
     CodecCtxPtr ctx(avcodec_alloc_context3(codec));
@@ -54,7 +55,7 @@ CodecCtxPtr openDecoder(AVStream *stream, QString *error)
     const int err = avcodec_open2(ctx.get(), codec, nullptr);
     if (err < 0) {
         if (error)
-            *error = QStringLiteral("Falha ao abrir decodificador: %1").arg(avError(err));
+            *error = QCoreApplication::translate("Media", "Failed to open decoder: %1").arg(avError(err));
         return {};
     }
     return ctx;

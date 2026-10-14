@@ -31,6 +31,7 @@
 | 23 | Export | 🟡 | hardware encoding (VA-API/NVENC), audio-only, single frame and alpha video (ProRes 4444 / WebM VP9) missing |
 | 24 | Proxies and render cache | 🟡 | automatic proxies and hardware decoding done; render cache for heavy sections missing |
 | 25 | Customizable shortcuts | 🟡 | fixed shortcuts |
+| 26 | Interface languages | ✅ | English (source), Português (Brasil) and Español; live switching |
 
 ## Phase 2
 

@@ -7,6 +7,7 @@
 #include "render/Compositor.h"
 #include "render/OffscreenRhi.h"
 
+#include <QCoreApplication>
 #include <QFile>
 
 #include <cmath>
@@ -35,7 +36,7 @@ bool Exporter::run(const Project &p, ExportOptions opts, const Progress &progres
     const Micros end = opts.rangeEnd < 0 ? p.duration() : std::min(opts.rangeEnd, p.duration());
     const Micros start = std::clamp<Micros>(opts.rangeStart, 0, end);
     if (end <= start)
-        return fail(QStringLiteral("Nada para exportar: a timeline está vazia"));
+        return fail(QCoreApplication::translate("Engine", "Nothing to export: the timeline is empty"));
 
     std::unique_ptr<render::OffscreenRhi> ownRhi;
     render::OffscreenRhi *rhiCtx = externalRhi;
@@ -74,13 +75,13 @@ bool Exporter::run(const Project &p, ExportOptions opts, const Progress &progres
 
         QRhiCommandBuffer *cb = nullptr;
         if (rhi->beginOffscreenFrame(&cb) != QRhi::FrameOpSuccess)
-            return fail(QStringLiteral("Falha na GPU ao renderizar o quadro %1").arg(i));
+            return fail(QCoreApplication::translate("Engine", "GPU failure while rendering frame %1").arg(i));
         compositor.composite(cb, scaled, frame, frames);
         QRhiReadbackResult rb;
         compositor.readback(cb, &rb);
         rhi->endOffscreenFrame();
         if (!encoder.writeVideo(compositor.imageFromReadback(rb)))
-            return fail(QStringLiteral("Falha ao codificar o vídeo no quadro %1").arg(i));
+            return fail(QCoreApplication::translate("Engine", "Failed to encode the video at frame %1").arg(i));
 
         if (enc.audio) {
             const std::int64_t s0 = std::llround(i * media::kSampleRate / enc.fps);
@@ -90,13 +91,13 @@ bool Exporter::run(const Project &p, ExportOptions opts, const Progress &progres
             mixer.mix(p, start + static_cast<Micros>(std::llround(s0 * static_cast<double>(kSecond) / media::kSampleRate)),
                       audioBuf.data(), n);
             if (!encoder.writeAudio(audioBuf.data(), n))
-                return fail(QStringLiteral("Falha ao codificar o áudio"));
+                return fail(QCoreApplication::translate("Engine", "Failed to encode the audio"));
         }
 
         if (progress && !progress(static_cast<double>(i + 1) / totalFrames)) {
             encoder.finish();
             QFile::remove(opts.outputPath);
-            return fail(QStringLiteral("Exportação cancelada"));
+            return fail(QCoreApplication::translate("Engine", "Export cancelled"));
         }
     }
     if (!encoder.finish(&err))

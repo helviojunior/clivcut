@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "OffscreenRhi.h"
 
+#include <QCoreApplication>
 #include <QOffscreenSurface>
 #include <QSurfaceFormat>
 #ifdef CLIVCUT_HAS_VULKAN
@@ -89,7 +90,7 @@ bool OffscreenRhi::create(QString *error, QOffscreenSurface *fallbackSurface)
 #endif
 
     if (error)
-        *error = QStringLiteral("Nenhum backend gráfico disponível (Vulkan/OpenGL)");
+        *error = QCoreApplication::translate("Render", "No graphics backend available (Vulkan/OpenGL)");
     return false;
 }
 

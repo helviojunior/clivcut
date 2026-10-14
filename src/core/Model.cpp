@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "Model.h"
 
+#include <QCoreApplication>
+
 #include <QRandomGenerator>
 
 #include <algorithm>
@@ -60,10 +62,10 @@ Track createTrack(TrackKind kind, const QString &name)
         t.name = name;
     } else {
         switch (kind) {
-        case TrackKind::Video: t.name = QStringLiteral("Vídeo"); break;
-        case TrackKind::Audio: t.name = QStringLiteral("Áudio"); break;
-        case TrackKind::Text: t.name = QStringLiteral("Texto"); break;
-        case TrackKind::Adjust: t.name = QStringLiteral("Filtros"); break;
+        case TrackKind::Video: t.name = QCoreApplication::translate("Track", "Video"); break;
+        case TrackKind::Audio: t.name = QCoreApplication::translate("Track", "Audio"); break;
+        case TrackKind::Text: t.name = QCoreApplication::translate("Track", "Text"); break;
+        case TrackKind::Adjust: t.name = QCoreApplication::translate("Track", "Filters"); break;
         }
     }
     return t;

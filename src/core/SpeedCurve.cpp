@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "SpeedCurve.h"
 
+#include <QCoreApplication>
+
 #include <algorithm>
 #include <cmath>
 
@@ -97,13 +99,13 @@ std::vector<SpeedPoint> sliceCurve(const std::vector<SpeedPoint> &c, double a, d
 const std::vector<SpeedPreset> &speedPresets()
 {
     static const std::vector<SpeedPreset> presets{
-        {QStringLiteral("montage"), QStringLiteral("Montagem"),
+        {QStringLiteral("montage"), QString::fromUtf8(QT_TRANSLATE_NOOP("SpeedCurves", "Montage")),
          {{0, 3}, {0.3, 3}, {0.4, 0.5}, {0.6, 0.5}, {0.7, 3}, {1, 3}}},
-        {QStringLiteral("hero"), QStringLiteral("Herói"), {{0, 1.5}, {0.35, 1.5}, {0.5, 0.3}, {0.65, 1.5}, {1, 1.5}}},
-        {QStringLiteral("bullet"), QStringLiteral("Bala"), {{0, 4}, {0.4, 0.2}, {0.6, 0.2}, {1, 4}}},
-        {QStringLiteral("jump"), QStringLiteral("Salto"), {{0, 0.6}, {0.45, 0.6}, {0.5, 5}, {0.55, 0.6}, {1, 0.6}}},
-        {QStringLiteral("flashIn"), QStringLiteral("Entrada rápida"), {{0, 6}, {0.3, 1}, {1, 1}}},
-        {QStringLiteral("flashOut"), QStringLiteral("Saída rápida"), {{0, 1}, {0.7, 1}, {1, 6}}},
+        {QStringLiteral("hero"), QString::fromUtf8(QT_TRANSLATE_NOOP("SpeedCurves", "Hero")), {{0, 1.5}, {0.35, 1.5}, {0.5, 0.3}, {0.65, 1.5}, {1, 1.5}}},
+        {QStringLiteral("bullet"), QString::fromUtf8(QT_TRANSLATE_NOOP("SpeedCurves", "Bullet")), {{0, 4}, {0.4, 0.2}, {0.6, 0.2}, {1, 4}}},
+        {QStringLiteral("jump"), QString::fromUtf8(QT_TRANSLATE_NOOP("SpeedCurves", "Jump")), {{0, 0.6}, {0.45, 0.6}, {0.5, 5}, {0.55, 0.6}, {1, 0.6}}},
+        {QStringLiteral("flashIn"), QString::fromUtf8(QT_TRANSLATE_NOOP("SpeedCurves", "Flash in")), {{0, 6}, {0.3, 1}, {1, 1}}},
+        {QStringLiteral("flashOut"), QString::fromUtf8(QT_TRANSLATE_NOOP("SpeedCurves", "Flash out")), {{0, 1}, {0.7, 1}, {1, 6}}},
     };
     return presets;
 }

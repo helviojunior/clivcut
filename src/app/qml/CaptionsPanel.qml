@@ -20,7 +20,7 @@ Flickable {
     }
 
     readonly property var languages: [
-        { code: "auto", name: qsTr("Detectar automaticamente") },
+        { code: "auto", name: qsTr("Detect automatically") },
         { code: "pt", name: "Português" }, { code: "en", name: "English" }, { code: "es", name: "Español" },
         { code: "fr", name: "Français" }, { code: "de", name: "Deutsch" }, { code: "it", name: "Italiano" },
         { code: "ja", name: "日本語" }, { code: "ko", name: "한국어" }, { code: "zh", name: "中文" },
@@ -35,15 +35,15 @@ Flickable {
         width: root.width - 24
         spacing: 8
 
-        SectionLabel { text: qsTr("Legendas automáticas") }
+        SectionLabel { text: qsTr("Auto captions") }
         Text {
             Layout.fillWidth: true
             wrapMode: Text.Wrap
             color: Theme.textFaint
             font.pixelSize: Theme.fontSmall
             text: Project.transcriptionAvailable
-                  ? qsTr("Reconhecimento de fala 100% local (whisper.cpp): o áudio não sai do seu computador.")
-                  : qsTr("Este build foi compilado sem whisper.cpp.")
+                  ? qsTr("100% local speech recognition (whisper.cpp): the audio never leaves your computer.")
+                  : qsTr("This build was compiled without whisper.cpp.")
         }
 
         GridLayout {
@@ -53,7 +53,7 @@ Flickable {
             Layout.fillWidth: true
             enabled: Project.transcriptionAvailable && !Project.transcribing
 
-            Text { text: qsTr("Idioma"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
+            Text { text: qsTr("Language"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
             ComboBox {
                 id: langBox
                 Layout.fillWidth: true
@@ -62,19 +62,19 @@ Flickable {
                 textRole: "name"
                 currentIndex: 1
             }
-            Text { text: qsTr("Áudio"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
+            Text { text: qsTr("Audio"); color: Theme.textDim; font.pixelSize: Theme.fontSmall }
             ComboBox {
                 id: sourceBox
                 Layout.fillWidth: true
                 focusPolicy: Qt.NoFocus
-                model: [{ index: -1, name: qsTr("Toda a timeline") }].concat(Project.audioTracks)
+                model: [{ index: -1, name: qsTr("Whole timeline") }].concat(Project.audioTracks)
                 textRole: "name"
             }
         }
 
         // Modelos
         Text {
-            text: qsTr("Modelo")
+            text: qsTr("Model")
             color: Theme.textDim
             font.pixelSize: Theme.fontSmall
             Layout.topMargin: 4
@@ -130,7 +130,7 @@ Flickable {
                     Button {
                         visible: !modelRow.modelData.installed && !modelRow.downloading
                         enabled: Project.downloadingModel === ""
-                        text: qsTr("Baixar")
+                        text: qsTr("Download")
                         focusPolicy: Qt.NoFocus
                         onClicked: {
                             prefs.model = modelRow.modelData.id;
@@ -145,7 +145,7 @@ Flickable {
                         }
                         IconButton {
                             iconName: "x"
-                            tip: qsTr("Cancelar download")
+                            tip: qsTr("Cancel download")
                             onClicked: Project.cancelModelDownload()
                         }
                     }
@@ -155,7 +155,7 @@ Flickable {
 
         CheckBox {
             id: replaceBox
-            text: qsTr("Substituir legendas existentes")
+            text: qsTr("Replace existing captions")
             checked: true
             focusPolicy: Qt.NoFocus
         }
@@ -167,8 +167,8 @@ Flickable {
             enabled: Project.transcriptionAvailable && root.selectedModel !== undefined && root.selectedModel.installed && Project.duration > 0
             highlighted: true
             focusPolicy: Qt.NoFocus
-            text: root.selectedModel !== undefined && !root.selectedModel.installed ? qsTr("Baixe o modelo para continuar")
-                                                                                   : qsTr("Gerar legendas")
+            text: root.selectedModel !== undefined && !root.selectedModel.installed ? qsTr("Download the model to continue")
+                                                                                   : qsTr("Generate captions")
             onClicked: Project.generateCaptions(prefs.model, root.languages[langBox.currentIndex].code,
                                                 sourceBox.model[sourceBox.currentIndex].index, replaceBox.checked)
         }
@@ -178,8 +178,8 @@ Flickable {
             ColumnLayout {
                 Layout.fillWidth: true
                 Text {
-                    text: Project.transcribeProgress < 0.15 ? qsTr("Extraindo áudio…")
-                                                             : qsTr("Reconhecendo fala… %1%").arg(Math.round(Project.transcribeProgress * 100))
+                    text: Project.transcribeProgress < 0.15 ? qsTr("Extracting audio…")
+                                                             : qsTr("Recognizing speech… %1%").arg(Math.round(Project.transcribeProgress * 100))
                     color: Theme.text
                     font.pixelSize: Theme.fontSmall
                 }
@@ -190,24 +190,24 @@ Flickable {
                 }
             }
             Button {
-                text: qsTr("Cancelar")
+                text: qsTr("Cancel")
                 focusPolicy: Qt.NoFocus
                 onClicked: Project.cancelTranscription()
             }
         }
 
-        SectionLabel { text: qsTr("Arquivos de legenda") }
+        SectionLabel { text: qsTr("Caption files") }
         RowLayout {
             Layout.fillWidth: true
             Button {
                 Layout.fillWidth: true
-                text: qsTr("Importar SRT/VTT")
+                text: qsTr("Import SRT/VTT")
                 focusPolicy: Qt.NoFocus
                 onClicked: importDialog.open()
             }
             Button {
                 Layout.fillWidth: true
-                text: qsTr("Exportar SRT")
+                text: qsTr("Export SRT")
                 focusPolicy: Qt.NoFocus
                 onClicked: exportDialog.open()
             }
@@ -217,19 +217,19 @@ Flickable {
             wrapMode: Text.Wrap
             color: Theme.textFaint
             font.pixelSize: Theme.fontSmall
-            text: qsTr("As legendas viram clipes de texto na faixa \"Legendas\": edite o texto e o tempo direto na timeline. Para mudar o visual de todas, selecione uma, ajuste o estilo e use \"Aplicar a todas as legendas\".")
+            text: qsTr("Captions become text clips on the \"Captions\" track: edit the text and timing right on the timeline. To change the look of all of them, select one, adjust the style and use \"Apply to all captions\".")
         }
     }
 
     FileDialog {
         id: importDialog
-        title: qsTr("Importar legendas")
-        nameFilters: [qsTr("Legendas (*.srt *.vtt)")]
+        title: qsTr("Import captions")
+        nameFilters: [qsTr("Captions (*.srt *.vtt)")]
         onAccepted: Project.importSubtitles(selectedFile)
     }
     FileDialog {
         id: exportDialog
-        title: qsTr("Exportar legendas")
+        title: qsTr("Export captions")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "srt"
         nameFilters: [qsTr("SubRip (*.srt)")]

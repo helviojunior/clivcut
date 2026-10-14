@@ -26,3 +26,19 @@ build(packaging): bundle ONNX Runtime in the AppImage
 ```
 
 Keep each commit focused on one logical change, and make sure it builds and `ctest` passes.
+
+## Translations
+
+User-facing strings are written in English in the code (`qsTr()` in QML, `tr()` in `QObject` classes, `QCoreApplication::translate()` elsewhere and `QT_TRANSLATE_NOOP()` in catalogs). Translations live in `i18n/`:
+
+- `clivcut_pt_BR.ts`, `clivcut_es.ts`: one file per language.
+- `clivcut_en.ts`: plural forms only (`%n clip(s)` → "1 clip", "2 clips").
+
+After adding or changing strings, refresh the files and fill in the new entries with Qt Linguist or any editor:
+
+```sh
+cmake --build build --target update_translations
+linguist i18n/clivcut_pt_BR.ts
+```
+
+The `.qm` files are compiled and embedded in the app on every build. To add a language, add `i18n/clivcut_<code>.ts` to `TS_FILES` in `src/app/CMakeLists.txt` and its native name to `kLanguages` in `src/app/Language.cpp`.

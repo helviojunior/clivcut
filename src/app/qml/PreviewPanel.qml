@@ -48,17 +48,17 @@ Rectangle {
                 text: Project.proxiesPending > 0 ? "P ⟳" + Project.proxiesPending : "Proxy"
                 active: Project.useProxies
                 onClicked: Project.useProxies = !Project.useProxies
-                tip: Project.useProxies ? qsTr("Reprodução com proxies (cópias leves de vídeos grandes). Clique para usar os originais.")
-                                        : qsTr("Reprodução com os arquivos originais. Clique para usar proxies.")
+                tip: Project.useProxies ? qsTr("Playing with proxies (lightweight copies of large videos). Click to use the originals.")
+                                        : qsTr("Playing the original files. Click to use proxies.")
             }
             ComboBox {
                 id: quality
                 focusPolicy: Qt.NoFocus
-                implicitWidth: 112
+                implicitContentWidthPolicy: ComboBox.WidestText
                 model: [qsTr("Preview 540p"), qsTr("Preview 720p"), qsTr("Preview 1080p")]
                 currentIndex: 1
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("Resolução de reprodução (não afeta a exportação)")
+                ToolTip.text: qsTr("Playback resolution (does not affect export)")
             }
         }
 
@@ -137,7 +137,7 @@ Rectangle {
             Text {
                 anchors.centerIn: parent
                 visible: Project.duration <= 0
-                text: qsTr("Importe mídias e arraste para a timeline")
+                text: qsTr("Import media and drag it to the timeline")
                 color: Theme.textFaint
                 font.pixelSize: Theme.fontLarge
             }
@@ -162,8 +162,8 @@ Rectangle {
                 font.family: "monospace"
             }
             Item { Layout.fillWidth: true }
-            IconButton { iconName: "skip-back"; tip: qsTr("Início"); shortcut: "Home"; onClicked: Project.jumpToEdge(false) }
-            IconButton { iconName: "chevron-left"; tip: qsTr("Quadro anterior"); shortcut: "←"; onClicked: Project.stepFrames(-1) }
+            IconButton { iconName: "skip-back"; tip: qsTr("Home"); shortcut: "Home"; onClicked: Project.jumpToEdge(false) }
+            IconButton { iconName: "chevron-left"; tip: qsTr("Previous frame"); shortcut: "←"; onClicked: Project.stepFrames(-1) }
             // Play em destaque
             AbstractButton {
                 id: playButton
@@ -187,10 +187,10 @@ Rectangle {
                 }
                 ToolTip.visible: hovered
                 ToolTip.delay: 450
-                ToolTip.text: qsTr("Reproduzir/pausar") + "   Espaço"
+                ToolTip.text: qsTr("Play/pause") + "   " + qsTr("Space")
             }
-            IconButton { iconName: "chevron-right"; tip: qsTr("Próximo quadro"); shortcut: "→"; onClicked: Project.stepFrames(1) }
-            IconButton { iconName: "skip-forward"; tip: qsTr("Fim"); shortcut: "End"; onClicked: Project.jumpToEdge(true) }
+            IconButton { iconName: "chevron-right"; tip: qsTr("Next frame"); shortcut: "→"; onClicked: Project.stepFrames(1) }
+            IconButton { iconName: "skip-forward"; tip: qsTr("End"); shortcut: "End"; onClicked: Project.jumpToEdge(true) }
             Item { Layout.fillWidth: true }
             Text {
                 text: Project.fps.toFixed(Project.fps % 1 === 0 ? 0 : 2) + " fps"

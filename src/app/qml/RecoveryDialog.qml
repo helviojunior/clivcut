@@ -6,7 +6,7 @@ import Clivcut
 // Oferece recuperar projetos de sessões que não fecharam normalmente.
 Dialog {
     id: root
-    title: qsTr("Recuperar projetos")
+    title: qsTr("Recover projects")
     modal: true
     anchors.centerIn: Overlay.overlay
     width: 480
@@ -31,7 +31,7 @@ Dialog {
             wrapMode: Text.Wrap
             color: Theme.textDim
             font.pixelSize: Theme.fontNormal
-            text: qsTr("O clivcut não foi fechado normalmente da última vez. Estas alterações não salvas foram guardadas:")
+            text: qsTr("clivcut was not closed normally last time. These unsaved changes were kept:")
         }
         Repeater {
             model: root.items
@@ -59,14 +59,14 @@ Dialog {
                         Text {
                             Layout.fillWidth: true
                             text: qsTr("%1 · %2%3").arg(row.modelData.savedAt).arg(Project.formatTime(row.modelData.duration))
-                                  .arg(row.modelData.originalPath !== "" ? " · " + row.modelData.originalPath : qsTr(" · nunca salvo"))
+                                  .arg(row.modelData.originalPath !== "" ? " · " + row.modelData.originalPath : qsTr(" · never saved"))
                             color: Theme.textFaint
                             font.pixelSize: Theme.fontSmall
                             elide: Text.ElideMiddle
                         }
                     }
                     Button {
-                        text: qsTr("Recuperar")
+                        text: qsTr("Recover")
                         highlighted: true
                         focusPolicy: Qt.NoFocus
                         onClicked: {
@@ -75,7 +75,7 @@ Dialog {
                         }
                     }
                     Button {
-                        text: qsTr("Descartar")
+                        text: qsTr("Discard")
                         focusPolicy: Qt.NoFocus
                         onClicked: {
                             Project.discardRecovery(row.modelData.file);
@@ -91,6 +91,6 @@ Dialog {
 
     footer: DialogButtonBox {
         background: Rectangle { color: "transparent" }
-        Button { text: qsTr("Agora não"); DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+        Button { text: qsTr("Not now"); DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
     }
 }

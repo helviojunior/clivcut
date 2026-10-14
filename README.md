@@ -67,6 +67,7 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
   - Automatic backup every 30 s while there are unsaved changes.
   - Offers to recover your work after an unexpected shutdown.
   - Asks before discarding changes.
+- **Languages:** English, Português (Brasil) and Español. The interface follows the system language and can be switched live from the logo menu, the command palette or the welcome screen.
 - **`clivcut-render`:** headless rendering, conversion and transcription (`--transcribe`) from the command line.
 
 See the [roadmap](docs/ROADMAP.md) for what comes next: AI voice isolation, interactive cutout and more.

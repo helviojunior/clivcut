@@ -12,12 +12,12 @@ Rectangle {
     signal shortcutsRequested()
 
     readonly property var sections: [
-        { icon: "image-play", label: qsTr("Mídia"), shortcut: "Alt+1" },
-        { icon: "type", label: qsTr("Texto"), shortcut: "Alt+2" },
-        { icon: "captions", label: qsTr("Legendas"), shortcut: "Alt+3" },
-        { icon: "palette", label: qsTr("Filtros"), shortcut: "Alt+4" },
-        { icon: "arrow-right-left", label: qsTr("Transições"), shortcut: "Alt+5" },
-        { icon: "sparkles", label: qsTr("Animações"), shortcut: "Alt+6" }
+        { icon: "image-play", label: qsTr("Media"), shortcut: "Alt+1" },
+        { icon: "type", label: qsTr("Text"), shortcut: "Alt+2" },
+        { icon: "captions", label: qsTr("Captions"), shortcut: "Alt+3" },
+        { icon: "palette", label: qsTr("Filters"), shortcut: "Alt+4" },
+        { icon: "arrow-right-left", label: qsTr("Transitions"), shortcut: "Alt+5" },
+        { icon: "sparkles", label: qsTr("Animations"), shortcut: "Alt+6" }
     ]
     function activate(i) {
         if (i === current && !collapsed)
@@ -92,14 +92,14 @@ Rectangle {
         IconButton {
             Layout.alignment: Qt.AlignHCenter
             iconName: "keyboard"
-            tip: qsTr("Atalhos e comandos")
+            tip: qsTr("Shortcuts and commands")
             shortcut: "Ctrl+K"
             onClicked: root.shortcutsRequested()
         }
         IconButton {
             Layout.alignment: Qt.AlignHCenter
             iconName: Theme.dark ? "sun" : "moon"
-            tip: Theme.dark ? qsTr("Tema claro") : qsTr("Tema escuro")
+            tip: Theme.dark ? qsTr("Light theme") : qsTr("Dark theme")
             onClicked: Theme.dark = !Theme.dark
         }
     }

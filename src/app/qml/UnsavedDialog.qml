@@ -9,7 +9,7 @@ Dialog {
     modal: true
     anchors.centerIn: Overlay.overlay
     width: 420
-    title: qsTr("Salvar alterações?")
+    title: qsTr("Save changes?")
 
     signal saveRequested()
     signal discardRequested()
@@ -26,21 +26,21 @@ Dialog {
         wrapMode: Text.Wrap
         color: Theme.textDim
         font.pixelSize: Theme.fontNormal
-        text: qsTr("O projeto “%1” tem alterações não salvas.").arg(Project.projectName)
+        text: qsTr("The project “%1” has unsaved changes.").arg(Project.projectName)
     }
     footer: DialogButtonBox {
         background: Rectangle { color: "transparent" }
         Button {
-            text: qsTr("Descartar")
+            text: qsTr("Discard")
             DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
             onClicked: {
                 root.close();
                 root.discardRequested();
             }
         }
-        Button { text: qsTr("Cancelar"); DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+        Button { text: qsTr("Cancel"); DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
         Button {
-            text: qsTr("Salvar")
+            text: qsTr("Save")
             highlighted: true
             DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
             onClicked: {

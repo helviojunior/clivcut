@@ -51,7 +51,7 @@ Popup {
             TextField {
                 id: field
                 Layout.fillWidth: true
-                placeholderText: qsTr("O que você quer fazer? (ex.: dividir, exportar, legendas)")
+                placeholderText: qsTr("What do you want to do? (e.g. split, export, captions)")
                 color: Theme.text
                 font.pixelSize: Theme.fontLarge
                 background: Item {}
@@ -112,7 +112,7 @@ Popup {
             Text {
                 anchors.centerIn: parent
                 visible: list.count === 0
-                text: qsTr("Nenhum comando encontrado")
+                text: qsTr("No commands found")
                 color: Theme.textFaint
             }
         }

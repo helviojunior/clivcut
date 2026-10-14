@@ -5,6 +5,7 @@
 #include "media/MediaProbe.h"
 #include "media/VideoDecoder.h"
 
+#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -59,7 +60,7 @@ bool generateProxy(const QString &mediaPath, const QString &outPath, const std::
     if (!media::probe(mediaPath, info, error))
         return false;
     if (info.kind != MediaKind::Video)
-        return fail(QStringLiteral("Proxies só se aplicam a vídeos"));
+        return fail(QCoreApplication::translate("Engine", "Proxies only apply to videos"));
 
     media::VideoDecoder dec;
     if (!dec.open(mediaPath, QSize(kProxyMaxSide, kProxyMaxSide), error, true))
@@ -91,13 +92,13 @@ bool generateProxy(const QString &mediaPath, const QString &outPath, const std::
             if (frame.isNull())
                 break;
             if (frame.size() != size)
-                return fail(QStringLiteral("Tamanho de quadro inesperado no proxy"));
+                return fail(QCoreApplication::translate("Engine", "Unexpected frame size in the proxy"));
             if (!enc.writeVideo(frame))
-                return fail(QStringLiteral("Falha ao codificar o proxy"));
+                return fail(QCoreApplication::translate("Engine", "Failed to encode the proxy"));
             if (progress && !progress(static_cast<double>(i + 1) / total)) {
                 enc.finish();
                 QFile::remove(tmp);
-                return fail(QStringLiteral("Geração de proxy cancelada"));
+                return fail(QCoreApplication::translate("Engine", "Proxy generation cancelled"));
             }
         }
         if (!enc.finish(&err)) {
@@ -107,7 +108,7 @@ bool generateProxy(const QString &mediaPath, const QString &outPath, const std::
     }
     QFile::remove(outPath);
     if (!QFile::rename(tmp, outPath))
-        return fail(QStringLiteral("Não foi possível gravar %1").arg(outPath));
+        return fail(QCoreApplication::translate("Engine", "Could not write %1").arg(outPath));
     return true;
 }
 

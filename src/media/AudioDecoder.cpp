@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "AudioDecoder.h"
 
+#include <QCoreApplication>
+
 extern "C" {
 #include <libavutil/channel_layout.h>
 #include <libavutil/opt.h>
@@ -28,7 +30,7 @@ bool AudioDecoder::open(const QString &path, QString *error)
     m_stream = av_find_best_stream(m_fmt.get(), AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
     if (m_stream < 0) {
         if (error)
-            *error = QStringLiteral("Sem stream de áudio");
+            *error = QCoreApplication::translate("Media", "No audio stream");
         m_fmt.reset();
         return false;
     }
@@ -51,7 +53,7 @@ bool AudioDecoder::open(const QString &path, QString *error)
     if (err < 0 || swr_init(swr) < 0) {
         swr_free(&swr);
         if (error)
-            *error = QStringLiteral("Falha ao configurar reamostragem de áudio");
+            *error = QCoreApplication::translate("Media", "Failed to set up audio resampling");
         m_fmt.reset();
         return false;
     }

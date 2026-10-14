@@ -9,6 +9,7 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QThread>
 
@@ -122,7 +123,7 @@ bool transcribePcm16k(const std::vector<float> &pcm, const TranscribeOptions &op
     (void)progress;
     (void)out;
     if (error)
-        *error = QStringLiteral("Este build do clivcut foi compilado sem whisper.cpp");
+        *error = QCoreApplication::translate("Engine", "This clivcut build was compiled without whisper.cpp");
     return false;
 #else
     auto fail = [&](const QString &m) {
@@ -131,16 +132,16 @@ bool transcribePcm16k(const std::vector<float> &pcm, const TranscribeOptions &op
         return false;
     };
     if (!QFileInfo::exists(opts.modelPath))
-        return fail(QStringLiteral("Modelo de transcrição não encontrado: %1").arg(opts.modelPath));
+        return fail(QCoreApplication::translate("Engine", "Transcription model not found: %1").arg(opts.modelPath));
     if (pcm.size() < static_cast<size_t>(kWhisperRate / 2))
-        return fail(QStringLiteral("Áudio curto demais para transcrever"));
+        return fail(QCoreApplication::translate("Engine", "Audio too short to transcribe"));
 
     whisper_log_set([](ggml_log_level, const char *, void *) {}, nullptr);
     whisper_context_params cparams = whisper_context_default_params();
     cparams.use_gpu = true; // só tem efeito se o whisper.cpp foi compilado com GPU
     whisper_context *ctx = whisper_init_from_file_with_params(opts.modelPath.toUtf8().constData(), cparams);
     if (!ctx)
-        return fail(QStringLiteral("Falha ao carregar o modelo %1").arg(QFileInfo(opts.modelPath).fileName()));
+        return fail(QCoreApplication::translate("Engine", "Failed to load model %1").arg(QFileInfo(opts.modelPath).fileName()));
 
     struct CallbackState {
         const std::function<bool(double)> *progress;
@@ -176,8 +177,8 @@ bool transcribePcm16k(const std::vector<float> &pcm, const TranscribeOptions &op
     const int rc = whisper_full(ctx, wp, pcm.data(), static_cast<int>(pcm.size()));
     if (rc != 0 || state.cancelled) {
         whisper_free(ctx);
-        return fail(state.cancelled ? QStringLiteral("Transcrição cancelada")
-                                    : QStringLiteral("Falha na transcrição (código %1)").arg(rc));
+        return fail(state.cancelled ? QCoreApplication::translate("Engine", "Transcription cancelled")
+                                    : QCoreApplication::translate("Engine", "Transcription failed (code %1)").arg(rc));
     }
 
     const int n = whisper_full_n_segments(ctx);
@@ -212,7 +213,7 @@ bool transcribeProject(const Project &p, const TranscribeOptions &opts, const st
     const Micros start = std::clamp<Micros>(opts.rangeStart, 0, end);
     if (end - start < kSecond / 2) {
         if (error)
-            *error = QStringLiteral("A timeline não tem áudio suficiente para transcrever");
+            *error = QCoreApplication::translate("Engine", "The timeline does not have enough audio to transcribe");
         return false;
     }
     // 15% do progresso para extrair o áudio, o resto para o whisper.
@@ -222,7 +223,7 @@ bool transcribeProject(const Project &p, const TranscribeOptions &opts, const st
     std::vector<float> pcm = renderProjectAudio16k(p, opts.trackIndex, start, end, stage(0.0, 0.15));
     if (pcm.empty()) {
         if (error)
-            *error = QStringLiteral("Não foi possível extrair o áudio da timeline");
+            *error = QCoreApplication::translate("Engine", "Could not extract the timeline audio");
         return false;
     }
     float peak = 0;
@@ -230,7 +231,7 @@ bool transcribeProject(const Project &p, const TranscribeOptions &opts, const st
         peak = std::max(peak, std::abs(s));
     if (peak < 1e-4f) {
         if (error)
-            *error = QStringLiteral("A timeline está em silêncio: não há fala para transcrever");
+            *error = QCoreApplication::translate("Engine", "The timeline is silent: there is no speech to transcribe");
         return false;
     }
     // O whisper tende a ancorar o 1º segmento no início do áudio: corta o

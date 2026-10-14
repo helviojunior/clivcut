@@ -96,7 +96,7 @@ RowLayout {
             onClicked: root.keyframeToggled()
         }
         ToolTip.visible: kfHover.hovered
-        ToolTip.text: root.keyframeHere ? qsTr("Remover keyframe") : qsTr("Adicionar keyframe no cursor")
+        ToolTip.text: root.keyframeHere ? qsTr("Remove keyframe") : qsTr("Add keyframe at playhead")
         HoverHandler { id: kfHover }
     }
 }

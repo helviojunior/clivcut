@@ -59,7 +59,7 @@ RowLayout {
     }
     Text {
         visible: root.allowNone
-        text: qsTr("Nenhum")
+        text: qsTr("None", "no color")
         color: root.isNone ? Theme.accent : Theme.textDim
         font.pixelSize: Theme.fontSmall
         MouseArea {

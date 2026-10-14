@@ -199,7 +199,7 @@ ApplicationWindow {
             radius: 12
             Text {
                 anchors.centerIn: parent
-                text: qsTr("Solte para importar")
+                text: qsTr("Drop to import")
                 color: Theme.text
                 font.pixelSize: 22
             }
@@ -263,10 +263,10 @@ ApplicationWindow {
     // --- diálogos ---
     FileDialog {
         id: mediaDialog
-        title: qsTr("Importar mídia")
+        title: qsTr("Import media")
         fileMode: FileDialog.OpenFiles
         currentFolder: settings.lastFolder
-        nameFilters: [qsTr("Mídia (*.mp4 *.mov *.mkv *.webm *.avi *.m4v *.mts *.mp3 *.wav *.m4a *.aac *.flac *.ogg *.opus *.png *.jpg *.jpeg *.webp *.gif *.bmp *.tif *.tiff *.heic)"), qsTr("Todos os arquivos (*)")]
+        nameFilters: [qsTr("Media (*.mp4 *.mov *.mkv *.webm *.avi *.m4v *.mts *.mp3 *.wav *.m4a *.aac *.flac *.ogg *.opus *.png *.jpg *.jpeg *.webp *.gif *.bmp *.tif *.tiff *.heic)"), qsTr("All files (*)")]
         onAccepted: {
             settings.lastFolder = currentFolder;
             Project.importMedia(selectedFiles);
@@ -274,16 +274,16 @@ ApplicationWindow {
     }
     FileDialog {
         id: openDialog
-        title: qsTr("Abrir projeto")
-        nameFilters: [qsTr("Projetos clivcut (*.clivcut)"), qsTr("Draft JSON (draft_content.json draft_info.json)")]
+        title: qsTr("Open project")
+        nameFilters: [qsTr("clivcut projects (*.clivcut)"), qsTr("Draft JSON (draft_content.json draft_info.json)")]
         onAccepted: Project.openProject(selectedFile)
     }
     FileDialog {
         id: saveDialog
-        title: qsTr("Salvar projeto")
+        title: qsTr("Save project")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "clivcut"
-        nameFilters: [qsTr("Projetos clivcut (*.clivcut)")]
+        nameFilters: [qsTr("clivcut projects (*.clivcut)")]
         onAccepted: {
             if (Project.saveProjectAs(selectedFile) && window.pendingAction !== "")
                 window.runAction(window.pendingAction);
@@ -307,13 +307,13 @@ ApplicationWindow {
     RecoveryDialog { id: recoveryDialog }
     FolderDialog {
         id: draftDialog
-        title: qsTr("Pasta do draft")
+        title: qsTr("Draft folder")
         onAccepted: Project.importDraft(selectedFolder)
     }
     FileDialog {
         id: relinkDialog
         property string assetId
-        title: qsTr("Reconectar mídia")
+        title: qsTr("Relink media")
         onAccepted: Project.relinkAsset(assetId, selectedFile)
     }
     ExportDialog { id: exportDialog }
@@ -323,44 +323,46 @@ ApplicationWindow {
         objectName: "commandPalette"
         parent: Overlay.overlay
         commands: [
-            { name: qsTr("Reproduzir / pausar"), shortcut: "Espaço", icon: "play", run: () => Project.togglePlay() },
-            { name: qsTr("Dividir no cursor"), shortcut: "Ctrl+B", icon: "scissors", run: () => Project.splitAtPlayhead() },
-            { name: qsTr("Excluir à esquerda do cursor"), shortcut: "Q", icon: "arrow-left-to-line", run: () => Project.deleteLeft() },
-            { name: qsTr("Excluir à direita do cursor"), shortcut: "W", icon: "arrow-right-to-line", run: () => Project.deleteRight() },
-            { name: qsTr("Excluir seleção"), shortcut: "Del", icon: "trash-2", run: () => Project.deleteSelection(false) },
-            { name: qsTr("Duplicar"), shortcut: "Ctrl+D", icon: "copy", run: () => Project.duplicateSelection() },
-            { name: qsTr("Copiar"), shortcut: "Ctrl+C", icon: "copy", run: () => Project.copySelection() },
-            { name: qsTr("Colar no cursor"), shortcut: "Ctrl+V", icon: "copy", run: () => Project.paste() },
-            { name: qsTr("Agrupar clipes"), shortcut: "Ctrl+G", icon: "link", run: () => Project.groupSelection() },
-            { name: qsTr("Desagrupar"), shortcut: "Ctrl+Shift+G", icon: "link", run: () => Project.ungroupSelection() },
-            { name: qsTr("Congelar quadro"), shortcut: "Alt+F", icon: "snowflake", run: () => Project.freezeFrame() },
-            { name: qsTr("Separar áudio do vídeo"), shortcut: "Ctrl+Shift+D", icon: "audio-lines", run: () => Project.detachAudio() },
-            { name: qsTr("Adicionar marcador"), shortcut: "M", icon: "bookmark", run: () => Project.addMarker() },
-            { name: qsTr("Adicionar texto"), shortcut: "Ctrl+T", icon: "type", run: () => Project.addText("", "") },
-            { name: qsTr("Adicionar camada de ajuste"), shortcut: "", icon: "sliders-horizontal", run: () => Project.addFilterClip("") },
-            { name: qsTr("Normalizar volume (-14 LUFS)"), shortcut: "", icon: "volume-2", run: () => Project.normalizeLoudness(-14) },
-            { name: qsTr("Gerar legendas automáticas"), shortcut: "Alt+3", icon: "captions", run: () => rail.activate(2) },
-            { name: qsTr("Importar mídia"), shortcut: "Ctrl+I", icon: "plus", run: () => mediaDialog.open() },
-            { name: qsTr("Importar legendas (SRT/VTT)"), shortcut: "", icon: "captions", run: () => rail.activate(2) },
-            { name: qsTr("Exportar vídeo"), shortcut: "Ctrl+E", icon: "upload", run: () => exportDialog.open() },
-            { name: qsTr("Salvar projeto"), shortcut: "Ctrl+S", icon: "download", run: () => window.save() },
-            { name: qsTr("Abrir projeto"), shortcut: "Ctrl+O", icon: "folder-open", run: () => window.guarded("open") },
-            { name: qsTr("Novo projeto"), shortcut: "Ctrl+N", icon: "file-plus-2", run: () => window.guarded("new") },
-            { name: qsTr("Tela inicial"), shortcut: "", icon: "clapperboard", run: () => window.showWelcome = true },
-            { name: qsTr("Desfazer"), shortcut: "Ctrl+Z", icon: "undo-2", run: () => Project.undo() },
-            { name: qsTr("Refazer"), shortcut: "Ctrl+Shift+Z", icon: "redo-2", run: () => Project.redo() },
-            { name: qsTr("Selecionar tudo"), shortcut: "Ctrl+A", icon: "layers", run: () => Project.selectAll() },
-            { name: qsTr("Ajustar timeline à janela"), shortcut: "Shift+Z", icon: "maximize-2", run: () => { timeline.userZoomed = false; timeline.zoomToFit() } },
-            { name: qsTr("Ligar/desligar ímã da faixa principal"), shortcut: "", icon: "magnet", run: () => Project.magnet = !Project.magnet },
-            { name: qsTr("Ligar/desligar encaixe automático"), shortcut: "N", icon: "crosshair", run: () => Project.snapping = !Project.snapping },
-            { name: qsTr("Usar proxies na reprodução"), shortcut: "", icon: "gauge", run: () => Project.useProxies = !Project.useProxies },
-            { name: Theme.dark ? qsTr("Tema claro") : qsTr("Tema escuro"), shortcut: "", icon: Theme.dark ? "sun" : "moon", run: () => Theme.dark = !Theme.dark },
-            { name: qsTr("Painel: Mídia"), shortcut: "Alt+1", icon: "image-play", run: () => rail.activate(0) },
-            { name: qsTr("Painel: Texto"), shortcut: "Alt+2", icon: "type", run: () => rail.activate(1) },
-            { name: qsTr("Painel: Filtros"), shortcut: "Alt+4", icon: "palette", run: () => rail.activate(3) },
-            { name: qsTr("Painel: Transições"), shortcut: "Alt+5", icon: "arrow-right-left", run: () => rail.activate(4) },
-            { name: qsTr("Painel: Animações"), shortcut: "Alt+6", icon: "sparkles", run: () => rail.activate(5) }
-        ]
+            { name: qsTr("Play / pause"), shortcut: qsTr("Space"), icon: "play", run: () => Project.togglePlay() },
+            { name: qsTr("Split at playhead"), shortcut: "Ctrl+B", icon: "scissors", run: () => Project.splitAtPlayhead() },
+            { name: qsTr("Delete left of playhead"), shortcut: "Q", icon: "arrow-left-to-line", run: () => Project.deleteLeft() },
+            { name: qsTr("Delete right of playhead"), shortcut: "W", icon: "arrow-right-to-line", run: () => Project.deleteRight() },
+            { name: qsTr("Delete selection"), shortcut: "Del", icon: "trash-2", run: () => Project.deleteSelection(false) },
+            { name: qsTr("Duplicate"), shortcut: "Ctrl+D", icon: "copy", run: () => Project.duplicateSelection() },
+            { name: qsTr("Copy"), shortcut: "Ctrl+C", icon: "copy", run: () => Project.copySelection() },
+            { name: qsTr("Paste at playhead"), shortcut: "Ctrl+V", icon: "copy", run: () => Project.paste() },
+            { name: qsTr("Group clips"), shortcut: "Ctrl+G", icon: "link", run: () => Project.groupSelection() },
+            { name: qsTr("Ungroup"), shortcut: "Ctrl+Shift+G", icon: "link", run: () => Project.ungroupSelection() },
+            { name: qsTr("Freeze frame"), shortcut: "Alt+F", icon: "snowflake", run: () => Project.freezeFrame() },
+            { name: qsTr("Detach audio from video"), shortcut: "Ctrl+Shift+D", icon: "audio-lines", run: () => Project.detachAudio() },
+            { name: qsTr("Add marker"), shortcut: "M", icon: "bookmark", run: () => Project.addMarker() },
+            { name: qsTr("Add text"), shortcut: "Ctrl+T", icon: "type", run: () => Project.addText("", "") },
+            { name: qsTr("Add adjustment layer"), shortcut: "", icon: "sliders-horizontal", run: () => Project.addFilterClip("") },
+            { name: qsTr("Normalize loudness (-14 LUFS)"), shortcut: "", icon: "volume-2", run: () => Project.normalizeLoudness(-14) },
+            { name: qsTr("Generate auto captions"), shortcut: "Alt+3", icon: "captions", run: () => rail.activate(2) },
+            { name: qsTr("Import media"), shortcut: "Ctrl+I", icon: "plus", run: () => mediaDialog.open() },
+            { name: qsTr("Import captions (SRT/VTT)"), shortcut: "", icon: "captions", run: () => rail.activate(2) },
+            { name: qsTr("Export video"), shortcut: "Ctrl+E", icon: "upload", run: () => exportDialog.open() },
+            { name: qsTr("Save project"), shortcut: "Ctrl+S", icon: "download", run: () => window.save() },
+            { name: qsTr("Open project"), shortcut: "Ctrl+O", icon: "folder-open", run: () => window.guarded("open") },
+            { name: qsTr("New project"), shortcut: "Ctrl+N", icon: "file-plus-2", run: () => window.guarded("new") },
+            { name: qsTr("Home screen"), shortcut: "", icon: "clapperboard", run: () => window.showWelcome = true },
+            { name: qsTr("Undo"), shortcut: "Ctrl+Z", icon: "undo-2", run: () => Project.undo() },
+            { name: qsTr("Redo"), shortcut: "Ctrl+Shift+Z", icon: "redo-2", run: () => Project.redo() },
+            { name: qsTr("Select all"), shortcut: "Ctrl+A", icon: "layers", run: () => Project.selectAll() },
+            { name: qsTr("Fit timeline to window"), shortcut: "Shift+Z", icon: "maximize-2", run: () => { timeline.userZoomed = false; timeline.zoomToFit() } },
+            { name: qsTr("Toggle main track magnet"), shortcut: "", icon: "magnet", run: () => Project.magnet = !Project.magnet },
+            { name: qsTr("Toggle auto snapping"), shortcut: "N", icon: "crosshair", run: () => Project.snapping = !Project.snapping },
+            { name: qsTr("Use proxies for playback"), shortcut: "", icon: "gauge", run: () => Project.useProxies = !Project.useProxies },
+            { name: Theme.dark ? qsTr("Light theme") : qsTr("Dark theme"), shortcut: "", icon: Theme.dark ? "sun" : "moon", run: () => Theme.dark = !Theme.dark },
+            { name: qsTr("Panel: Media"), shortcut: "Alt+1", icon: "image-play", run: () => rail.activate(0) },
+            { name: qsTr("Panel: Text"), shortcut: "Alt+2", icon: "type", run: () => rail.activate(1) },
+            { name: qsTr("Panel: Filters"), shortcut: "Alt+4", icon: "palette", run: () => rail.activate(3) },
+            { name: qsTr("Panel: Transitions"), shortcut: "Alt+5", icon: "arrow-right-left", run: () => rail.activate(4) },
+            { name: qsTr("Panel: Animations"), shortcut: "Alt+6", icon: "sparkles", run: () => rail.activate(5) },
+            { name: qsTr("Language: %1").arg(qsTr("System default")), shortcut: "", icon: "languages", run: () => Project.language = "" }
+        ].concat(Project.languages.map(l => ({ name: qsTr("Language: %1").arg(l.name), shortcut: "", icon: "languages",
+                                                run: () => Project.language = l.code })))
     }
     NewProjectDialog { id: newDialog }
 
@@ -370,7 +372,7 @@ ApplicationWindow {
         function onErrorOccurred(message) { toast.show(message, true) }
         function onStatusMessageChanged() { toast.show(Project.statusMessage, false) }
         function onExportFinished(ok, message) {
-            toast.show(ok ? qsTr("Vídeo exportado: %1").arg(message) : message, !ok);
+            toast.show(ok ? qsTr("Video exported: %1").arg(message) : message, !ok);
         }
     }
 

@@ -3,6 +3,8 @@
 
 #include "WhisperModels.h"
 
+#include <QCoreApplication>
+
 #include <QDir>
 #include <QFileInfo>
 
@@ -15,8 +17,8 @@ const std::vector<AiModel> &aiModels()
         for (const auto &w : whisperModels())
             list.push_back({w.id, w.label, w.sizeBytes, w.description, QStringLiteral("whisper"),
                             QStringLiteral("ggml-%1.bin").arg(w.id), whisperModelUrl(w.id), QStringLiteral("MIT")});
-        list.push_back({kMattingModel, QStringLiteral("Recorte de pessoas (RVM)"), 14'975'696,
-                        QStringLiteral("Remove o fundo de vídeos com pessoas, estável entre quadros"),
+        list.push_back({kMattingModel, QString::fromUtf8(QT_TRANSLATE_NOOP("Models", "People cutout (RVM)")), 14'975'696,
+                        QString::fromUtf8(QT_TRANSLATE_NOOP("Models", "Removes the background from videos of people, stable across frames")),
                         QStringLiteral("matting"), QStringLiteral("rvm_mobilenetv3_fp32.onnx"),
                         QUrl(QStringLiteral("https://github.com/PeterL1n/RobustVideoMatting/releases/download/v1.0.0/"
                                             "rvm_mobilenetv3_fp32.onnx")),

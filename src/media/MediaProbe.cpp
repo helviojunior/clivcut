@@ -9,6 +9,7 @@ extern "C" {
 #include <libavutil/display.h>
 }
 
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QImageReader>
 
@@ -50,7 +51,7 @@ bool probe(const QString &path, MediaAsset &out, QString *error)
     out.hasAudio = a >= 0;
     if (!out.hasVideo && !out.hasAudio) {
         if (error)
-            *error = QStringLiteral("Arquivo sem vídeo ou áudio reconhecível");
+            *error = QCoreApplication::translate("Media", "File has no recognizable video or audio");
         return false;
     }
     out.duration = fmt->duration > 0 ? fmt->duration : 0;

@@ -378,7 +378,7 @@ private slots:
         QVERIFY(std::abs(one.sample(1, 1, 1)[0] - 0.5f) < 1e-4);
         // Erros.
         QVERIFY(!parseCube("LUT_3D_SIZE 2\n0 0 0\n", &err).isValid());
-        QVERIFY(err.contains(QStringLiteral("entradas")));
+        QVERIFY(err.contains(QStringLiteral("entries")));
     }
 
     void builtinFilters()
@@ -624,7 +624,7 @@ private slots:
     {
         auto r = importDraftJson(QByteArray("\x8f\x12garbage"), {});
         QVERIFY(!r.ok);
-        QVERIFY(r.error.contains(QStringLiteral("criptografado")));
+        QVERIFY(r.error.contains(QStringLiteral("encrypted")));
     }
 };
 

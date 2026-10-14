@@ -3,6 +3,7 @@
 
 #include "Keyframes.h"
 
+#include <QCoreApplication>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -476,18 +477,18 @@ bool parseProject(const QByteArray &data, Project &out, QString *error)
     const auto doc = QJsonDocument::fromJson(data, &pe);
     if (pe.error != QJsonParseError::NoError || !doc.isObject()) {
         if (error)
-            *error = QStringLiteral("JSON inválido: %1").arg(pe.errorString());
+            *error = QCoreApplication::translate("Core", "Invalid JSON: %1").arg(pe.errorString());
         return false;
     }
     const auto o = doc.object();
     if (o.value("format").toString() != QLatin1String("clivcut")) {
         if (error)
-            *error = QStringLiteral("O arquivo não é um projeto clivcut");
+            *error = QCoreApplication::translate("Core", "The file is not a clivcut project");
         return false;
     }
     if (o.value("version").toInt() > kProjectFormatVersion) {
         if (error)
-            *error = QStringLiteral("Projeto criado por uma versão mais nova do clivcut");
+            *error = QCoreApplication::translate("Core", "Project created by a newer version of clivcut");
         return false;
     }
     Project p;

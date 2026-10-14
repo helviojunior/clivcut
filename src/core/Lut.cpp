@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "Lut.h"
 
+#include <QCoreApplication>
 #include <QFile>
 #include <QHash>
 #include <QMutex>
@@ -66,54 +67,54 @@ struct FilterDef {
 const std::vector<FilterDef> &filterDefs()
 {
     static const std::vector<FilterDef> defs{
-        {{"vivid", QStringLiteral("Vívido"), QStringLiteral("Cor")},
+        {{"vivid", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Vivid")), QStringLiteral("color")},
          [](Vec3 c) { return contrast(saturate(c, 1.35f), 0.25f); }},
-        {{"warm", QStringLiteral("Quente"), QStringLiteral("Cor")},
+        {{"warm", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Warm")), QStringLiteral("color")},
          [](Vec3 c) { return saturate(Vec3{c[0] * 1.08f + 0.02f, c[1] * 1.02f + 0.01f, c[2] * 0.88f}, 1.05f); }},
-        {{"cool", QStringLiteral("Frio"), QStringLiteral("Cor")},
+        {{"cool", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Cool")), QStringLiteral("color")},
          [](Vec3 c) { return Vec3{c[0] * 0.9f, c[1] * 1.0f + 0.01f, c[2] * 1.1f + 0.03f}; }},
-        {{"pastel", QStringLiteral("Pastel"), QStringLiteral("Cor")},
+        {{"pastel", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Pastel")), QStringLiteral("color")},
          [](Vec3 c) { return fade(saturate(c, 0.75f), 0.08f, 0.98f); }},
-        {{"golden", QStringLiteral("Dourado"), QStringLiteral("Cor")},
+        {{"golden", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Golden")), QStringLiteral("color")},
          [](Vec3 c) { return splitTone(contrast(c, 0.15f), {0.45f, 0.42f, 0.5f}, {0.85f, 0.65f, 0.3f}, 0.6f); }},
-        {{"sunset", QStringLiteral("Pôr do sol"), QStringLiteral("Cor")},
+        {{"sunset", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Sunset")), QStringLiteral("color")},
          [](Vec3 c) { return splitTone(c, {0.55f, 0.35f, 0.6f}, {0.95f, 0.55f, 0.35f}, 0.7f); }},
-        {{"tealorange", QStringLiteral("Teal & Orange"), QStringLiteral("Cinema")},
+        {{"tealorange", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Teal & Orange")), QStringLiteral("cinema")},
          [](Vec3 c) { return contrast(splitTone(c, {0.2f, 0.55f, 0.65f}, {0.9f, 0.6f, 0.35f}, 0.8f), 0.2f); }},
-        {{"film", QStringLiteral("Filme"), QStringLiteral("Cinema")},
+        {{"film", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Film")), QStringLiteral("cinema")},
          [](Vec3 c) { return fade(contrast(splitTone(c, {0.42f, 0.55f, 0.5f}, {0.6f, 0.55f, 0.45f}, 0.5f), 0.3f), 0.04f, 0.96f); }},
-        {{"moody", QStringLiteral("Sombrio"), QStringLiteral("Cinema")},
+        {{"moody", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Moody")), QStringLiteral("cinema")},
          [](Vec3 c) {
              Vec3 d = saturate(c, 0.7f);
              d = splitTone(d, {0.35f, 0.45f, 0.6f}, {0.55f, 0.52f, 0.48f}, 0.6f);
              return contrast(Vec3{d[0] * 0.9f, d[1] * 0.9f, d[2] * 0.92f}, 0.35f);
          }},
-        {{"matte", QStringLiteral("Fosco"), QStringLiteral("Cinema")},
+        {{"matte", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Matte")), QStringLiteral("cinema")},
          [](Vec3 c) { return fade(saturate(c, 0.85f), 0.1f, 0.92f); }},
-        {{"vintage", QStringLiteral("Vintage"), QStringLiteral("Retrô")},
+        {{"vintage", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Vintage")), QStringLiteral("retro")},
          [](Vec3 c) {
              Vec3 d = saturate(c, 0.65f);
              d = Vec3{d[0] * 1.05f + 0.03f, d[1] * 0.98f + 0.02f, d[2] * 0.82f + 0.05f};
              return fade(d, 0.07f, 0.93f);
          }},
-        {{"sepia", QStringLiteral("Sépia"), QStringLiteral("Retrô")},
+        {{"sepia", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Sepia")), QStringLiteral("retro")},
          [](Vec3 c) {
              const float l = luma(c);
              return Vec3{l * 1.07f + 0.05f, l * 0.88f + 0.03f, l * 0.68f + 0.02f};
          }},
-        {{"faded", QStringLiteral("Desbotado"), QStringLiteral("Retrô")},
+        {{"faded", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Faded")), QStringLiteral("retro")},
          [](Vec3 c) { return fade(saturate(c, 0.55f), 0.14f, 0.9f); }},
-        {{"bw", QStringLiteral("P&B"), QStringLiteral("P&B")},
+        {{"bw", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "B&W")), QStringLiteral("bw")},
          [](Vec3 c) {
              const float l = luma(c);
              return Vec3{l, l, l};
          }},
-        {{"noir", QStringLiteral("Noir"), QStringLiteral("P&B")},
+        {{"noir", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Noir")), QStringLiteral("bw")},
          [](Vec3 c) {
              const float l = sCurve(sCurve(clamp01(luma(c)), 1.0f), 0.6f);
              return Vec3{l, l, l};
          }},
-        {{"silver", QStringLiteral("Prata"), QStringLiteral("P&B")},
+        {{"silver", QString::fromUtf8(QT_TRANSLATE_NOOP("Filters", "Silver")), QStringLiteral("bw")},
          [](Vec3 c) {
              const float l = luma(c);
              return fade(Vec3{l * 0.97f, l, l * 1.03f}, 0.06f, 0.97f);
@@ -196,12 +197,12 @@ Lut3D parseCube(const QByteArray &data, QString *error)
             lut.domainMax = {parts[1].toFloat(), parts[2].toFloat(), parts[3].toFloat()};
         } else if (key.at(0).isDigit() || key.at(0) == QLatin1Char('-') || key.at(0) == QLatin1Char('.')) {
             if (parts.size() < 3)
-                return fail(QStringLiteral("Linha de dados inválida no .cube: %1").arg(line));
+                return fail(QCoreApplication::translate("Core", "Invalid data line in .cube: %1").arg(line));
             for (int i = 0; i < 3; ++i) {
                 bool ok = false;
                 values.push_back(parts[i].toFloat(&ok));
                 if (!ok)
-                    return fail(QStringLiteral("Número inválido no .cube: %1").arg(parts[i]));
+                    return fail(QCoreApplication::translate("Core", "Invalid number in .cube: %1").arg(parts[i]));
             }
         }
         // Outras palavras-chave (LUT_3D_INPUT_RANGE etc.) são ignoradas.
@@ -209,7 +210,7 @@ Lut3D parseCube(const QByteArray &data, QString *error)
     if (lut.size == 0 && size1d >= 2) {
         // LUT 1D: aplica por canal numa tabela 3D de 33³.
         if (values.size() != static_cast<size_t>(size1d) * 3)
-            return fail(QStringLiteral("Quantidade de entradas incompatível com LUT_1D_SIZE"));
+            return fail(QCoreApplication::translate("Core", "Entry count does not match LUT_1D_SIZE"));
         auto curve = [&](float v, int ch) {
             const float f = clamp01(v) * (size1d - 1);
             const int i0 = std::min(static_cast<int>(f), size1d - 2);
@@ -220,9 +221,9 @@ Lut3D parseCube(const QByteArray &data, QString *error)
         return out;
     }
     if (lut.size < 2 || lut.size > 256)
-        return fail(QStringLiteral("LUT_3D_SIZE ausente ou inválido"));
+        return fail(QCoreApplication::translate("Core", "LUT_3D_SIZE missing or invalid"));
     if (values.size() != static_cast<size_t>(lut.size) * lut.size * lut.size * 3)
-        return fail(QStringLiteral("O .cube tem %1 entradas; esperado %2³").arg(values.size() / 3).arg(lut.size));
+        return fail(QCoreApplication::translate("Core", "The .cube has %1 entries; expected %2³").arg(values.size() / 3).arg(lut.size));
     lut.rgb = std::move(values);
     return lut;
 }

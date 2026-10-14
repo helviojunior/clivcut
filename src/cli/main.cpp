@@ -86,36 +86,36 @@ int main(int argc, char **argv)
 
     QCommandLineParser cli;
     cli.setApplicationDescription(QStringLiteral(
-        "Renderiza um projeto .clivcut (ou um draft JSON) para vídeo, ou converte drafts.\n"
-        "  clivcut-render projeto.clivcut saida.mp4\n"
-        "  clivcut-render --convert pasta_do_draft projeto.clivcut\n"
-        "  clivcut-render --probe arquivo.mp4\n"
-        "  clivcut-render --transcribe [--model base] [--language pt] video.mp4 legendas.srt"));
+        "Renders a .clivcut project (or a draft JSON) to video, or converts drafts.\n"
+        "  clivcut-render project.clivcut output.mp4\n"
+        "  clivcut-render --convert draft_folder project.clivcut\n"
+        "  clivcut-render --probe file.mp4\n"
+        "  clivcut-render --transcribe [--model base] [--language en] video.mp4 captions.srt"));
     cli.addHelpOption();
     cli.addVersionOption();
-    cli.addPositionalArgument(QStringLiteral("entrada"), QStringLiteral("Projeto .clivcut ou pasta de draft JSON"));
-    cli.addPositionalArgument(QStringLiteral("saida"), QStringLiteral("Arquivo de vídeo (.mp4/.mov/.mkv) ou .clivcut"));
+    cli.addPositionalArgument(QStringLiteral("input"), QStringLiteral(".clivcut project or draft JSON folder"));
+    cli.addPositionalArgument(QStringLiteral("output"), QStringLiteral("Video file (.mp4/.mov/.mkv) or .clivcut"));
     QCommandLineOption codec({QStringLiteral("c"), QStringLiteral("codec")}, QStringLiteral("h264|hevc|av1|prores"),
                              QStringLiteral("codec"), QStringLiteral("h264"));
-    QCommandLineOption crf(QStringLiteral("crf"), QStringLiteral("Qualidade (menor = melhor)"), QStringLiteral("n"),
+    QCommandLineOption crf(QStringLiteral("crf"), QStringLiteral("Quality (lower = better)"), QStringLiteral("n"),
                            QStringLiteral("20"));
-    QCommandLineOption height(QStringLiteral("height"), QStringLiteral("Altura de saída (ex.: 720, 1080, 2160)"),
+    QCommandLineOption height(QStringLiteral("height"), QStringLiteral("Output height (e.g. 720, 1080, 2160)"),
                               QStringLiteral("px"));
-    QCommandLineOption fps(QStringLiteral("fps"), QStringLiteral("Quadros por segundo"), QStringLiteral("fps"));
-    QCommandLineOption convert(QStringLiteral("convert"), QStringLiteral("Converte a entrada para .clivcut sem renderizar"));
-    QCommandLineOption probe(QStringLiteral("probe"), QStringLiteral("Mostra informações de um arquivo de mídia"));
-    QCommandLineOption transcribe(QStringLiteral("transcribe"), QStringLiteral("Gera legendas (.srt) com whisper.cpp"));
+    QCommandLineOption fps(QStringLiteral("fps"), QStringLiteral("Frames per second"), QStringLiteral("fps"));
+    QCommandLineOption convert(QStringLiteral("convert"), QStringLiteral("Convert the input to .clivcut without rendering"));
+    QCommandLineOption probe(QStringLiteral("probe"), QStringLiteral("Show information about a media file"));
+    QCommandLineOption transcribe(QStringLiteral("transcribe"), QStringLiteral("Generate captions (.srt) with whisper.cpp"));
     QCommandLineOption model(QStringLiteral("model"),
-                             QStringLiteral("Modelo do whisper: tiny|base|small|large-v3-turbo ou caminho .bin"),
-                             QStringLiteral("modelo"), QStringLiteral("base"));
-    QCommandLineOption language(QStringLiteral("language"), QStringLiteral("Idioma da fala (pt, en, es... ou auto)"),
-                                QStringLiteral("código"), QStringLiteral("auto"));
-    QCommandLineOption maxChars(QStringLiteral("max-chars"), QStringLiteral("Caracteres por legenda (0 = frases)"),
+                             QStringLiteral("Whisper model: tiny|base|small|large-v3-turbo or a .bin path"),
+                             QStringLiteral("model"), QStringLiteral("base"));
+    QCommandLineOption language(QStringLiteral("language"), QStringLiteral("Spoken language (en, pt, es... or auto)"),
+                                QStringLiteral("code"), QStringLiteral("auto"));
+    QCommandLineOption maxChars(QStringLiteral("max-chars"), QStringLiteral("Characters per caption (0 = sentences)"),
                                 QStringLiteral("n"), QStringLiteral("42"));
-    QCommandLineOption bench(QStringLiteral("bench"), QStringLiteral("Mede a decodificação de um vídeo (quadros/s)"));
-    QCommandLineOption noHw(QStringLiteral("no-hw"), QStringLiteral("Desliga a decodificação por hardware"));
+    QCommandLineOption bench(QStringLiteral("bench"), QStringLiteral("Benchmark video decoding (frames/s)"));
+    QCommandLineOption noHw(QStringLiteral("no-hw"), QStringLiteral("Disable hardware decoding"));
     QCommandLineOption removeBg(QStringLiteral("remove-bg"),
-                                QStringLiteral("Gera o vídeo de matte (alfa) de um vídeo/imagem com IA (modelo rvm)"));
+                                QStringLiteral("Generate the matte (alpha) video of a video/image with AI (rvm model)"));
     cli.addOptions({codec, crf, height, fps, convert, probe, transcribe, model, language, maxChars, bench, noHw, removeBg});
     cli.process(app);
 
@@ -126,12 +126,12 @@ int main(int argc, char **argv)
         MediaAsset a;
         QString err;
         if (!media::probe(args[0], a, &err)) {
-            std::fprintf(stderr, "erro: %s\n", qPrintable(err));
+            std::fprintf(stderr, "error: %s\n", qPrintable(err));
             return 1;
         }
         const char *kinds[] = {"video", "audio", "image"};
-        std::printf("tipo: %s\nduração: %.3f s\ndimensões: %dx%d\nfps: %.3f\náudio: %s\n", kinds[static_cast<int>(a.kind)],
-                    a.duration / 1e6, a.width, a.height, a.fps, a.hasAudio ? "sim" : "não");
+        std::printf("type: %s\nduration: %.3f s\nsize: %dx%d\nfps: %.3f\naudio: %s\n", kinds[static_cast<int>(a.kind)],
+                    a.duration / 1e6, a.width, a.height, a.fps, a.hasAudio ? "yes" : "no");
         return 0;
     }
     if (cli.isSet(removeBg)) {
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
             cli.showHelp(1);
         const QString modelPath = engine::aiModelPath(engine::kMattingModel);
         if (!engine::aiModelInstalled(engine::kMattingModel)) {
-            std::fprintf(stderr, "erro: modelo ausente em %s\nBaixe com: curl -L -o %s %s\n", qPrintable(modelPath),
+            std::fprintf(stderr, "error: model missing at %s\nDownload it with: curl -L -o %s %s\n", qPrintable(modelPath),
                          qPrintable(modelPath), qPrintable(engine::findAiModel(engine::kMattingModel)->url.toString()));
             return 1;
         }
@@ -147,15 +147,15 @@ int main(int argc, char **argv)
         timer.start();
         QString err;
         const bool ok = engine::generateMatte(args[0], modelPath, args[1], [](double f) {
-            std::fprintf(stderr, "\rRemovendo fundo... %3d%%", static_cast<int>(f * 100));
+            std::fprintf(stderr, "\rRemoving background... %3d%%", static_cast<int>(f * 100));
             return true;
         }, &err);
         std::fprintf(stderr, "\n");
         if (!ok) {
-            std::fprintf(stderr, "erro: %s\n", qPrintable(err));
+            std::fprintf(stderr, "error: %s\n", qPrintable(err));
             return 1;
         }
-        std::printf("Matte salvo em %s (%.1f s)\n", qPrintable(args[1]), timer.elapsed() / 1000.0);
+        std::printf("Matte saved to %s (%.1f s)\n", qPrintable(args[1]), timer.elapsed() / 1000.0);
         return 0;
     }
     if (cli.isSet(bench)) {
@@ -165,7 +165,7 @@ int main(int argc, char **argv)
         media::VideoDecoder dec;
         QString err;
         if (!dec.open(args[0], QSize(h * 4, h), &err, !cli.isSet(noHw))) {
-            std::fprintf(stderr, "erro: %s\n", qPrintable(err));
+            std::fprintf(stderr, "error: %s\n", qPrintable(err));
             return 1;
         }
         MediaAsset info;
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
             if (dec.frameAt(t).isNull())
                 break;
         const double secs = timer.elapsed() / 1000.0;
-        std::printf("%s → %dx%d, decodificador: %s\n%d quadros em %.2f s = %.1f quadros/s\n", qPrintable(QFileInfo(args[0]).fileName()),
+        std::printf("%s → %dx%d, decoder: %s\n%d frames in %.2f s = %.1f frames/s\n", qPrintable(QFileInfo(args[0]).fileName()),
                     dec.outputSize().width(), dec.outputSize().height(),
                     dec.hardwareDecoder().isEmpty() ? "software" : qPrintable(dec.hardwareDecoder()), frames, secs,
                     frames / secs);
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
     Project p;
     QString err;
     if (!loadAny(args[0], p, &err)) {
-        std::fprintf(stderr, "erro: %s\n", qPrintable(err));
+        std::fprintf(stderr, "error: %s\n", qPrintable(err));
         return 1;
     }
     refreshAssets(p);
@@ -201,7 +201,7 @@ int main(int argc, char **argv)
         topts.language = cli.value(language);
         topts.maxChars = cli.value(maxChars).toInt();
         if (!QFileInfo::exists(topts.modelPath)) {
-            std::fprintf(stderr, "erro: modelo não encontrado em %s\nBaixe com: curl -L -o %s %s\n",
+            std::fprintf(stderr, "error: model not found at %s\nDownload it with: curl -L -o %s %s\n",
                          qPrintable(topts.modelPath), qPrintable(topts.modelPath),
                          qPrintable(engine::whisperModelUrl(cli.value(model)).toString()));
             return 1;
@@ -212,31 +212,31 @@ int main(int argc, char **argv)
         const bool ok = engine::transcribeProject(
             p, topts,
             [](double f) {
-                std::fprintf(stderr, "\rTranscrevendo... %3d%%", static_cast<int>(f * 100));
+                std::fprintf(stderr, "\rTranscribing... %3d%%", static_cast<int>(f * 100));
                 return true;
             },
             segs, &err);
         std::fprintf(stderr, "\n");
         if (!ok) {
-            std::fprintf(stderr, "erro: %s\n", qPrintable(err));
+            std::fprintf(stderr, "error: %s\n", qPrintable(err));
             return 1;
         }
         QFile out(args[1]);
         if (!out.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            std::fprintf(stderr, "erro: %s\n", qPrintable(out.errorString()));
+            std::fprintf(stderr, "error: %s\n", qPrintable(out.errorString()));
             return 1;
         }
         out.write(toSrt(segs).toUtf8());
-        std::printf("%zu legendas em %s (%.1f s)\n", segs.size(), qPrintable(args[1]), timer.elapsed() / 1000.0);
+        std::printf("%zu captions in %s (%.1f s)\n", segs.size(), qPrintable(args[1]), timer.elapsed() / 1000.0);
         return 0;
     }
 
     if (cli.isSet(convert) || args[1].endsWith(QLatin1String(".clivcut"))) {
         if (!saveProjectFile(p, args[1], &err)) {
-            std::fprintf(stderr, "erro: %s\n", qPrintable(err));
+            std::fprintf(stderr, "error: %s\n", qPrintable(err));
             return 1;
         }
-        std::printf("Projeto salvo em %s\n", qPrintable(args[1]));
+        std::printf("Project saved to %s\n", qPrintable(args[1]));
         return 0;
     }
 
@@ -268,16 +268,16 @@ int main(int argc, char **argv)
             const int pct = static_cast<int>(f * 100);
             if (pct != lastPct) {
                 lastPct = pct;
-                std::fprintf(stderr, "\rRenderizando... %3d%%", pct);
+                std::fprintf(stderr, "\rRendering... %3d%%", pct);
             }
             return true;
         },
         &err);
     std::fprintf(stderr, "\n");
     if (!ok) {
-        std::fprintf(stderr, "erro: %s\n", qPrintable(err));
+        std::fprintf(stderr, "error: %s\n", qPrintable(err));
         return 1;
     }
-    std::printf("Exportado %s em %.1f s\n", qPrintable(args[1]), timer.elapsed() / 1000.0);
+    std::printf("Exported %s in %.1f s\n", qPrintable(args[1]), timer.elapsed() / 1000.0);
     return 0;
 }

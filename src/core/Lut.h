@@ -35,7 +35,7 @@ QByteArray toCube(const Lut3D &lut);
 struct BuiltinFilter {
     QString id;
     QString name;     ///< rótulo da interface (pt-BR)
-    QString category; ///< "Cor", "Cinema", "P&B", "Retrô"
+    QString category; ///< "color", "cinema", "retro", "bw"
 };
 
 const std::vector<BuiltinFilter> &builtinFilters();

@@ -454,7 +454,7 @@ private slots:
 
         int captionTrack = -1;
         for (const auto &t : m_ctrl->tracks())
-            if (t.toMap().value("name") == QStringLiteral("Legendas"))
+            if (t.toMap().value("name") == QStringLiteral("Captions"))
                 captionTrack = t.toMap().value("index").toInt();
         QVERIFY(captionTrack > 0);
         const auto caps = clipsOf(captionTrack);
@@ -463,7 +463,7 @@ private slots:
         // Gerar de novo com "substituir" não duplica a faixa; um undo remove tudo.
         m_ctrl->undo();
         for (const auto &t : m_ctrl->tracks())
-            QVERIFY(t.toMap().value("name") != QStringLiteral("Legendas"));
+            QVERIFY(t.toMap().value("name") != QStringLiteral("Captions"));
         m_ctrl->redo();
 
         // Estilo aplicado a todas.

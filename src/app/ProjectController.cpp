@@ -11,6 +11,7 @@
 #include "core/Lut.h"
 #include "core/Serialize.h"
 #include "core/SpeedCurve.h"
+#include "Language.h"
 #include "engine/AiModels.h"
 #include "engine/AudioCleanup.h"
 #include "engine/Matting.h"
@@ -28,6 +29,7 @@
 #include <QGuiApplication>
 #include <QMimeData>
 #include <QJSEngine>
+#include <QQmlEngine>
 #include <QDateTime>
 #include <QDir>
 #include <QJsonDocument>
@@ -92,7 +94,7 @@ QString localPath(const QUrl &url)
 ProjectController::ProjectController(QObject *parent) : QObject(parent)
 {
     g_instance = this;
-    m_project = createProject();
+    m_project = createProject(tr("New project"));
     m_snapshot = std::make_shared<const Project>(m_project);
     m_audio = std::make_unique<AudioOutput>();
     m_useProxies = QSettings().value(QStringLiteral("playback/useProxies"), true).toBool();
@@ -125,9 +127,10 @@ ProjectController *ProjectController::instance()
     return g_instance;
 }
 
-ProjectController *ProjectController::create(QQmlEngine *, QJSEngine *)
+ProjectController *ProjectController::create(QQmlEngine *engine, QJSEngine *)
 {
     Q_ASSERT(g_instance);
+    g_instance->m_engine = engine;
     QJSEngine::setObjectOwnership(g_instance, QJSEngine::CppOwnership);
     return g_instance;
 }
@@ -216,7 +219,7 @@ void ProjectController::setProjectName(const QString &name)
 {
     if (name == m_project.name || name.trimmed().isEmpty())
         return;
-    edit(tr("Renomear projeto"), [&](Project &p) {
+    edit(tr("Rename project"), [&](Project &p) {
         p.name = name.trimmed();
         return true;
     });
@@ -226,7 +229,7 @@ void ProjectController::setMagnet(bool on)
 {
     if (on == m_project.mainTrackMagnet)
         return;
-    edit(on ? tr("Ativar ímã") : tr("Desativar ímã"), [&](Project &p) {
+    edit(on ? tr("Enable magnet") : tr("Disable magnet"), [&](Project &p) {
         p.mainTrackMagnet = on;
         edit::packMainTrack(p);
         return true;
@@ -262,12 +265,12 @@ QVariantList ProjectController::tracks() const
                 }
             QString label = c.isText()     ? c.text.section(QLatin1Char('\n'), 0, 0)
                             : c.isAdjust() ? (findBuiltinFilter(c.color.filter) ? findBuiltinFilter(c.color.filter)->name
-                                                                                : tr("Ajuste"))
-                            : (a ? a->name : tr("Mídia ausente"));
+                                                                                : tr("Adjustment"))
+                            : (a ? a->name : tr("Missing media"));
             if (c.speed <= 0)
-                label = tr("Congelado · %1").arg(label);
+                label = tr("Frozen · %1").arg(label);
             else if (c.speedCurve.size() >= 2)
-                label = tr("Curva · %1").arg(label);
+                label = tr("Curve · %1").arg(label);
             else if (c.speed != 1)
                 label = QStringLiteral("%1x · %2").arg(c.speed, 0, 'g', 3).arg(label);
             clips << QVariantMap{
@@ -418,7 +421,7 @@ QVariantMap ProjectController::selectedClip() const
               {"vignette", col.vignette},
               {"sharpen", col.sharpen},
               {"filter", col.filter},
-              {"filterName", findBuiltinFilter(col.filter) ? findBuiltinFilter(col.filter)->name : QString()},
+              {"filterName", findBuiltinFilter(col.filter) ? QCoreApplication::translate("Filters", findBuiltinFilter(col.filter)->name.toUtf8()) : QString()},
               {"filterIntensity", col.filterIntensity},
               {"lutPath", col.lutPath},
               {"lutName", QFileInfo(col.lutPath).fileName()},
@@ -504,8 +507,8 @@ QStringList ProjectController::videoCodecs() const
 
 void ProjectController::newProject(int width, int height, double fps)
 {
-    setProject(createProject(tr("Novo projeto"), width, height, fps), {});
-    setStatus(tr("Projeto criado (%1×%2, %3 fps)").arg(width).arg(height).arg(fps));
+    setProject(createProject(tr("New project"), width, height, fps), {});
+    setStatus(tr("Project created (%1×%2, %3 fps)").arg(width).arg(height).arg(fps));
 }
 
 bool ProjectController::openProject(const QUrl &url)
@@ -516,12 +519,12 @@ bool ProjectController::openProject(const QUrl &url)
     Project p;
     QString err;
     if (!loadProjectFile(path, p, &err)) {
-        emit errorOccurred(tr("Não foi possível abrir o projeto: %1").arg(err));
+        emit errorOccurred(tr("Could not open the project: %1").arg(err));
         return false;
     }
     setProject(std::move(p), path);
     rememberRecent(path);
-    setStatus(tr("Projeto aberto: %1").arg(QFileInfo(path).fileName()));
+    setStatus(tr("Project opened: %1").arg(QFileInfo(path).fileName()));
     return true;
 }
 
@@ -531,14 +534,14 @@ bool ProjectController::saveProject()
         return false;
     QString err;
     if (!saveProjectFile(m_project, m_filePath, &err)) {
-        emit errorOccurred(tr("Falha ao salvar: %1").arg(err));
+        emit errorOccurred(tr("Save failed: %1").arg(err));
         return false;
     }
     m_savedRevision = m_history.revision();
     removeRecovery();
     rememberRecent(m_filePath);
     emit modifiedChanged();
-    setStatus(tr("Projeto salvo"));
+    setStatus(tr("Project saved"));
     return true;
 }
 
@@ -574,8 +577,8 @@ bool ProjectController::importDraft(const QUrl &url)
         }
     }
     setProject(std::move(r.project), {});
-    setStatus(r.warnings.isEmpty() ? tr("Draft importado")
-                                   : tr("Draft importado com %1 aviso(s): %2").arg(r.warnings.size()).arg(r.warnings.first()));
+    setStatus(r.warnings.isEmpty() ? tr("Draft imported")
+                                   : tr("Draft imported with %1 warning(s): %2").arg(r.warnings.size()).arg(r.warnings.first()));
     return true;
 }
 
@@ -604,21 +607,21 @@ void ProjectController::importMedia(const QList<QUrl> &urls)
         ++added;
     }
     if (added > 0) {
-        m_history.push(before, tr("Importar mídia"));
+        m_history.push(before, tr("Import media"));
         commitChange();
         refreshProxies();
         emit assetsChanged();
-        setStatus(tr("%n arquivo(s) importado(s)", nullptr, added));
+        setStatus(tr("%n file(s) imported", nullptr, added));
     }
     if (!failed.isEmpty())
-        emit errorOccurred(tr("Formato não suportado: %1").arg(failed.join(QStringLiteral(", "))));
+        emit errorOccurred(tr("Unsupported format: %1").arg(failed.join(QStringLiteral(", "))));
 }
 
 void ProjectController::setCanvas(int width, int height)
 {
     if (width == m_project.width && height == m_project.height)
         return;
-    edit(tr("Proporção do canvas"), [&](Project &p) {
+    edit(tr("Canvas aspect ratio"), [&](Project &p) {
         p.width = width;
         p.height = height;
         return true;
@@ -627,7 +630,7 @@ void ProjectController::setCanvas(int width, int height)
 
 void ProjectController::setBackground(const QString &color)
 {
-    edit(tr("Cor de fundo"), [&](Project &p) {
+    edit(tr("Background color"), [&](Project &p) {
         p.background = color;
         return true;
     }, QStringLiteral("bg"));
@@ -641,10 +644,10 @@ void ProjectController::relinkAsset(const QString &assetId, const QUrl &url)
     MediaAsset probed;
     const QString path = localPath(url);
     if (!media::probe(path, probed)) {
-        emit errorOccurred(tr("Não foi possível ler %1").arg(path));
+        emit errorOccurred(tr("Could not read %1").arg(path));
         return;
     }
-    edit(tr("Reconectar mídia"), [&](Project &p) {
+    edit(tr("Relink media"), [&](Project &p) {
         MediaAsset &a = p.assets[assetId];
         probed.id = a.id;
         a = probed;
@@ -662,7 +665,7 @@ void ProjectController::addAssetToTimeline(const QString &assetId, int trackInde
     if (!a)
         return;
     QString newClip;
-    edit(tr("Adicionar à timeline"), [&](Project &p) {
+    edit(tr("Add to timeline"), [&](Project &p) {
         Micros at = start >= 0 ? static_cast<Micros>(start) : m_playhead;
         Clip c = createMediaClip(*a, at);
         if (trackIndex < 0 && start < 0 && a->kind != MediaKind::Audio) {
@@ -684,16 +687,16 @@ void ProjectController::addAssetToTimeline(const QString &assetId, int trackInde
 QString ProjectController::defaultTextFor(const QString &preset) const
 {
     if (preset == QLatin1String("title"))
-        return tr("Título");
+        return tr("Title");
     if (preset == QLatin1String("subtitle"))
-        return tr("Legenda");
-    return tr("Texto");
+        return tr("Subtitle");
+    return tr("Text");
 }
 
 void ProjectController::addText(const QString &text, const QString &preset)
 {
     QString id;
-    edit(tr("Adicionar texto"), [&](Project &p) {
+    edit(tr("Add text"), [&](Project &p) {
         Clip c = createTextClip(text.isEmpty() ? defaultTextFor(preset) : text, m_playhead);
         if (preset == QLatin1String("title")) {
             c.style.fontSize = 120;
@@ -724,7 +727,7 @@ void ProjectController::addText(const QString &text, const QString &preset)
 void ProjectController::splitAtPlayhead()
 {
     const Micros t = m_project.snapToFrame(m_playhead);
-    edit(tr("Dividir"), [&](Project &p) { return edit::splitAt(p, t, m_selection) > 0 || edit::splitAt(p, t) > 0; });
+    edit(tr("Split"), [&](Project &p) { return edit::splitAt(p, t, m_selection) > 0 || edit::splitAt(p, t) > 0; });
 }
 
 void ProjectController::deleteSelection(bool ripple)
@@ -732,7 +735,7 @@ void ProjectController::deleteSelection(bool ripple)
     if (m_selection.isEmpty())
         return;
     const QStringList ids = m_selection;
-    edit(tr("Excluir"), [&](Project &p) { return edit::deleteClips(p, ids, ripple); });
+    edit(tr("Delete"), [&](Project &p) { return edit::deleteClips(p, ids, ripple); });
 }
 
 void ProjectController::deleteLeft()
@@ -743,7 +746,7 @@ void ProjectController::deleteLeft()
         for (const auto &c : m_project.tracks[0].clips)
             if (t > c.start && t < c.end())
                 targets << c.id;
-    edit(tr("Excluir à esquerda"), [&](Project &p) {
+    edit(tr("Delete left"), [&](Project &p) {
         bool any = false;
         for (const auto &id : targets)
             any = edit::trimToPlayhead(p, id, t, edit::Edge::Start, true) || any;
@@ -763,7 +766,7 @@ void ProjectController::deleteRight()
         for (const auto &c : m_project.tracks[0].clips)
             if (t > c.start && t < c.end())
                 targets << c.id;
-    edit(tr("Excluir à direita"), [&](Project &p) {
+    edit(tr("Delete right"), [&](Project &p) {
         bool any = false;
         for (const auto &id : targets)
             any = edit::trimToPlayhead(p, id, t, edit::Edge::End, true) || any;
@@ -774,7 +777,7 @@ void ProjectController::deleteRight()
 void ProjectController::duplicateSelection()
 {
     QStringList created;
-    edit(tr("Duplicar"), [&](Project &p) {
+    edit(tr("Duplicate"), [&](Project &p) {
         for (const auto &id : m_selection)
             if (auto n = edit::duplicateClip(p, id))
                 created << *n;
@@ -796,16 +799,16 @@ bool ProjectController::moveClip(const QString &clipId, int trackIndex, double s
             return false;
         const Micros delta = m_project.snapToFrame(static_cast<Micros>(start)) - c->start;
         const QStringList ids = m_selection;
-        return edit(tr("Mover clipes"), [&](Project &p) { return edit::moveClips(p, ids, delta); });
+        return edit(tr("Move clips"), [&](Project &p) { return edit::moveClips(p, ids, delta); });
     }
-    return edit(tr("Mover clipe"), [&](Project &p) {
+    return edit(tr("Move clip"), [&](Project &p) {
         return edit::moveClip(p, clipId, trackIndex, p.snapToFrame(static_cast<Micros>(start)));
     });
 }
 
 bool ProjectController::trimClip(const QString &clipId, bool startEdge, double time)
 {
-    return edit(tr("Aparar clipe"), [&](Project &p) {
+    return edit(tr("Trim clip"), [&](Project &p) {
         return edit::trimClip(p, clipId, startEdge ? edit::Edge::Start : edit::Edge::End,
                               p.snapToFrame(static_cast<Micros>(time)));
     });
@@ -823,7 +826,7 @@ void ProjectController::setTrackFlag(int trackIndex, const QString &flag, bool v
 {
     if (trackIndex < 0 || trackIndex >= static_cast<int>(m_project.tracks.size()))
         return;
-    edit(tr("Alterar faixa"), [&](Project &p) {
+    edit(tr("Change track"), [&](Project &p) {
         Track &t = p.tracks[trackIndex];
         if (flag == QLatin1String("muted"))
             t.muted = value;
@@ -839,7 +842,7 @@ void ProjectController::setTrackFlag(int trackIndex, const QString &flag, bool v
 
 void ProjectController::addMarker()
 {
-    edit(tr("Adicionar marcador"), [&](Project &p) {
+    edit(tr("Add marker"), [&](Project &p) {
         for (const auto &m : p.markers)
             if (std::llabs(m.t - m_playhead) < p.frameDuration())
                 return false;
@@ -856,16 +859,16 @@ void ProjectController::detachAudio()
             if (m_playhead >= c.start && m_playhead < c.end())
                 targets << c.id;
     QStringList created;
-    edit(tr("Separar áudio"), [&](Project &p) {
+    edit(tr("Detach audio"), [&](Project &p) {
         for (const auto &id : targets)
             if (auto a = edit::detachAudio(p, id))
                 created << *a;
         return !created.isEmpty();
     });
     if (created.isEmpty())
-        setStatus(tr("Selecione um clipe de vídeo com áudio"));
+        setStatus(tr("Select a video clip with audio"));
     else
-        setStatus(tr("Áudio separado em %n clipe(s)", nullptr, static_cast<int>(created.size())));
+        setStatus(tr("Audio detached from %n clip(s)", nullptr, static_cast<int>(created.size())));
 }
 
 void ProjectController::freezeFrame()
@@ -879,11 +882,11 @@ void ProjectController::freezeFrame()
                 target = c.id;
     auto ref = edit::findClip(m_project, target);
     if (!ref || ref->track != 0) {
-        setStatus(tr("Selecione um clipe de vídeo da faixa principal para congelar o quadro"));
+        setStatus(tr("Select a video clip on the main track to freeze the frame"));
         return;
     }
     const Micros t = m_project.snapToFrame(m_playhead);
-    edit(tr("Congelar quadro"), [&](Project &p) {
+    edit(tr("Freeze frame"), [&](Project &p) {
         const Clip original = p.tracks[0].clips[ref->index];
         if (original.isText())
             return false;
@@ -1031,7 +1034,7 @@ void ProjectController::setClipProperties(const QString &clipId, const QVariantM
         return;
     const Micros rel = std::clamp<Micros>(m_playhead - existing->start, 0, existing->duration);
     const QStringList keys = values.keys();
-    edit(tr("Alterar %1").arg(keys.join(QStringLiteral(", "))), [&](Project &p) {
+    edit(tr("Change %1").arg(keys.join(QStringLiteral(", "))), [&](Project &p) {
         Clip *c = edit::clipById(p, clipId);
         if (!c)
             return false;
@@ -1050,7 +1053,7 @@ void ProjectController::toggleKeyframe(const QString &clipId, const QString &pro
         return;
     const Micros rel = m_playhead - c->start;
     if (rel < 0 || rel > c->duration) {
-        setStatus(tr("Posicione o cursor sobre o clipe para criar keyframes"));
+        setStatus(tr("Place the playhead over the clip to create keyframes"));
         return;
     }
     edit(tr("Keyframe"), [&](Project &proj) {
@@ -1068,7 +1071,7 @@ void ProjectController::toggleKeyframe(const QString &clipId, const QString &pro
 
 void ProjectController::setTransition(const QString &clipId, const QString &kind, double durationUs)
 {
-    edit(tr("Transição"), [&](Project &p) {
+    edit(tr("Transition"), [&](Project &p) {
         auto ref = edit::findClip(p, clipId);
         if (!ref || ref->index == 0)
             return false;
@@ -1086,7 +1089,7 @@ void ProjectController::setTransition(const QString &clipId, const QString &kind
 
 void ProjectController::setAnimation(const QString &clipId, bool in, const QString &kind, double durationUs)
 {
-    edit(tr("Animação"), [&](Project &p) {
+    edit(tr("Animation"), [&](Project &p) {
         Clip *c = edit::clipById(p, clipId);
         if (!c)
             return false;
@@ -1116,7 +1119,7 @@ QVariantList ProjectController::speedPresets() const
         QVariantList pts;
         for (const auto &pt : p.points)
             pts << QVariantMap{{"u", pt.u}, {"v", pt.v}};
-        out << QVariantMap{{"id", p.id}, {"name", p.name}, {"points", pts}};
+        out << QVariantMap{{"id", p.id}, {"name", QCoreApplication::translate("SpeedCurves", p.name.toUtf8())}, {"points", pts}};
     }
     return out;
 }
@@ -1124,7 +1127,7 @@ QVariantList ProjectController::speedPresets() const
 void ProjectController::setSpeedCurve(const QString &clipId, const QVariantList &points)
 {
     const auto pts = pointsFrom(points);
-    edit(tr("Curva de velocidade"), [&](Project &p) { return edit::setSpeedCurve(p, clipId, pts); },
+    edit(tr("Speed curve"), [&](Project &p) { return edit::setSpeedCurve(p, clipId, pts); },
          clipId + QStringLiteral("curve"));
 }
 
@@ -1132,7 +1135,7 @@ void ProjectController::applySpeedPreset(const QString &clipId, const QString &p
 {
     for (const auto &preset : clv::speedPresets())
         if (preset.id == presetId) {
-            edit(tr("Curva: %1").arg(preset.name),
+            edit(tr("Curve: %1").arg(QCoreApplication::translate("SpeedCurves", preset.name.toUtf8())),
                  [&](Project &p) { return edit::setSpeedCurve(p, clipId, preset.points); });
             return;
         }
@@ -1140,12 +1143,12 @@ void ProjectController::applySpeedPreset(const QString &clipId, const QString &p
 
 void ProjectController::setSpeed(const QString &clipId, double speed)
 {
-    edit(tr("Velocidade"), [&](Project &p) { return edit::setSpeed(p, clipId, speed); }, clipId + QStringLiteral("speed"));
+    edit(tr("Speed"), [&](Project &p) { return edit::setSpeed(p, clipId, speed); }, clipId + QStringLiteral("speed"));
 }
 
 void ProjectController::resetClipProperties(const QString &clipId, const QString &group)
 {
-    edit(tr("Redefinir"), [&](Project &p) {
+    edit(tr("Reset"), [&](Project &p) {
         Clip *c = edit::clipById(p, clipId);
         if (!c)
             return false;
@@ -1339,7 +1342,7 @@ void ProjectController::exportVideo(const QUrl &url, int height, double fps, con
             m_exporting = false;
             emit exportChanged();
             emit exportFinished(ok, ok ? path : err);
-            setStatus(ok ? tr("Exportado: %1").arg(path) : err);
+            setStatus(ok ? tr("Exported: %1").arg(path) : err);
         }, Qt::QueuedConnection);
     }).detach();
 }
@@ -1386,7 +1389,7 @@ QVariantList ProjectController::captionModels() const
             {"id", m.id},
             {"label", m.label},
             {"sizeMb", static_cast<int>(m.sizeBytes / 1'000'000)},
-            {"description", m.description},
+            {"description", QCoreApplication::translate("Models", m.description.toUtf8())},
             {"installed", engine::whisperModelInstalled(m.id)},
         };
     return out;
@@ -1402,7 +1405,7 @@ QVariantList ProjectController::audioTracks() const
             if (const MediaAsset *a = c.isText() ? nullptr : m_project.asset(c.assetId))
                 hasAudio = hasAudio || a->hasAudio;
         if (hasAudio)
-            out << QVariantMap{{"index", i}, {"name", i == 0 ? tr("Principal") : t.name}};
+            out << QVariantMap{{"index", i}, {"name", i == 0 ? tr("Main") : t.name}};
     }
     return out;
 }
@@ -1418,7 +1421,7 @@ void ProjectController::downloadModel(const QString &id)
     const QString finalPath = engine::aiModelPath(id);
     auto *file = new QFile(finalPath + QStringLiteral(".part"), this);
     if (!file->open(QIODevice::WriteOnly)) {
-        emit errorOccurred(tr("Não foi possível gravar em %1").arg(file->fileName()));
+        emit errorOccurred(tr("Could not write to %1").arg(file->fileName()));
         delete file;
         return;
     }
@@ -1453,12 +1456,12 @@ void ProjectController::downloadModel(const QString &id)
         m_downloadingModel.clear();
         emit captionModelsChanged();
         if (ok) {
-            setStatus(tr("Modelo %1 instalado").arg(id));
+            setStatus(tr("Model %1 installed").arg(id));
             if (id == engine::kMattingModel)
                 refreshMattes();
         }
         else if (!cancelled)
-            emit errorOccurred(tr("Falha ao baixar o modelo: %1").arg(err));
+            emit errorOccurred(tr("Model download failed: %1").arg(err));
     });
 }
 
@@ -1473,7 +1476,7 @@ void ProjectController::generateCaptions(const QString &modelId, const QString &
     if (m_transcribing)
         return;
     if (!engine::whisperModelInstalled(modelId)) {
-        emit errorOccurred(tr("Baixe o modelo antes de gerar legendas"));
+        emit errorOccurred(tr("Download the model before generating captions"));
         return;
     }
     pause();
@@ -1509,10 +1512,10 @@ void ProjectController::generateCaptions(const QString &modelId, const QString &
                 return;
             }
             if (segs.empty()) {
-                emit errorOccurred(tr("Nenhuma fala reconhecida"));
+                emit errorOccurred(tr("No speech recognized"));
                 return;
             }
-            edit(tr("Legendas automáticas"), [&](Project &p) {
+            edit(tr("Auto captions"), [&](Project &p) {
                 if (replace)
                     for (int i = static_cast<int>(p.tracks.size()) - 1; i >= 1; --i)
                         if (p.tracks[i].captions)
@@ -1520,7 +1523,7 @@ void ProjectController::generateCaptions(const QString &modelId, const QString &
                 addCaptionTrack(p, segs);
                 return true;
             });
-            setStatus(tr("%n legenda(s) geradas", nullptr, static_cast<int>(segs.size())));
+            setStatus(tr("%n caption(s) generated", nullptr, static_cast<int>(segs.size())));
         }, Qt::QueuedConnection);
     }).detach();
 }
@@ -1534,19 +1537,19 @@ bool ProjectController::importSubtitles(const QUrl &url)
 {
     QFile f(localPath(url));
     if (!f.open(QIODevice::ReadOnly)) {
-        emit errorOccurred(tr("Não foi possível abrir %1").arg(f.fileName()));
+        emit errorOccurred(tr("Could not open %1").arg(f.fileName()));
         return false;
     }
     const auto segs = reflowCaptions(parseSubtitles(QString::fromUtf8(f.readAll())), 80);
     if (segs.empty()) {
-        emit errorOccurred(tr("Nenhuma legenda válida em %1").arg(QFileInfo(f).fileName()));
+        emit errorOccurred(tr("No valid captions in %1").arg(QFileInfo(f).fileName()));
         return false;
     }
-    edit(tr("Importar legendas"), [&](Project &p) {
+    edit(tr("Import captions"), [&](Project &p) {
         addCaptionTrack(p, segs, QFileInfo(f).completeBaseName());
         return true;
     });
-    setStatus(tr("%n legenda(s) importadas", nullptr, static_cast<int>(segs.size())));
+    setStatus(tr("%n caption(s) imported", nullptr, static_cast<int>(segs.size())));
     return true;
 }
 
@@ -1562,7 +1565,7 @@ bool ProjectController::exportSubtitles(const QUrl &url)
         if (!track && t.captions)
             track = &t;
     if (!track) {
-        emit errorOccurred(tr("Não há faixa de legendas para exportar"));
+        emit errorOccurred(tr("There is no caption track to export"));
         return false;
     }
     QString path = localPath(url);
@@ -1570,10 +1573,10 @@ bool ProjectController::exportSubtitles(const QUrl &url)
         path += QStringLiteral(".srt");
     QSaveFile f(path);
     if (!f.open(QIODevice::WriteOnly) || f.write(toSrt(captionsFromTrack(*track)).toUtf8()) < 0 || !f.commit()) {
-        emit errorOccurred(tr("Falha ao salvar %1").arg(path));
+        emit errorOccurred(tr("Failed to save %1").arg(path));
         return false;
     }
-    setStatus(tr("Legendas exportadas: %1").arg(path));
+    setStatus(tr("Captions exported: %1").arg(path));
     return true;
 }
 
@@ -1582,7 +1585,7 @@ void ProjectController::applyStyleToTrack(const QString &clipId)
     auto ref = edit::findClip(m_project, clipId);
     if (!ref)
         return;
-    edit(tr("Aplicar estilo às legendas"), [&](Project &p) {
+    edit(tr("Apply style to captions"), [&](Project &p) {
         Track &t = p.tracks[ref->track];
         const Clip src = t.clips[ref->index];
         if (!src.isText())
@@ -1606,13 +1609,13 @@ QVariantList ProjectController::filters() const
 {
     QVariantList out;
     for (const auto &f : builtinFilters())
-        out << QVariantMap{{"id", f.id}, {"name", f.name}, {"category", f.category}};
+        out << QVariantMap{{"id", f.id}, {"name", QCoreApplication::translate("Filters", f.name.toUtf8())}, {"category", f.category}};
     return out;
 }
 
 void ProjectController::applyFilter(const QString &clipId, const QString &filterId)
 {
-    edit(tr("Filtro"), [&](Project &p) {
+    edit(tr("Filter"), [&](Project &p) {
         Clip *c = edit::clipById(p, clipId);
         if (!c || c->isText())
             return false;
@@ -1628,7 +1631,7 @@ void ProjectController::applyFilter(const QString &clipId, const QString &filter
 void ProjectController::addFilterClip(const QString &filterId)
 {
     QString id;
-    edit(filterId.isEmpty() ? tr("Adicionar ajuste") : tr("Adicionar filtro"), [&](Project &p) {
+    edit(filterId.isEmpty() ? tr("Add adjustment") : tr("Add filter"), [&](Project &p) {
         // Cobre do cursor até o fim do clipe principal sob ele (ou 3 s).
         Micros duration = 3 * kSecond;
         for (const auto &c : p.tracks[0].clips)
@@ -1649,7 +1652,7 @@ bool ProjectController::loadLut(const QString &clipId, const QUrl &url)
     const QString path = localPath(url);
     QString err;
     if (!loadCube(path, &err).isValid()) {
-        emit errorOccurred(tr("LUT inválido (%1): %2").arg(QFileInfo(path).fileName(), err));
+        emit errorOccurred(tr("Invalid LUT (%1): %2").arg(QFileInfo(path).fileName(), err));
         return false;
     }
     setClipProperties(clipId, {{QStringLiteral("lutPath"), path}, {QStringLiteral("lutIntensity"), 1.0}});
@@ -1713,7 +1716,7 @@ void ProjectController::generateProxy(const QString &assetId)
     if (!a || a->kind != MediaKind::Video)
         return;
     if (!engine::registeredProxy(a->path).isEmpty()) {
-        setStatus(tr("O proxy de %1 já existe").arg(a->name));
+        setStatus(tr("The proxy for %1 already exists").arg(a->name));
         return;
     }
     enqueueProxy(a->path);
@@ -1775,11 +1778,11 @@ void ProjectController::startNextProxy()
             m_proxyBuilding.clear();
             if (ok) {
                 engine::registerProxy(path, out);
-                setStatus(tr("Proxy pronto: %1").arg(QFileInfo(path).fileName()));
+                setStatus(tr("Proxy ready: %1").arg(QFileInfo(path).fileName()));
                 ++m_revisionCounter;
                 emit revisionChanged();
             } else {
-                emit errorOccurred(tr("Falha ao gerar proxy de %1: %2").arg(QFileInfo(path).fileName(), err));
+                emit errorOccurred(tr("Failed to generate proxy for %1: %2").arg(QFileInfo(path).fileName(), err));
             }
             emit proxiesChanged();
             emit assetsChanged();
@@ -1808,7 +1811,7 @@ void ProjectController::copySelection()
     mime->setData(QString::fromLatin1(kClipboardMime), clipboardToJson(m_clipboard));
     QGuiApplication::clipboard()->setMimeData(mime);
     emit clipboardChanged();
-    setStatus(tr("%n clipe(s) copiado(s)", nullptr, static_cast<int>(m_clipboard.items.size())));
+    setStatus(tr("%n clip(s) copied", nullptr, static_cast<int>(m_clipboard.items.size())));
 }
 
 void ProjectController::cutSelection()
@@ -1817,7 +1820,7 @@ void ProjectController::cutSelection()
         return;
     copySelection();
     const QStringList ids = m_selection;
-    edit(tr("Recortar"), [&](Project &p) { return edit::deleteClips(p, ids, false); });
+    edit(tr("Cut"), [&](Project &p) { return edit::deleteClips(p, ids, false); });
 }
 
 void ProjectController::paste()
@@ -1833,7 +1836,7 @@ void ProjectController::paste()
     if (cb.empty())
         return;
     QStringList created;
-    edit(tr("Colar"), [&](Project &p) {
+    edit(tr("Paste"), [&](Project &p) {
         created = pasteClips(p, cb, p.snapToFrame(m_playhead));
         return !created.isEmpty();
     });
@@ -1854,7 +1857,7 @@ void ProjectController::copyAttributes()
     if (const Clip *c = edit::clipById(m_project, primary)) {
         m_attributeSource = *c;
         emit clipboardChanged();
-        setStatus(tr("Atributos copiados"));
+        setStatus(tr("Attributes copied"));
     }
 }
 
@@ -1863,7 +1866,7 @@ void ProjectController::pasteAttributesToSelection()
     if (!m_attributeSource || m_selection.isEmpty())
         return;
     const QStringList ids = m_selection;
-    edit(tr("Colar atributos"), [&](Project &p) {
+    edit(tr("Paste attributes"), [&](Project &p) {
         bool any = false;
         for (const auto &id : ids)
             if (Clip *c = edit::clipById(p, id); c && c->id != m_attributeSource->id) {
@@ -1879,13 +1882,13 @@ void ProjectController::groupSelection()
     if (m_selection.size() < 2)
         return;
     const QStringList ids = m_selection;
-    edit(tr("Agrupar"), [&](Project &p) { return !edit::groupClips(p, ids).isEmpty(); });
+    edit(tr("Group"), [&](Project &p) { return !edit::groupClips(p, ids).isEmpty(); });
 }
 
 void ProjectController::ungroupSelection()
 {
     const QStringList ids = m_selection;
-    edit(tr("Desagrupar"), [&](Project &p) { return edit::ungroupClips(p, ids); });
+    edit(tr("Ungroup"), [&](Project &p) { return edit::ungroupClips(p, ids); });
 }
 
 void ProjectController::selectInRange(double t0, double t1, const QVariantList &trackIndices, bool additive)
@@ -1959,7 +1962,7 @@ void ProjectController::autosaveNow()
     }
     QString err;
     if (!saveProjectFile(m_project, file, &err)) {
-        qWarning("clivcut: falha na cópia de recuperação: %s", qPrintable(err));
+        qWarning("clivcut: recovery copy failed: %s", qPrintable(err));
         return;
     }
     // Metadados: de onde veio o projeto e quando foi gravado.
@@ -2008,7 +2011,7 @@ bool ProjectController::recoverProject(const QString &recoveryFile)
     Project p;
     QString err;
     if (!loadProjectFile(recoveryFile, p, &err)) {
-        emit errorOccurred(tr("Não foi possível recuperar: %1").arg(err));
+        emit errorOccurred(tr("Could not recover: %1").arg(err));
         return false;
     }
     QString original;
@@ -2018,7 +2021,7 @@ bool ProjectController::recoverProject(const QString &recoveryFile)
     setProject(std::move(p), original);
     // O conteúdo recuperado ainda não foi salvo: fica marcado como modificado
     // (um passo de histórico vazio) e a cópia continua até salvar.
-    m_history.push(m_project, tr("Recuperar projeto"));
+    m_history.push(m_project, tr("Recover project"));
     m_autosavedRevision = 0;
     commitChange();
     autosaveNow();
@@ -2027,7 +2030,7 @@ bool ProjectController::recoverProject(const QString &recoveryFile)
         QFile::remove(recoveryFile);
         QFile::remove(recoveryFile + QStringLiteral(".json"));
     }
-    setStatus(tr("Projeto recuperado: salve para manter as alterações"));
+    setStatus(tr("Project recovered: save to keep the changes"));
     return true;
 }
 
@@ -2084,7 +2087,7 @@ void ProjectController::moveKeyframe(const QString &clipId, const QString &prop,
     const auto p = propFromKey(prop);
     if (!p)
         return;
-    edit(tr("Mover keyframe"), [&](Project &proj) {
+    edit(tr("Move keyframe"), [&](Project &proj) {
         Clip *c = edit::clipById(proj, clipId);
         if (!c)
             return false;
@@ -2108,7 +2111,7 @@ void ProjectController::setKeyframeEasing(const QString &clipId, const QString &
     const auto p = propFromKey(prop);
     if (!p)
         return;
-    edit(tr("Suavização do keyframe"), [&](Project &proj) {
+    edit(tr("Keyframe easing"), [&](Project &proj) {
         Clip *c = edit::clipById(proj, clipId);
         if (!c)
             return false;
@@ -2127,7 +2130,7 @@ void ProjectController::setKeyframeBezier(const QString &clipId, const QString &
     const auto p = propFromKey(prop);
     if (!p)
         return;
-    edit(tr("Curva do keyframe"), [&](Project &proj) {
+    edit(tr("Keyframe curve"), [&](Project &proj) {
         Clip *c = edit::clipById(proj, clipId);
         if (!c)
             return false;
@@ -2149,7 +2152,7 @@ void ProjectController::setEasingForAll(const QString &clipId, const QString &pr
     const auto p = propFromKey(prop);
     if (!p)
         return;
-    edit(tr("Suavização dos keyframes"), [&](Project &proj) {
+    edit(tr("Keyframes easing"), [&](Project &proj) {
         Clip *c = edit::clipById(proj, clipId);
         if (!c || c->keyframes[static_cast<int>(*p)].empty())
             return false;
@@ -2179,7 +2182,7 @@ void ProjectController::normalizeLoudness(double targetLufs)
             jobs.push_back({c->id, a->path, c->sourceIn, c->sourceDuration()});
     }
     if (jobs.empty()) {
-        setStatus(tr("Selecione clipes com áudio para normalizar"));
+        setStatus(tr("Select clips with audio to normalize"));
         return;
     }
     m_normalizing = true;
@@ -2195,10 +2198,10 @@ void ProjectController::normalizeLoudness(double targetLufs)
             m_normalizing = false;
             emit audioJobsChanged();
             if (gains.isEmpty()) {
-                emit errorOccurred(tr("Não há áudio audível para medir"));
+                emit errorOccurred(tr("There is no audible audio to measure"));
                 return;
             }
-            edit(tr("Normalizar volume"), [&](Project &p) {
+            edit(tr("Normalize loudness"), [&](Project &p) {
                 bool any = false;
                 for (auto it = gains.begin(); it != gains.end(); ++it)
                     if (Clip *c = edit::clipById(p, it.key())) {
@@ -2207,7 +2210,7 @@ void ProjectController::normalizeLoudness(double targetLufs)
                     }
                 return any;
             });
-            setStatus(tr("Volume normalizado para %1 LUFS (%n clipe(s))", nullptr, static_cast<int>(gains.size()))
+            setStatus(tr("Loudness normalized to %1 LUFS (%n clip(s))", nullptr, static_cast<int>(gains.size()))
                           .arg(targetLufs, 0, 'f', 0));
         }, Qt::QueuedConnection);
     }).detach();
@@ -2269,17 +2272,51 @@ void ProjectController::startNextDenoise()
             m_denoiseBuilding.clear();
             if (ok) {
                 engine::registerDenoised(path, strength, out);
-                setStatus(tr("Ruído reduzido: %1").arg(QFileInfo(path).fileName()));
+                setStatus(tr("Noise reduced: %1").arg(QFileInfo(path).fileName()));
                 if (m_playing)
                     m_audio->updateProject(snapshot());
             } else {
-                emit errorOccurred(tr("Falha na redução de ruído: %1").arg(err));
+                emit errorOccurred(tr("Noise reduction failed: %1").arg(err));
             }
             emit audioJobsChanged();
             emit selectedClipChanged();
             startNextDenoise();
         }, Qt::QueuedConnection);
     }).detach();
+}
+
+// ---------------------------------------------------------------------------
+// Idioma da interface
+
+QString ProjectController::language() const
+{
+    return app::savedLanguage();
+}
+
+void ProjectController::setLanguage(const QString &code)
+{
+    if (code == app::savedLanguage())
+        return;
+    app::saveLanguage(code);
+    app::installLanguage(code);
+    if (m_engine)
+        m_engine->retranslate();
+    emit languageChanged();
+    // Textos montados em C++ (nomes de filtros, modelos, rótulos de clipes).
+    emit projectChanged();
+    emit assetsChanged();
+    emit selectedClipChanged();
+    emit captionModelsChanged();
+}
+
+QString ProjectController::activeLanguage() const
+{
+    return app::activeLanguage();
+}
+
+QVariantList ProjectController::languages() const
+{
+    return app::availableLanguages();
 }
 
 // ---------------------------------------------------------------------------
@@ -2319,7 +2356,7 @@ void ProjectController::startNextMatte()
     const QString model = engine::aiModelPath(engine::kMattingModel);
     auto cancel = m_matteCancel;
     emit selectedClipChanged();
-    setStatus(tr("Removendo fundo de %1…").arg(QFileInfo(path).fileName()));
+    setStatus(tr("Removing background from %1…").arg(QFileInfo(path).fileName()));
     std::thread([this, path, model, cancel] {
         const QString out = engine::mattePathFor(path);
         QString err;
@@ -2343,11 +2380,11 @@ void ProjectController::startNextMatte()
             m_matteBuilding.clear();
             if (ok) {
                 engine::registerMatte(path, out);
-                setStatus(tr("Fundo removido: %1").arg(QFileInfo(path).fileName()));
+                setStatus(tr("Background removed: %1").arg(QFileInfo(path).fileName()));
                 ++m_revisionCounter;
                 emit revisionChanged();
             } else {
-                emit errorOccurred(tr("Falha ao remover o fundo: %1").arg(err));
+                emit errorOccurred(tr("Background removal failed: %1").arg(err));
             }
             emit selectedClipChanged();
             startNextMatte();

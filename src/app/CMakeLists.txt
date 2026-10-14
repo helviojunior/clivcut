@@ -15,6 +15,7 @@ qt_add_executable(clivcut
     PreviewItem.h PreviewItem.cpp
     ImageProviders.h ImageProviders.cpp
     AudioOutput.h AudioOutput.cpp
+    Language.h Language.cpp
 )
 
 set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
@@ -71,6 +72,15 @@ target_link_libraries(clivcut PRIVATE
     Qt6::Quick Qt6::QuickControls2 Qt6::Concurrent Qt6::Network Qt6::Svg
     clivcut::sdl2
 )
+
+# Traduções: o código está em inglês; clivcut_en.ts guarda só os plurais.
+# Atualize os .ts com: cmake --build build --target update_translations
+qt_add_translations(TARGETS clivcut
+    SOURCE_TARGETS clivcut clivcut_core clivcut_media clivcut_render clivcut_engine
+    TS_FILES ${CMAKE_SOURCE_DIR}/i18n/clivcut_pt_BR.ts ${CMAKE_SOURCE_DIR}/i18n/clivcut_es.ts
+    PLURALS_TS_FILE ${CMAKE_SOURCE_DIR}/i18n/clivcut_en.ts
+    RESOURCE_PREFIX /i18n
+    LUPDATE_OPTIONS -no-obsolete -locations none)
 
 install(TARGETS clivcut BUNDLE DESTINATION . RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 

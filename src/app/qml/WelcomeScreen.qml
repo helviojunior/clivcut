@@ -13,9 +13,9 @@ Rectangle {
     signal dismissed()
 
     readonly property var formats: [
-        { name: qsTr("Paisagem"), sub: "16:9 · 1920×1080", w: 1920, h: 1080, rw: 64, rh: 36 },
+        { name: qsTr("Landscape"), sub: "16:9 · 1920×1080", w: 1920, h: 1080, rw: 64, rh: 36 },
         { name: qsTr("Vertical"), sub: "9:16 · 1080×1920", w: 1080, h: 1920, rw: 27, rh: 48 },
-        { name: qsTr("Quadrado"), sub: "1:1 · 1080×1080", w: 1080, h: 1080, rw: 42, rh: 42 },
+        { name: qsTr("Square"), sub: "1:1 · 1080×1080", w: 1080, h: 1080, rw: 42, rh: 42 },
         { name: qsTr("Feed"), sub: "4:5 · 1080×1350", w: 1080, h: 1350, rw: 36, rh: 45 },
         { name: qsTr("Cinema"), sub: "21:9 · 2560×1080", w: 2560, h: 1080, rw: 68, rh: 29 }
     ]
@@ -40,7 +40,7 @@ Rectangle {
                 ColumnLayout {
                     spacing: 2
                     Text { text: "clivcut"; color: Theme.text; font.pixelSize: Theme.fontTitle + 6; font.bold: true }
-                    Text { text: qsTr("Comece pelo formato do vídeo"); color: Theme.textDim; font.pixelSize: Theme.fontLarge }
+                    Text { text: qsTr("Start with the video format"); color: Theme.textDim; font.pixelSize: Theme.fontLarge }
                 }
             }
 
@@ -101,17 +101,17 @@ Rectangle {
 
             RowLayout {
                 spacing: 10
-                PillButton { text: qsTr("Importar mídia"); iconName: "plus"; primary: true; onClicked: root.importRequested() }
-                PillButton { text: qsTr("Abrir projeto"); iconName: "folder-open"; onClicked: root.openRequested() }
-                PillButton { text: qsTr("Importar draft JSON"); iconName: "download"; onClicked: root.draftRequested() }
+                PillButton { text: qsTr("Import media"); iconName: "plus"; primary: true; onClicked: root.importRequested() }
+                PillButton { text: qsTr("Open project"); iconName: "folder-open"; onClicked: root.openRequested() }
+                PillButton { text: qsTr("Import draft JSON"); iconName: "download"; onClicked: root.draftRequested() }
                 Item { Layout.fillWidth: true }
-                PillButton { text: qsTr("Ir para o editor"); iconName: "chevron-right"; onClicked: root.dismissed() }
+                PillButton { text: qsTr("Go to the editor"); iconName: "chevron-right"; onClicked: root.dismissed() }
             }
 
             Text {
                 visible: Project.recentProjects.length > 0
                 Layout.topMargin: 12
-                text: qsTr("Recentes")
+                text: qsTr("Recent")
                 color: Theme.textDim
                 font.pixelSize: Theme.fontLarge
                 font.bold: true
@@ -154,11 +154,30 @@ Rectangle {
                     }
                 }
             }
-            Text {
+            RowLayout {
                 Layout.topMargin: 12
-                text: qsTr("Dica: arraste vídeos para a janela a qualquer momento · Ctrl+K abre a busca de comandos")
-                color: Theme.textFaint
-                font.pixelSize: Theme.fontSmall
+                Layout.fillWidth: true
+                spacing: 8
+                Text {
+                    Layout.fillWidth: true
+                    text: qsTr("Tip: drag videos into the window at any time · Ctrl+K opens the command search")
+                    color: Theme.textFaint
+                    font.pixelSize: Theme.fontSmall
+                    elide: Text.ElideRight
+                }
+                Icon { name: "languages"; size: 16; color: Theme.textDim }
+                ComboBox {
+                    id: languageBox
+                    // Primeiro item: seguir o idioma do sistema.
+                    readonly property var entries: [{ code: "", name: qsTr("System default") }].concat(Project.languages)
+                    implicitWidth: 200
+                    focusPolicy: Qt.NoFocus
+                    model: entries.map(e => e.name)
+                    currentIndex: Math.max(0, entries.findIndex(e => e.code === Project.language))
+                    onActivated: (i) => Project.language = entries[i].code
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Interface language")
+                }
             }
         }
     }

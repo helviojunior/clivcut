@@ -9,6 +9,7 @@ extern "C" {
 #include <libavutil/pixdesc.h>
 }
 
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QImageReader>
 #include <QTransform>
@@ -171,7 +172,7 @@ bool VideoDecoder::open(const QString &path, QSize maxSize, QString *error, bool
     m_stream = av_find_best_stream(m_fmt.get(), AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
     if (m_stream < 0) {
         if (error)
-            *error = QStringLiteral("Sem stream de vídeo");
+            *error = QCoreApplication::translate("Media", "No video stream");
         m_fmt.reset();
         return false;
     }
@@ -283,7 +284,7 @@ QImage VideoDecoder::convert(const AVFrame *f)
             m_gpuScaler = std::make_unique<GpuScaler>();
             if (!m_gpuScaler->init(f, gpuTarget, m_tb)) {
                 m_gpuScaler->failed = true;
-                qWarning("clivcut: redimensionamento na GPU indisponível; usando cópia completa");
+                qWarning("clivcut: GPU scaling unavailable; falling back to a full copy");
             }
         }
         if (!m_gpuScaler->failed) {

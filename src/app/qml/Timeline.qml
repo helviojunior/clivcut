@@ -96,18 +96,18 @@ Rectangle {
                 anchors.leftMargin: 8
                 anchors.rightMargin: 12
                 spacing: 2
-                IconButton { iconName: "scissors"; tip: qsTr("Dividir no cursor"); shortcut: "Ctrl+B"; onClicked: Project.splitAtPlayhead() }
-                IconButton { iconName: "arrow-left-to-line"; tip: qsTr("Excluir à esquerda do cursor"); shortcut: "Q"; onClicked: Project.deleteLeft() }
-                IconButton { iconName: "arrow-right-to-line"; tip: qsTr("Excluir à direita do cursor"); shortcut: "W"; onClicked: Project.deleteRight() }
-                IconButton { iconName: "trash-2"; tip: qsTr("Excluir seleção"); shortcut: "Del"; enabled: Project.selection.length > 0; onClicked: Project.deleteSelection(false) }
-                IconButton { iconName: "copy"; tip: qsTr("Duplicar"); shortcut: "Ctrl+D"; enabled: Project.selection.length > 0; onClicked: Project.duplicateSelection() }
-                IconButton { iconName: "snowflake"; tip: qsTr("Congelar quadro"); shortcut: "Alt+F"; onClicked: Project.freezeFrame() }
-                IconButton { iconName: "bookmark"; tip: qsTr("Adicionar marcador"); shortcut: "M"; onClicked: Project.addMarker() }
+                IconButton { iconName: "scissors"; tip: qsTr("Split at playhead"); shortcut: "Ctrl+B"; onClicked: Project.splitAtPlayhead() }
+                IconButton { iconName: "arrow-left-to-line"; tip: qsTr("Delete left of playhead"); shortcut: "Q"; onClicked: Project.deleteLeft() }
+                IconButton { iconName: "arrow-right-to-line"; tip: qsTr("Delete right of playhead"); shortcut: "W"; onClicked: Project.deleteRight() }
+                IconButton { iconName: "trash-2"; tip: qsTr("Delete selection"); shortcut: "Del"; enabled: Project.selection.length > 0; onClicked: Project.deleteSelection(false) }
+                IconButton { iconName: "copy"; tip: qsTr("Duplicate"); shortcut: "Ctrl+D"; enabled: Project.selection.length > 0; onClicked: Project.duplicateSelection() }
+                IconButton { iconName: "snowflake"; tip: qsTr("Freeze frame"); shortcut: "Alt+F"; onClicked: Project.freezeFrame() }
+                IconButton { iconName: "bookmark"; tip: qsTr("Add marker"); shortcut: "M"; onClicked: Project.addMarker() }
                 Item { Layout.fillWidth: true }
-                IconButton { iconName: "magnet"; tip: qsTr("Ímã da faixa principal (sem espaços)"); active: Project.magnet; onClicked: Project.magnet = !Project.magnet }
-                IconButton { iconName: "crosshair"; tip: qsTr("Encaixe automático"); shortcut: "N"; active: Project.snapping; onClicked: Project.snapping = !Project.snapping }
+                IconButton { iconName: "magnet"; tip: qsTr("Main track magnet (no gaps)"); active: Project.magnet; onClicked: Project.magnet = !Project.magnet }
+                IconButton { iconName: "crosshair"; tip: qsTr("Auto snapping"); shortcut: "N"; active: Project.snapping; onClicked: Project.snapping = !Project.snapping }
                 Rectangle { width: 1; height: 18; color: Theme.border; Layout.leftMargin: 4; Layout.rightMargin: 4 }
-                IconButton { iconName: "zoom-out"; tip: qsTr("Diminuir zoom"); shortcut: "Ctrl+−"; onClicked: root.zoomBy(0.8) }
+                IconButton { iconName: "zoom-out"; tip: qsTr("Zoom out"); shortcut: "Ctrl+−"; onClicked: root.zoomBy(0.8) }
                 Slider {
                     Layout.preferredWidth: 120
                     focusPolicy: Qt.NoFocus
@@ -116,10 +116,10 @@ Rectangle {
                     value: Math.log(root.pxPerSec)
                     onMoved: root.zoomBy(Math.exp(value) / root.pxPerSec)
                 }
-                IconButton { iconName: "zoom-in"; tip: qsTr("Aumentar zoom"); shortcut: "Ctrl++"; onClicked: root.zoomBy(1.25) }
+                IconButton { iconName: "zoom-in"; tip: qsTr("Zoom in"); shortcut: "Ctrl++"; onClicked: root.zoomBy(1.25) }
                 IconButton {
                     iconName: "maximize-2"
-                    tip: qsTr("Ajustar à janela")
+                    tip: qsTr("Fit to window")
                     shortcut: "Shift+Z"
                     onClicked: {
                         root.userZoomed = false;
@@ -227,7 +227,7 @@ Rectangle {
                                 anchors.leftMargin: 8
                                 anchors.top: parent.top
                                 anchors.topMargin: 5
-                                text: parent.modelData.isMain ? qsTr("Principal") : parent.modelData.name
+                                text: parent.modelData.isMain ? qsTr("Main") : parent.modelData.name
                                 color: parent.modelData.isMain ? Theme.accent : Theme.textDim
                                 font.pixelSize: Theme.fontSmall
                                 font.bold: parent.modelData.isMain
@@ -244,7 +244,7 @@ Rectangle {
                                     iconName: parent.parent.modelData.muted ? "volume-x" : "volume-2"
                                     iconSize: 14
                                     glyphColor: parent.parent.modelData.muted ? Theme.danger : Theme.textDim
-                                    tip: parent.parent.modelData.muted ? qsTr("Ativar som") : qsTr("Silenciar faixa")
+                                    tip: parent.parent.modelData.muted ? qsTr("Unmute") : qsTr("Mute track")
                                     onClicked: Project.setTrackFlag(parent.parent.modelData.index, "muted", !parent.parent.modelData.muted)
                                 }
                                 IconButton {
@@ -253,7 +253,7 @@ Rectangle {
                                     iconName: parent.parent.modelData.hidden ? "eye-off" : "eye"
                                     iconSize: 14
                                     glyphColor: parent.parent.modelData.hidden ? Theme.danger : Theme.textDim
-                                    tip: parent.parent.modelData.hidden ? qsTr("Mostrar faixa") : qsTr("Ocultar faixa")
+                                    tip: parent.parent.modelData.hidden ? qsTr("Show track") : qsTr("Hide track")
                                     onClicked: Project.setTrackFlag(parent.parent.modelData.index, "hidden", !parent.parent.modelData.hidden)
                                 }
                                 IconButton {
@@ -261,7 +261,7 @@ Rectangle {
                                     iconName: parent.parent.modelData.locked ? "lock" : "lock-open"
                                     iconSize: 14
                                     glyphColor: parent.parent.modelData.locked ? Theme.warning : Theme.textDim
-                                    tip: parent.parent.modelData.locked ? qsTr("Desbloquear") : qsTr("Bloquear faixa")
+                                    tip: parent.parent.modelData.locked ? qsTr("Unlock") : qsTr("Lock track")
                                     onClicked: Project.setTrackFlag(parent.parent.modelData.index, "locked", !parent.parent.modelData.locked)
                                 }
                             }
@@ -410,7 +410,7 @@ Rectangle {
                                 visible: lane.modelData.isMain && lane.modelData.clips.length === 0
                                 anchors.verticalCenter: parent.verticalCenter
                                 x: 12
-                                text: qsTr("Arraste mídias para cá — faixa principal")
+                                text: qsTr("Drag media here — main track")
                                 color: Theme.textFaint
                                 font.pixelSize: Theme.fontNormal
                             }
@@ -495,21 +495,21 @@ Rectangle {
     Menu {
         id: clipMenu
         property string clipId: ""
-        MenuItem { text: qsTr("Copiar\tCtrl+C"); enabled: Project.selection.length > 0; onTriggered: Project.copySelection() }
-        MenuItem { text: qsTr("Recortar\tCtrl+X"); enabled: Project.selection.length > 0; onTriggered: Project.cutSelection() }
-        MenuItem { text: qsTr("Colar no cursor\tCtrl+V"); enabled: Project.canPaste; onTriggered: Project.paste() }
-        MenuItem { text: qsTr("Duplicar\tCtrl+D"); enabled: Project.selection.length > 0; onTriggered: Project.duplicateSelection() }
+        MenuItem { text: qsTr("Copy\tCtrl+C"); enabled: Project.selection.length > 0; onTriggered: Project.copySelection() }
+        MenuItem { text: qsTr("Cut\tCtrl+X"); enabled: Project.selection.length > 0; onTriggered: Project.cutSelection() }
+        MenuItem { text: qsTr("Paste at playhead\tCtrl+V"); enabled: Project.canPaste; onTriggered: Project.paste() }
+        MenuItem { text: qsTr("Duplicate\tCtrl+D"); enabled: Project.selection.length > 0; onTriggered: Project.duplicateSelection() }
         MenuSeparator {}
-        MenuItem { text: qsTr("Copiar atributos\tCtrl+Alt+C"); enabled: Project.selectedClip.id !== undefined; onTriggered: Project.copyAttributes() }
-        MenuItem { text: qsTr("Colar atributos\tCtrl+Alt+V"); enabled: Project.canPasteAttributes && Project.selection.length > 0; onTriggered: Project.pasteAttributesToSelection() }
+        MenuItem { text: qsTr("Copy attributes\tCtrl+Alt+C"); enabled: Project.selectedClip.id !== undefined; onTriggered: Project.copyAttributes() }
+        MenuItem { text: qsTr("Paste attributes\tCtrl+Alt+V"); enabled: Project.canPasteAttributes && Project.selection.length > 0; onTriggered: Project.pasteAttributesToSelection() }
         MenuSeparator {}
-        MenuItem { text: qsTr("Agrupar\tCtrl+G"); enabled: Project.selection.length > 1; onTriggered: Project.groupSelection() }
-        MenuItem { text: qsTr("Desagrupar\tCtrl+Shift+G"); enabled: Project.selection.length > 0; onTriggered: Project.ungroupSelection() }
+        MenuItem { text: qsTr("Group\tCtrl+G"); enabled: Project.selection.length > 1; onTriggered: Project.groupSelection() }
+        MenuItem { text: qsTr("Ungroup\tCtrl+Shift+G"); enabled: Project.selection.length > 0; onTriggered: Project.ungroupSelection() }
         MenuSeparator {}
-        MenuItem { text: qsTr("Dividir no cursor\tCtrl+B"); onTriggered: Project.splitAtPlayhead() }
-        MenuItem { text: qsTr("Congelar quadro\tAlt+F"); enabled: clipMenu.clipId !== ""; onTriggered: Project.freezeFrame() }
-        MenuItem { text: qsTr("Separar áudio\tCtrl+Shift+D"); enabled: clipMenu.clipId !== ""; onTriggered: Project.detachAudio() }
-        MenuItem { text: qsTr("Excluir\tDel"); enabled: Project.selection.length > 0; onTriggered: Project.deleteSelection(false) }
+        MenuItem { text: qsTr("Split at playhead\tCtrl+B"); onTriggered: Project.splitAtPlayhead() }
+        MenuItem { text: qsTr("Freeze frame\tAlt+F"); enabled: clipMenu.clipId !== ""; onTriggered: Project.freezeFrame() }
+        MenuItem { text: qsTr("Detach audio\tCtrl+Shift+D"); enabled: clipMenu.clipId !== ""; onTriggered: Project.detachAudio() }
+        MenuItem { text: qsTr("Delete\tDel"); enabled: Project.selection.length > 0; onTriggered: Project.deleteSelection(false) }
     }
     function openClipMenu(clipId) {
         clipMenu.clipId = clipId;

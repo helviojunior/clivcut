@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "WhisperModels.h"
 
+#include <QCoreApplication>
+
 #include <QDir>
 #include <QFileInfo>
 #include <QStandardPaths>
@@ -10,11 +12,11 @@ namespace clv::engine {
 const std::vector<WhisperModel> &whisperModels()
 {
     static const std::vector<WhisperModel> models{
-        {QStringLiteral("tiny"), QStringLiteral("Tiny"), 78'000'000, QStringLiteral("Muito rápido, precisão básica")},
-        {QStringLiteral("base"), QStringLiteral("Base"), 148'000'000, QStringLiteral("Rápido, bom para fala clara")},
-        {QStringLiteral("small"), QStringLiteral("Small"), 488'000'000, QStringLiteral("Equilibrado (recomendado)")},
+        {QStringLiteral("tiny"), QStringLiteral("Tiny"), 78'000'000, QString::fromUtf8(QT_TRANSLATE_NOOP("Models", "Very fast, basic accuracy"))},
+        {QStringLiteral("base"), QStringLiteral("Base"), 148'000'000, QString::fromUtf8(QT_TRANSLATE_NOOP("Models", "Fast, good for clear speech"))},
+        {QStringLiteral("small"), QStringLiteral("Small"), 488'000'000, QString::fromUtf8(QT_TRANSLATE_NOOP("Models", "Balanced (recommended)"))},
         {QStringLiteral("large-v3-turbo"), QStringLiteral("Large v3 Turbo"), 1'620'000'000,
-         QStringLiteral("Máxima precisão, mais lento")},
+         QString::fromUtf8(QT_TRANSLATE_NOOP("Models", "Highest accuracy, slower"))},
     };
     return models;
 }

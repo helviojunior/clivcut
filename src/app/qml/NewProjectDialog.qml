@@ -5,7 +5,7 @@ import Clivcut
 
 Dialog {
     id: root
-    title: qsTr("Novo projeto")
+    title: qsTr("New project")
     modal: true
     anchors.centerIn: Overlay.overlay
     width: 420
@@ -21,10 +21,10 @@ Dialog {
 
     property int choice: 0
     readonly property var presets: [
-        { name: qsTr("YouTube / Paisagem"), w: 1920, h: 1080, glyph: "▭" },
+        { name: qsTr("YouTube / Landscape"), w: 1920, h: 1080, glyph: "▭" },
         { name: qsTr("Vertical (Reels / Shorts)"), w: 1080, h: 1920, glyph: "▯" },
-        { name: qsTr("Quadrado"), w: 1080, h: 1080, glyph: "□" },
-        { name: qsTr("4K Paisagem"), w: 3840, h: 2160, glyph: "▭" }
+        { name: qsTr("Square"), w: 1080, h: 1080, glyph: "□" },
+        { name: qsTr("4K Landscape"), w: 3840, h: 2160, glyph: "▭" }
     ]
 
     contentItem: ColumnLayout {
@@ -46,7 +46,7 @@ Dialog {
             }
         }
         RowLayout {
-            Text { text: qsTr("Quadros/s"); color: Theme.textDim; font.pixelSize: Theme.fontNormal }
+            Text { text: qsTr("Frame rate"); color: Theme.textDim; font.pixelSize: Theme.fontNormal }
             ComboBox {
                 id: fps
                 model: ["24", "25", "30", "50", "60"]
@@ -58,16 +58,16 @@ Dialog {
             wrapMode: Text.Wrap
             color: Theme.textFaint
             font.pixelSize: Theme.fontSmall
-            text: qsTr("Alterações não salvas do projeto atual serão perdidas.")
+            text: qsTr("Unsaved changes in the current project will be lost.")
             visible: Project.modified
         }
     }
 
     footer: DialogButtonBox {
         background: Rectangle { color: "transparent" }
-        Button { text: qsTr("Cancelar"); DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
+        Button { text: qsTr("Cancel"); DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
         Button {
-            text: qsTr("Criar")
+            text: qsTr("Create")
             highlighted: true
             DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
         }

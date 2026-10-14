@@ -7,7 +7,7 @@ import Clivcut
 
 Dialog {
     id: root
-    title: qsTr("Exportar vídeo")
+    title: qsTr("Export video")
     modal: true
     anchors.centerIn: Overlay.overlay
     width: 460
@@ -51,7 +51,7 @@ Dialog {
             rowSpacing: 10
             Layout.fillWidth: true
 
-            Text { text: qsTr("Arquivo"); color: Theme.textDim; font.pixelSize: Theme.fontNormal }
+            Text { text: qsTr("File"); color: Theme.textDim; font.pixelSize: Theme.fontNormal }
             RowLayout {
                 Layout.fillWidth: true
                 TextField {
@@ -67,7 +67,7 @@ Dialog {
                 }
             }
 
-            Text { text: qsTr("Resolução"); color: Theme.textDim; font.pixelSize: Theme.fontNormal }
+            Text { text: qsTr("Resolution"); color: Theme.textDim; font.pixelSize: Theme.fontNormal }
             ComboBox {
                 id: resBox
                 Layout.fillWidth: true
@@ -76,11 +76,11 @@ Dialog {
                 readonly property var values: [480, 720, 1080, 1440, 2160]
             }
 
-            Text { text: qsTr("Quadros/s"); color: Theme.textDim; font.pixelSize: Theme.fontNormal }
+            Text { text: qsTr("Frame rate"); color: Theme.textDim; font.pixelSize: Theme.fontNormal }
             ComboBox {
                 id: fpsBox
                 Layout.fillWidth: true
-                model: [qsTr("Do projeto (%1)").arg(Project.fps), "24", "25", "30", "50", "60"]
+                model: [qsTr("From project (%1)").arg(Project.fps), "24", "25", "30", "50", "60"]
                 readonly property var values: [0, 24, 25, 30, 50, 60]
             }
 
@@ -94,11 +94,11 @@ Dialog {
                 onActivated: pathField.text = pathField.text.replace(/\.(mp4|mov)$/i, currentValue === "prores" ? ".mov" : ".mp4")
             }
 
-            Text { text: qsTr("Qualidade"); color: Theme.textDim; font.pixelSize: Theme.fontNormal }
+            Text { text: qsTr("Quality"); color: Theme.textDim; font.pixelSize: Theme.fontNormal }
             ComboBox {
                 id: qualityBox
                 Layout.fillWidth: true
-                model: [qsTr("Alta"), qsTr("Recomendada"), qsTr("Arquivo menor")]
+                model: [qsTr("High"), qsTr("Recommended"), qsTr("Smaller file")]
                 currentIndex: 1
                 readonly property var crf: [16, 20, 26]
             }
@@ -109,7 +109,7 @@ Dialog {
             wrapMode: Text.Wrap
             color: Theme.textFaint
             font.pixelSize: Theme.fontSmall
-            text: qsTr("Duração: %1 · Canvas %2×%3").arg(Project.formatTime(Project.duration)).arg(Project.canvasWidth).arg(Project.canvasHeight)
+            text: qsTr("Duration: %1 · Canvas %2×%3").arg(Project.formatTime(Project.duration)).arg(Project.canvasWidth).arg(Project.canvasHeight)
         }
 
         ProgressBar {
@@ -122,12 +122,12 @@ Dialog {
     footer: DialogButtonBox {
         background: Rectangle { color: "transparent" }
         Button {
-            text: Project.exporting ? qsTr("Cancelar exportação") : qsTr("Fechar")
+            text: Project.exporting ? qsTr("Cancel export") : qsTr("Close")
             DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
             onClicked: Project.exporting ? Project.cancelExport() : root.close()
         }
         Button {
-            text: Project.exporting ? qsTr("%1%").arg(Math.round(Project.exportProgress * 100)) : qsTr("Exportar")
+            text: Project.exporting ? qsTr("%1%").arg(Math.round(Project.exportProgress * 100)) : qsTr("Export")
             enabled: !Project.exporting && Project.duration > 0 && pathField.text !== ""
             highlighted: true
             DialogButtonBox.buttonRole: DialogButtonBox.ApplyRole
@@ -152,7 +152,7 @@ Dialog {
         id: fileDialog
         fileMode: FileDialog.SaveFile
         currentFolder: prefs.folder
-        nameFilters: [qsTr("Vídeo (*.mp4 *.mov *.mkv)")]
+        nameFilters: [qsTr("Video (*.mp4 *.mov *.mkv)")]
         onAccepted: pathField.text = selectedFile.toString().replace(/^file:\/\//, "")
     }
 }

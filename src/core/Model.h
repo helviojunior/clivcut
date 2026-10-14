@@ -221,7 +221,7 @@ struct Marker {
 
 struct Project {
     QString id;
-    QString name = QStringLiteral("Novo projeto");
+    QString name = QStringLiteral("New project");
     int width = 1920;
     int height = 1080;
     double fps = 30;
@@ -241,7 +241,7 @@ struct Project {
 
 QString newId(const char *prefix);
 
-Project createProject(const QString &name = QStringLiteral("Novo projeto"), int width = 1920, int height = 1080,
+Project createProject(const QString &name = QStringLiteral("New project"), int width = 1920, int height = 1080,
                       double fps = 30);
 Track createTrack(TrackKind kind, const QString &name = {});
 Clip createMediaClip(const MediaAsset &asset, Micros start);
