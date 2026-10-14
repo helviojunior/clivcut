@@ -4,6 +4,14 @@ An **open-source, cross-platform** video editor (Linux first), built around a fa
 
 Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on the GPU (Vulkan, OpenGL, Metal or Direct3D, via Qt RHI). Preview and export share **the same compositor**, so the exported file matches what you see in the player.
 
+![clivcut editor: media panel, GPU player, inspector and multi-track timeline](docs/screenshots/editor.png)
+
+| | |
+|---|---|
+| ![Welcome screen with canvas presets](docs/screenshots/welcome.png) | ![Command palette (Ctrl+K)](docs/screenshots/palette.png) |
+| Start from a canvas format, open a project or import a draft JSON. | **Command palette** (Ctrl+K): every action, searchable, with its shortcut. |
+| ![Keyframe graph editor](docs/screenshots/keyframes.png) | ![Built-in filters](docs/screenshots/filters.png) |
+| **Keyframe graph editor** with per-segment easing and custom Bézier curves. | **Filters** previewed on the current frame, plus adjustment layers. |
 
 ## Features
 
