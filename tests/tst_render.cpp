@@ -96,6 +96,22 @@ private slots:
         QVERIFY(near(px(img, 20, 170), Qt::black));
     }
 
+    void blurredBackground()
+    {
+        // Canvas vertical com vídeo paisagem: as faixas vazias mostram o próprio vídeo borrado.
+        Project p = createProject(QStringLiteral("t"), 180, 320, 30);
+        auto a = imageAsset(p, {160, 90});
+        edit::insertClip(p, createMediaClip(a, 0), 0);
+        SolidSource src;
+        src.images[a.id] = solid(QColor(40, 200, 90));
+        QImage img = renderAt(p, 0, src);
+        QVERIFY(near(px(img, 90, 10), Qt::black)); // sem desfoque: cor de fundo
+        p.backgroundBlur = 0.5;
+        img = renderAt(p, 0, src);
+        QVERIFY2(near(px(img, 90, 10), QColor(40, 200, 90), 10), qPrintable(px(img, 90, 10).name()));
+        QVERIFY(near(px(img, 90, 160), QColor(40, 200, 90))); // o clipe continua por cima
+    }
+
     void opacityAndMultiply()
     {
         Project p = createProject(QStringLiteral("t"), 320, 180, 30);

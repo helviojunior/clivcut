@@ -45,6 +45,7 @@ class ProjectController : public QObject {
     Q_PROPERTY(int canvasHeight READ canvasHeight NOTIFY projectChanged)
     Q_PROPERTY(double fps READ fps NOTIFY projectChanged)
     Q_PROPERTY(QString background READ background NOTIFY projectChanged)
+    Q_PROPERTY(double backgroundBlur READ backgroundBlur NOTIFY projectChanged)
     Q_PROPERTY(double duration READ duration NOTIFY projectChanged)
     Q_PROPERTY(bool magnet READ magnet WRITE setMagnet NOTIFY projectChanged)
     Q_PROPERTY(bool snapping READ snapping WRITE setSnapping NOTIFY snappingChanged)
@@ -115,6 +116,7 @@ public:
     int canvasHeight() const { return m_project.height; }
     double fps() const { return m_project.fps; }
     QString background() const { return m_project.background; }
+    double backgroundBlur() const { return m_project.backgroundBlur; }
     double duration() const { return static_cast<double>(m_project.duration()); }
     bool magnet() const { return m_project.mainTrackMagnet; }
     void setMagnet(bool on);
@@ -163,6 +165,8 @@ public:
     Q_INVOKABLE void importMedia(const QList<QUrl> &urls);
     Q_INVOKABLE void setCanvas(int width, int height);
     Q_INVOKABLE void setBackground(const QString &color);
+    /// Intensidade do fundo desfocado (0 = desligado).
+    Q_INVOKABLE void setBackgroundBlur(double amount);
     Q_INVOKABLE void relinkAsset(const QString &assetId, const QUrl &url);
 
     // --- recuperação ---

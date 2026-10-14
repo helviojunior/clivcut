@@ -636,6 +636,17 @@ void ProjectController::setBackground(const QString &color)
     }, QStringLiteral("bg"));
 }
 
+void ProjectController::setBackgroundBlur(double amount)
+{
+    amount = std::clamp(amount, 0.0, 1.0);
+    edit(tr("Background blur"), [&](Project &p) {
+        if (p.backgroundBlur == amount)
+            return false;
+        p.backgroundBlur = amount;
+        return true;
+    }, QStringLiteral("bgblur"));
+}
+
 void ProjectController::relinkAsset(const QString &assetId, const QUrl &url)
 {
     auto it = m_project.assets.find(assetId);

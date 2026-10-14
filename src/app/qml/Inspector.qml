@@ -110,6 +110,19 @@ Rectangle {
                         color: Project.background
                         onPicked: (c) => Project.setBackground(c === "" ? "#000000" : c)
                     }
+                    PropSlider {
+                        label: qsTr("Blur")
+                        from: 0; to: 1; displayScale: 100; decimals: 0; suffix: "%"
+                        value: Project.backgroundBlur
+                        onMoved: (v) => Project.setBackgroundBlur(v)
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        color: Theme.textFaint
+                        font.pixelSize: Theme.fontSmall
+                        text: qsTr("With blur, the empty canvas area shows a blurred copy of the main track video (useful for vertical videos in landscape and vice versa).")
+                    }
                     Text {
                         Layout.fillWidth: true
                         Layout.topMargin: 16

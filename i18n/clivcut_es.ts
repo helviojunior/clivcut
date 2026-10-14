@@ -612,6 +612,14 @@
             <translation>Color</translation>
         </message>
         <message>
+            <source>Blur</source>
+            <translation>Desenfoque</translation>
+        </message>
+        <message>
+            <source>With blur, the empty canvas area shows a blurred copy of the main track video (useful for vertical videos in landscape and vice versa).</source>
+            <translation>Con desenfoque, el área vacía del lienzo muestra una copia desenfocada del vídeo de la pista principal (útil para vídeos verticales en horizontal y viceversa).</translation>
+        </message>
+        <message>
             <source>Select a clip on the timeline to edit position, color, audio, speed and animations.
 
 Shortcuts: Space plays · Ctrl+B splits · Q/W delete left/right · Del deletes · Ctrl+D duplicates · M marker · ←/→ frame by frame.</source>
@@ -1775,6 +1783,10 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <message>
             <source>Background color</source>
             <translation>Color de fondo</translation>
+        </message>
+        <message>
+            <source>Background blur</source>
+            <translation>Desenfoque del fondo</translation>
         </message>
         <message>
             <source>Could not read %1</source>

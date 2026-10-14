@@ -226,6 +226,8 @@ struct Project {
     int height = 1080;
     double fps = 30;
     QString background = QStringLiteral("#000000");
+    /// Fundo desfocado: o clipe da faixa principal ampliado e borrado atrás de tudo (0 = só a cor).
+    double backgroundBlur = 0;
     /// Faixa principal magnética: clipes sempre encostados, sem buracos.
     bool mainTrackMagnet = true;
     /// tracks[0] é a faixa principal de vídeo. Faixas visuais seguintes ficam por cima.

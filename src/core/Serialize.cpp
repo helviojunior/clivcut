@@ -464,6 +464,8 @@ QJsonObject toJson(const Project &p)
         {"tracks", tracks},
         {"markers", markers},
     };
+    if (p.backgroundBlur > 0)
+        out.insert("backgroundBlur", p.backgroundBlur);
     if (p.inPoint >= 0)
         out.insert("inPoint", us(p.inPoint));
     if (p.outPoint > 0)
@@ -504,6 +506,7 @@ bool parseProject(const QByteArray &data, Project &out, QString *error)
     p.fps = o.value("fps").toDouble(p.fps);
     p.background = o.value("background").toString(p.background);
     p.mainTrackMagnet = o.value("mainTrackMagnet").toBool(true);
+    p.backgroundBlur = std::clamp(o.value("backgroundBlur").toDouble(), 0.0, 1.0);
     p.inPoint = static_cast<Micros>(o.value("inPoint").toDouble(-1));
     p.outPoint = static_cast<Micros>(o.value("outPoint").toDouble(-1));
     for (const auto &v : o.value("assets").toArray()) {

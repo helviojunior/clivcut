@@ -50,7 +50,7 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
   - Local **noise reduction**, processed in the background and kept in sync with the video.
   - **Detach audio from video** (Ctrl+Shift+D) and mute clip.
 - **Background removal:** cuts people out of videos without a green screen, using a local AI model (RobustVideoMatting on ONNX Runtime, downloaded once). Processing runs in the background and the result is used in preview and export.
-- **Canvas:** 16:9, 9:16, 1:1, 4:3, 3:4, 4:5 and 21:9, with background color.
+- **Canvas:** 16:9, 9:16, 1:1, 4:3, 3:4, 4:5 and 21:9, with a background color or a blurred copy of the main video.
 - **Export:**
   - H.264, HEVC, AV1 and ProRes 422 HQ codecs, depending on the installed FFmpeg.
   - 480p to 4K, 24 to 60 fps, with AAC audio.

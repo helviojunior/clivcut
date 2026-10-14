@@ -16,7 +16,7 @@
 | 8 | Undo/redo | ✅ | |
 | 9 | Zoom, scroll, fit, markers, in/out points | ✅ | in/out range (I/O) saved with the project and exportable on its own |
 | 10 | Transform, crop, flip, opacity | ✅ | on-player transform handles missing |
-| 11 | Canvas aspect ratios and background color | 🟡 | blurred background missing |
+| 11 | Canvas aspect ratios, background color and blurred background | ✅ | |
 | 12 | Speed, curves, reverse, freeze | 🟡 | curves done; pitch preservation missing (Rubber Band/SoundTouch); audio is muted when reversed |
 | 13 | Keyframes with easing | ✅ | graph editor with custom Bézier; dragging keyframes directly on the timeline missing |
 | 14 | Text and animations | ✅ | per-character/per-word animations (typewriter, karaoke) and spoken-word highlighting in automatic captions missing |

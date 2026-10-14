@@ -68,6 +68,8 @@ private:
     QRhiTexture *lutTexture(const QString &key, QRhiResourceUpdateBatch *u);
     std::unique_ptr<QRhiTexture> uploadLut(const Lut3D &lut, QRhiResourceUpdateBatch *u);
     void fillUbo(LayerUbo &u, const VisualLayer &l, const Project &p, double frameAspect) const;
+    /** Versão pequena e borrada do quadro, reaproveitada enquanto o quadro não muda. */
+    const QImage &blurredBackground(const QImage &frame, double amount);
 
     QRhi *m_rhi;
     QSize m_size;
@@ -97,6 +99,9 @@ private:
     std::unique_ptr<QRhiTexture> m_identityLut;
     std::unordered_map<QString, std::unique_ptr<QRhiTexture>> m_luts;
     quint64 m_frameCounter = 0;
+    qint64 m_bgSourceKey = 0;
+    double m_bgAmount = -1;
+    QImage m_bgImage;
 };
 
 } // namespace clv::render

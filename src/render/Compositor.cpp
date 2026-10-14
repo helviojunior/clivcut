@@ -302,6 +302,46 @@ void Compositor::fillUbo(LayerUbo &u, const VisualLayer &l, const Project &p, do
     }
 }
 
+const QImage &Compositor::blurredBackground(const QImage &frame, double amount)
+{
+    if (frame.cacheKey() == m_bgSourceKey && amount == m_bgAmount)
+        return m_bgImage;
+    // Desfoque barato: reduz muito, borra a imagem pequena e deixa o filtro linear da GPU ampliar.
+    const int side = static_cast<int>(std::lround(96 - 72 * std::clamp(amount, 0.0, 1.0))); // 96 → 24 px
+    const QSize small = frame.size().scaled(side, side, Qt::KeepAspectRatio).expandedTo({2, 2});
+    QImage img = frame.scaled(small * 4, Qt::IgnoreAspectRatio, Qt::FastTransformation)
+                     .scaled(small, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+                     .convertToFormat(QImage::Format_RGBA8888);
+    // Duas passadas de caixa 3×3 suavizam os blocos que a ampliação deixaria visíveis.
+    for (int pass = 0; pass < 2; ++pass) {
+        const QImage in = img.copy();
+        const int w = img.width(), h = img.height();
+        for (int y = 0; y < h; ++y) {
+            uchar *dst = img.scanLine(y);
+            for (int x = 0; x < w; ++x) {
+                int sum[3] = {0, 0, 0};
+                for (int dy = -1; dy <= 1; ++dy) {
+                    const uchar *row = in.constScanLine(std::clamp(y + dy, 0, h - 1));
+                    for (int dx = -1; dx <= 1; ++dx) {
+                        const uchar *px = row + std::clamp(x + dx, 0, w - 1) * 4;
+                        sum[0] += px[0];
+                        sum[1] += px[1];
+                        sum[2] += px[2];
+                    }
+                }
+                dst[x * 4] = static_cast<uchar>(sum[0] / 9);
+                dst[x * 4 + 1] = static_cast<uchar>(sum[1] / 9);
+                dst[x * 4 + 2] = static_cast<uchar>(sum[2] / 9);
+                dst[x * 4 + 3] = 255;
+            }
+        }
+    }
+    m_bgImage = img;
+    m_bgSourceKey = frame.cacheKey();
+    m_bgAmount = amount;
+    return m_bgImage;
+}
+
 void Compositor::composite(QRhiCommandBuffer *cb, const Project &p, const FrameDesc &frame, FrameSource &source)
 {
     ++m_frameCounter;
@@ -317,6 +357,34 @@ void Compositor::composite(QRhiCommandBuffer *cb, const Project &p, const FrameD
     std::vector<Draw> draws;
     std::vector<float> verts;
     verts.reserve(kMaxLayers * 4 * kFloatsPerVertex);
+
+    // Fundo desfocado: o clipe da faixa principal cobrindo o canvas, bem borrado, atrás de tudo.
+    if (p.backgroundBlur > 0) {
+        const auto main = std::find_if(frame.layers.begin(), frame.layers.end(), [](const VisualLayer &l) {
+            return l.trackIndex == 0 && l.clip && l.clip->hasMedia() && l.asset;
+        });
+        const QImage src = main != frame.layers.end() ? source.frameFor(*main) : QImage();
+        if (!src.isNull()) {
+            const QImage &bg = blurredBackground(src, p.backgroundBlur);
+            Slot &slot = slotFor(QStringLiteral("#background"), bg.size(), m_identityLut.get(), m_identityLut.get(), false);
+            if (slot.imageKey != bg.cacheKey()) {
+                u->uploadTexture(slot.tex.get(), bg);
+                slot.imageKey = bg.cacheKey();
+            }
+            // "Cobrir": escala até não sobrar borda, centralizado.
+            const double W = m_size.width(), H = m_size.height();
+            const double s = std::max(W / bg.width(), H / bg.height());
+            const double w = bg.width() * s, h = bg.height() * s;
+            const float x0 = static_cast<float>((W - w) / 2), y0 = static_cast<float>((H - h) / 2);
+            const float x1 = static_cast<float>(x0 + w), y1 = static_cast<float>(y0 + h);
+            verts.insert(verts.end(), {x0, y0, 0, 0, x1, y0, 1, 0, x0, y1, 0, 1, x1, y1, 1, 1});
+            VisualLayer plain;
+            LayerUbo ubo;
+            fillUbo(ubo, plain, p, w / h);
+            u->updateDynamicBuffer(m_ubo.get(), 0, sizeof ubo, &ubo);
+            draws.push_back({&slot, true, 0});
+        }
+    }
 
     for (const VisualLayer &l : frame.layers) {
         if (static_cast<int>(draws.size()) >= kMaxLayers)
