@@ -1,64 +1,64 @@
 # Roadmap
 
-✅ feito · 🟡 parcial · ⬜ pendente
+✅ done · 🟡 partial · ⬜ pending
 
-## MVP (fluxo essencial de edição)
+## MVP (core editing flow)
 
-| # | Recurso | Status | Observações |
+| # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | Projetos: criar, abrir, salvar, recuperação | ✅ | cópia de recuperação a cada 30 s, recuperar após falha, confirmar ao fechar com alterações |
-| 2 | Importar mídia, miniaturas, forma de onda, reconectar | ✅ | importar pasta inteira pendente |
-| 3 | Player na GPU com qualidade de preview | ✅ | tela cheia pendente |
-| 4 | Timeline multifaixa (principal, sobreposição, texto, áudio), mutar/ocultar/bloquear | ✅ | |
-| 5 | Dividir, excluir à esquerda/direita, aparar, ripple | ✅ | |
-| 6 | Ímã da faixa principal e snapping | ✅ | |
-| 7 | Seleção múltipla, copiar/colar, atributos, grupos | ✅ | seleção por retângulo e arraste em grupo |
-| 8 | Desfazer/refazer | ✅ | |
-| 9 | Zoom, rolagem, ajustar, marcadores | 🟡 | faltam pontos de entrada e saída (I/O) |
-| 10 | Transformação, crop, espelhar, opacidade | ✅ | falta caixa de manipulação no player |
-| 11 | Proporções do canvas e cor de fundo | 🟡 | falta fundo desfocado |
-| 12 | Velocidade, curvas, reverso, congelar | 🟡 | curvas prontas; falta preservar o tom (Rubber Band/SoundTouch); no reverso o áudio fica mudo |
-| 13 | Keyframes com easing | ✅ | editor gráfico com Bézier personalizada; falta arrastar keyframes direto na timeline |
-| 14 | Texto e animações | ✅ | faltam animações por caractere/palavra (máquina de escrever, karaokê) e destaque da palavra falada nas legendas automáticas |
-| 15 | Legendas: importar SRT/VTT, editar, exportar, legendas automáticas (whisper.cpp) | ✅ | falta editor de lista de legendas e tradução local |
-| 16 | Áudio: volume, fades, separar áudio, normalizar, reduzir ruído | ✅ | falta isolamento de voz por IA |
-| 17 | Ajustes de cor e LUT .cube | ✅ | exposição, brilho, contraste, saturação, realces, sombras, temperatura, matiz, vinheta e nitidez; LUT 3D/1D na GPU |
-| 18 | Filtros (LUTs prontos) | ✅ | 16 filtros próprios, prévia no quadro atual e camadas de ajuste na timeline; faltam curvas, HSL e rodas de cor (Fase 2) |
-| 19 | Transições | ✅ | 8 tipos |
-| 20 | Animações de entrada e saída | ✅ | faltam animações em loop (combo) |
-| 21 | Máscaras e chroma key | ✅ | faltam keyframes de máscara, máscara de caminho livre e alça de edição no player |
-| 22 | Modos de mesclagem | ✅ | 10 modos |
-| 23 | Exportação | 🟡 | faltam encode por hardware (VA-API/NVENC), só áudio, quadro único e vídeo com alfa (ProRes 4444 / WebM VP9) |
-| 24 | Proxies e cache de render | 🟡 | proxies automáticos e decodificação por hardware feitos; falta cache de render de trechos pesados |
-| 25 | Atalhos personalizáveis | 🟡 | atalhos fixos |
+| 1 | Projects: create, open, save, recovery | ✅ | recovery backup every 30 s, recover after a crash, confirm on close with unsaved changes |
+| 2 | Media import, thumbnails, waveforms, relinking | ✅ | whole-folder import pending |
+| 3 | GPU player with preview quality | ✅ | fullscreen pending |
+| 4 | Multi-track timeline (main, overlay, text, audio), mute/hide/lock | ✅ | |
+| 5 | Split, delete left/right, trim, ripple | ✅ | |
+| 6 | Main-track magnet and snapping | ✅ | |
+| 7 | Multi-selection, copy/paste, attributes, groups | ✅ | rubber-band selection and group dragging |
+| 8 | Undo/redo | ✅ | |
+| 9 | Zoom, scroll, fit, markers | 🟡 | in/out points (I/O) missing |
+| 10 | Transform, crop, flip, opacity | ✅ | on-player transform handles missing |
+| 11 | Canvas aspect ratios and background color | 🟡 | blurred background missing |
+| 12 | Speed, curves, reverse, freeze | 🟡 | curves done; pitch preservation missing (Rubber Band/SoundTouch); audio is muted when reversed |
+| 13 | Keyframes with easing | ✅ | graph editor with custom Bézier; dragging keyframes directly on the timeline missing |
+| 14 | Text and animations | ✅ | per-character/per-word animations (typewriter, karaoke) and spoken-word highlighting in automatic captions missing |
+| 15 | Captions: SRT/VTT import, editing, export, automatic captions (whisper.cpp) | ✅ | caption list editor and local translation missing |
+| 16 | Audio: volume, fades, detach audio, normalize, noise reduction | ✅ | AI voice isolation missing |
+| 17 | Color adjustments and .cube LUTs | ✅ | exposure, brightness, contrast, saturation, highlights, shadows, temperature, tint, vignette and sharpness; 3D/1D LUTs on the GPU |
+| 18 | Filters (built-in LUTs) | ✅ | 16 built-in filters, current-frame preview and adjustment layers on the timeline; curves, HSL and color wheels missing (Phase 2) |
+| 19 | Transitions | ✅ | 8 types |
+| 20 | In and out animations | ✅ | looping (combo) animations missing |
+| 21 | Masks and chroma key | ✅ | mask keyframes, freeform path masks and on-player edit handles missing |
+| 22 | Blend modes | ✅ | 10 modes |
+| 23 | Export | 🟡 | hardware encoding (VA-API/NVENC), audio-only, single frame and alpha video (ProRes 4444 / WebM VP9) missing |
+| 24 | Proxies and render cache | 🟡 | automatic proxies and hardware decoding done; render cache for heavy sections missing |
+| 25 | Customizable shortcuts | 🟡 | fixed shortcuts |
 
-## Fase 2
+## Phase 2
 
-- Decodificação por hardware sem cópia (VA-API → dmabuf → textura Vulkan/GL) e pré-busca de quadros numa thread.
-- Compound clips, curvas de velocidade, slow motion suave (RIFE).
-- Curvas, HSL, rodas de cor, escopos (histograma, waveform, vectorscope). ✅ Camadas de ajuste.
-- 🟡 Remoção de fundo local (RobustVideoMatting em ONNX Runtime): matte gerado e em cache; falta aplicar no compositor e controles na interface. Recorte interativo (SAM 2) pendente.
-- Rastreamento de objetos, estabilização (vid.stab). ✅ Redução de ruído (afftdn) e normalização de loudness (EBU R128); falta isolamento de voz por IA (DeepFilterNet/Demucs).
-- Edição pela transcrição, remoção de pausas, TTS local (Piper).
-- Stickers e formas, texto curvo, estilos por caractere.
-- Biblioteca de efeitos de vídeo em shader (glitch, shake, blur, VHS, brilho, partículas) e mais transições.
-- Áudio: ducking automático da música sob a voz, efeitos de voz (eco, reverb, trocador de voz), gravação de narração na timeline.
-- Detecção de batida na música com marcadores automáticos.
-- Modelos de projeto (templates) com slots de mídia e modelos de texto prontos.
-- Empacotamento:
-  - ✅ AppImage, testado.
-  - 🟡 Flatpak: manifesto pronto; falta validar no flatpak-builder e publicar no Flathub.
-  - 🟡 Windows (MSVC/vcpkg/NSIS) e macOS (Homebrew/DMG): CMake e CI prontos, ainda não executados (sem máquina Windows/Mac nem CI ativo).
+- Zero-copy hardware decoding (VA-API → dmabuf → Vulkan/GL texture) and frame prefetching on a thread.
+- Compound clips, speed curves, smooth slow motion (RIFE).
+- Curves, HSL, color wheels, scopes (histogram, waveform, vectorscope). ✅ Adjustment layers.
+- 🟡 Local background removal (RobustVideoMatting on ONNX Runtime): matte generated and cached; applying it in the compositor and UI controls are missing. Interactive cutout (SAM 2) pending.
+- Object tracking, stabilization (vid.stab). ✅ Noise reduction (afftdn) and loudness normalization (EBU R128); AI voice isolation (DeepFilterNet/Demucs) missing.
+- Transcript-based editing, silence removal, local TTS (Piper).
+- Stickers and shapes, curved text, per-character styles.
+- Shader-based video effects library (glitch, shake, blur, VHS, glow, particles) and more transitions.
+- Audio: automatic music ducking under voice, voice effects (echo, reverb, voice changer), voiceover recording on the timeline.
+- Music beat detection with automatic markers.
+- Project templates with media slots and ready-made text templates.
+- Packaging:
+  - ✅ AppImage, tested.
+  - 🟡 Flatpak: manifest ready; needs validation with flatpak-builder and publishing on Flathub.
+  - 🟡 Windows (MSVC/vcpkg/NSIS) and macOS (Homebrew/DMG): CMake and CI ready, not yet run (no Windows/Mac machine and no active CI).
 
-## Fase 3
+## Phase 3
 
-- Reenquadramento automático, retoque facial, super-resolução (Real-ESRGAN).
-- Plugins de IA generativa com provedores configuráveis (local ou remoto), sempre opcionais.
-- Gravação de tela e webcam via PipeWire / portal.
-- Acervo de músicas e efeitos sonoros com licença livre.
-- Versões móveis (Android primeiro, depois iOS):
-  - Compilar FFmpeg, ONNX Runtime (AAR / xcframework) e whisper.cpp para arm64; trocar SDL2 por `QAudioSink`.
-  - Decodificação por hardware com MediaCodec no Android (VideoToolbox já cobre o iOS).
-  - Interface de toque própria em QML reaproveitando o `ProjectController`: layout em retrato, pinça na timeline, toque longo para arrastar clipes.
-  - Acesso a arquivos: URIs `content://` no Android, sandbox e galeria no iOS; limites de memória na exportação.
-  - iOS: build do FFmpeg só LGPL e dinâmico (compatível com a App Store), assinatura com conta Apple Developer.
+- Automatic reframing, face retouching, super-resolution (Real-ESRGAN).
+- Generative AI plugins with configurable providers (local or remote), always optional.
+- Screen and webcam recording via PipeWire / portal.
+- Library of freely licensed music and sound effects.
+- Mobile versions (Android first, then iOS):
+  - Build FFmpeg, ONNX Runtime (AAR / xcframework) and whisper.cpp for arm64; replace SDL2 with `QAudioSink`.
+  - Hardware decoding with MediaCodec on Android (VideoToolbox already covers iOS).
+  - Dedicated QML touch UI reusing `ProjectController`: portrait layout, pinch on the timeline, long-press to drag clips.
+  - File access: `content://` URIs on Android, sandbox and photo library on iOS; memory limits during export.
+  - iOS: LGPL-only, dynamically linked FFmpeg build (App Store compatible), signing with an Apple Developer account.

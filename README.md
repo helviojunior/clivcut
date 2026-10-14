@@ -1,75 +1,75 @@
 # clivcut
 
-Editor de vídeo **open-source e multiplataforma** (Linux primeiro), com o fluxo de edição: faixa principal magnética, cortes rápidos, texto, transições, animações, keyframes e exportação em um clique.
+An **open-source, cross-platform** video editor (Linux first), built around a fast editing flow: magnetic main track, quick cuts, text, transitions, animations, keyframes and one-click export.
 
-Escrito em **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. A composição de vídeo roda na GPU (Vulkan, OpenGL, Metal ou Direct3D, via Qt RHI). Preview e exportação usam **o mesmo compositor**, então o arquivo exportado é idêntico ao que aparece no player.
+Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on the GPU (Vulkan, OpenGL, Metal or Direct3D, via Qt RHI). Preview and export share **the same compositor**, so the exported file matches what you see in the player.
 
 
-## Recursos
+## Features
 
-- **Mídia:** importa vídeo, áudio e imagem (tudo que o FFmpeg lê), por arrastar e soltar ou pelo diálogo. Tem miniaturas, forma de onda, reconexão de mídia ausente e respeita a rotação de vídeos de celular.
-- **Desempenho:**
-  - **Decodificação por hardware:** VA-API no Linux, D3D11VA no Windows e VideoToolbox no macOS, com redução de escala na GPU.
-  - **Proxies automáticos** para vídeos acima de 1080p, gerados em segundo plano. O botão "Proxy" do player alterna entre proxy e original, e a exportação sempre usa o original.
+- **Media:** imports video, audio and images (anything FFmpeg can read) via drag and drop or the file dialog. Thumbnails, waveforms, missing-media relinking, and correct rotation for phone videos.
+- **Performance:**
+  - **Hardware decoding:** VA-API on Linux, D3D11VA on Windows and VideoToolbox on macOS, with GPU downscaling.
+  - **Automatic proxies** for videos above 1080p, generated in the background. The player's "Proxy" button toggles between proxy and original; export always uses the original.
 - **Timeline:**
-  - Faixa principal magnética, faixas de sobreposição, texto e áudio, com mutar, ocultar e bloquear.
-  - Dividir (Ctrl+B), excluir à esquerda e à direita (Q/W), aparar, mover entre faixas e excluir com ripple.
-  - Snapping, zoom, marcadores, duplicar e congelar quadro.
-  - **Copiar, recortar e colar** clipes, também entre projetos via área de transferência do sistema, levando as mídias junto.
-  - **Copiar e colar atributos**, **agrupar** clipes, **seleção por retângulo** e mover vários clipes juntos.
-  - Menu de clique direito nos clipes.
-- **Transformação:** posição, escala, rotação, opacidade, espelhar e crop. Mover arrastando no player; Ctrl+roda redimensiona.
+  - Magnetic main track plus overlay, text and audio tracks, with mute, hide and lock.
+  - Split (Ctrl+B), delete left/right of the playhead (Q/W), trim, move between tracks and ripple delete.
+  - Snapping, zoom, markers, duplicate and freeze frame.
+  - **Copy, cut and paste** clips, including across projects via the system clipboard, carrying the media along.
+  - **Copy and paste attributes**, **group** clips, **rubber-band selection** and moving several clips at once.
+  - Right-click context menu on clips.
+- **Transform:** position, scale, rotation, opacity, flip and crop. Drag to move in the player; Ctrl+wheel resizes.
 - **Keyframes:**
-  - Em posição, escala, rotação, opacidade, volume, brilho, contraste e saturação, com o botão ◆ ao lado de cada propriedade.
-  - **Editor gráfico** na aba Keyframes: arrastar tempo e valor e escolher a curva de cada trecho (linear, entrada, saída, suave, manter ou **Bézier personalizada** com alças).
-- **Texto:** fonte, tamanho, cor, contorno, sombra, caixa de fundo e alinhamento. Presets de título, legenda e destaque.
-- **Transições:** dissolver, escurecer, cortinas, deslizar, círculo e zoom.
-- **Animações** de entrada e saída: esmaecer, zoom e deslizar.
-- **Cor:**
-  - 16 filtros próprios (Vívido, Teal & Orange, Vintage, Noir…), com prévia no quadro atual e intensidade.
-  - LUTs `.cube` com intensidade.
-  - Exposição, brilho, contraste, saturação, realces, sombras, temperatura, matiz, vinheta e nitidez.
-  - **Camadas de ajuste/filtro** na timeline, que afetam tudo abaixo delas.
-- **Composição:**
-  - 10 modos de mesclagem e chroma key.
-  - **Máscaras** linear, espelho, círculo e retângulo arredondado, com posição, tamanho, rotação, suavização e inversão. Também valem em camadas de ajuste, para corrigir a cor só numa região.
-- **Velocidade:**
-  - Constante de 0,1× a 10× e reverso.
-  - **Curvas de velocidade** (Montagem, Herói, Bala, Salto…), com editor gráfico de pontos. As curvas dos drafts também são importadas.
-- **Áudio:**
-  - Volume (até 200%), ganho em dB, fade in/out e mixagem de várias faixas.
-  - **Normalizar volume** (EBU R128) para redes sociais (-14 LUFS), podcast (-16) ou TV (-23).
-  - **Redução de ruído** local, processada em segundo plano e alinhada ao vídeo.
-  - **Separar o áudio do vídeo** (Ctrl+Shift+D) e silenciar clipe.
-- **Canvas:** 16:9, 9:16, 1:1, 4:3, 3:4, 4:5 e 21:9, com cor de fundo.
-- **Exportação:**
-  - Codecs H.264, HEVC, AV1 e ProRes 422 HQ, conforme o FFmpeg instalado.
-  - Resolução de 480p a 4K, de 24 a 60 fps, com áudio AAC.
-- **Legendas automáticas 100% locais** com whisper.cpp, sem nuvem:
-  - Mais de 90 idiomas, com modelos baixados sob demanda (Tiny a Large v3 Turbo).
-  - Cada legenda vira um clipe de texto editável numa faixa "Legendas".
-  - "Aplicar a todas" copia o estilo de uma legenda para a faixa inteira.
-  - Importação de SRT/VTT e exportação de SRT.
-- **Importação de drafts** (`draft_content.json` / `draft_info.json`, sem criptografia):
-  - Traz mídias, cortes, velocidade, volume, transformações e keyframes de posição, escala, rotação, opacidade e volume.
-  - Traz também textos, fades e transições.
-- **Undo/redo** ilimitado, com edições contínuas agrupadas.
-- **Recuperação:**
-  - Cópia automática a cada 30 s com alterações pendentes.
-  - Oferece recuperar o trabalho depois de um fechamento inesperado.
-  - Pergunta antes de descartar alterações.
-- **`clivcut-render`:** renderização, conversão e transcrição (`--transcribe`) pela linha de comando, sem interface.
+  - On position, scale, rotation, opacity, volume, brightness, contrast and saturation, via the ◆ button next to each property.
+  - **Graph editor** in the Keyframes tab: drag time and value and pick the curve for each segment (linear, ease in, ease out, smooth, hold or **custom Bézier** with handles).
+- **Text:** font, size, color, outline, shadow, background box and alignment. Title, subtitle and highlight presets.
+- **Transitions:** dissolve, dip to black, wipes, slide, circle and zoom.
+- **In and out animations:** fade, zoom and slide.
+- **Color:**
+  - 16 built-in filters (Vivid, Teal & Orange, Vintage, Noir…), previewed on the current frame, with intensity.
+  - `.cube` LUTs with intensity.
+  - Exposure, brightness, contrast, saturation, highlights, shadows, temperature, tint, vignette and sharpness.
+  - **Adjustment/filter layers** on the timeline that affect everything below them.
+- **Compositing:**
+  - 10 blend modes and chroma key.
+  - Linear, mirror, circle and rounded-rectangle **masks**, with position, size, rotation, feather and invert. They also work on adjustment layers, to grade just one region.
+- **Speed:**
+  - Constant from 0.1× to 10×, and reverse.
+  - **Speed curves** (Montage, Hero, Bullet, Jump…), with a point-based graph editor. Speed curves from drafts are imported too.
+- **Audio:**
+  - Volume (up to 200%), gain in dB, fade in/out and multi-track mixing.
+  - **Loudness normalization** (EBU R128) for social media (-14 LUFS), podcast (-16) or broadcast (-23).
+  - Local **noise reduction**, processed in the background and kept in sync with the video.
+  - **Detach audio from video** (Ctrl+Shift+D) and mute clip.
+- **Canvas:** 16:9, 9:16, 1:1, 4:3, 3:4, 4:5 and 21:9, with background color.
+- **Export:**
+  - H.264, HEVC, AV1 and ProRes 422 HQ codecs, depending on the installed FFmpeg.
+  - 480p to 4K, 24 to 60 fps, with AAC audio.
+- **Fully local automatic captions** with whisper.cpp, no cloud:
+  - 90+ languages, with models downloaded on demand (Tiny to Large v3 Turbo).
+  - Each caption becomes an editable text clip on a "Captions" track.
+  - "Apply to all" copies one caption's style to the whole track.
+  - SRT/VTT import and SRT export.
+- **Draft import** (`draft_content.json` / `draft_info.json`, unencrypted):
+  - Brings in media, cuts, speed, volume, transforms and position, scale, rotation, opacity and volume keyframes.
+  - Also brings in text, fades and transitions.
+- Unlimited **undo/redo**, with continuous edits merged.
+- **Recovery:**
+  - Automatic backup every 30 s while there are unsaved changes.
+  - Offers to recover your work after an unexpected shutdown.
+  - Asks before discarding changes.
+- **`clivcut-render`:** headless rendering, conversion and transcription (`--transcribe`) from the command line.
 
-Veja o [roadmap](docs/ROADMAP.md) para o que vem a seguir: máscaras, LUTs, proxies, curvas de velocidade e remoção de fundo por IA local.
+See the [roadmap](docs/ROADMAP.md) for what comes next: masks, LUTs, proxies, speed curves and local AI background removal.
 
-## Compilar
+## Building
 
-Dependências:
-- CMake ≥ 3.24 e um compilador C++20 (GCC 12+ ou Clang 15+);
-- Qt ≥ 6.7: Core, Gui (com headers privados para o RHI), Quick, QuickControls2, ShaderTools, Concurrent e Test;
+Dependencies:
+- CMake ≥ 3.24 and a C++20 compiler (GCC 12+ or Clang 15+);
+- Qt ≥ 6.7: Core, Gui (with private headers for RHI), Quick, QuickControls2, ShaderTools, Concurrent and Test;
 - FFmpeg ≥ 6 (libavformat, libavcodec, libswscale, libswresample, libavfilter);
 - SDL2;
-- whisper.cpp: opcional. É baixado e compilado automaticamente pelo CMake (`-DCLIVCUT_WITH_WHISPER=OFF` desliga; `-DCLIVCUT_WHISPER_VULKAN=ON` acelera na GPU).
+- whisper.cpp: optional. Downloaded and built automatically by CMake (`-DCLIVCUT_WITH_WHISPER=OFF` disables it; `-DCLIVCUT_WHISPER_VULKAN=ON` enables GPU acceleration).
 
 ```sh
 # Debian/Ubuntu (24.04+)
@@ -84,19 +84,19 @@ emerge dev-qt/qtbase dev-qt/qtdeclarative dev-qt/qtshadertools media-video/ffmpe
 
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build          # testes (núcleo, mídia, GPU, controlador)
+ctest --test-dir build          # tests (core, media, GPU, controller)
 ```
 
-## Pacotes
+## Packages
 
-**AppImage** (um arquivo, roda na maioria das distros):
+**AppImage** (a single file that runs on most distros):
 
 ```sh
-packaging/appimage/build-appimage.sh      # gera dist/clivcut-<versão>-x86_64.AppImage
+packaging/appimage/build-appimage.sh      # produces dist/clivcut-<version>-x86_64.AppImage
 chmod +x dist/clivcut-*.AppImage && dist/clivcut-*.AppImage
 ```
 
-**Flatpak** (manifesto em `packaging/flatpak/`; compila FFmpeg com x264, VA-API e whisper.cpp no sandbox):
+**Flatpak** (manifest in `packaging/flatpak/`; builds FFmpeg with x264, VA-API and whisper.cpp inside the sandbox):
 
 ```sh
 flatpak install flathub org.kde.Sdk//6.9 org.kde.Platform//6.9
@@ -104,7 +104,7 @@ flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/i
 flatpak run io.github.clivcut
 ```
 
-`cmake --install build` instala os binários, o `.desktop`, o ícone e o metainfo AppStream.
+`cmake --install build` installs the binaries, the `.desktop` file, the icon and the AppStream metainfo.
 
 **Windows** (MSVC 2022 + [vcpkg](https://vcpkg.io)):
 
@@ -113,7 +113,7 @@ vcpkg install --triplet x64-windows "ffmpeg[core,avcodec,avformat,avfilter,swsca
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=C:\Qt\6.8.3\msvc2022_64 `
       -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake
 cmake --build build
-cd build && cpack -G NSIS      # instalador clivcut-<versão>-win64.exe (Qt e DLLs incluídos)
+cd build && cpack -G NSIS      # clivcut-<version>-win64.exe installer (Qt and DLLs bundled)
 ```
 
 **macOS** (Homebrew):
@@ -122,75 +122,75 @@ cd build && cpack -G NSIS      # instalador clivcut-<versão>-win64.exe (Qt e DL
 brew install ninja pkg-config ffmpeg sdl2 qt
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
 cmake --build build
-cd build && cpack -G DragNDrop # clivcut-<versão>-Darwin.dmg
+cd build && cpack -G DragNDrop # clivcut-<version>-Darwin.dmg
 ```
 
-No Windows a GPU usa Direct3D 11 e no macOS, Metal, com os mesmos shaders. O CI (`.github/workflows/build.yml`) gera AppImage, instalador do Windows e DMG do macOS a cada push.
+On Windows the GPU path uses Direct3D 11 and on macOS Metal, with the same shaders. CI (`.github/workflows/build.yml`) builds the AppImage, the Windows installer and the macOS DMG on every push.
 
-## Usar
+## Usage
 
 ```sh
-build/src/app/clivcut                         # interface gráfica
-build/src/app/clivcut video1.mp4 musica.mp3   # abre já importando mídias
-build/src/app/clivcut ~/caminho/do/draft      # abre um draft da solução
+build/src/app/clivcut                         # GUI
+build/src/app/clivcut video1.mp4 music.mp3    # open and import media right away
+build/src/app/clivcut ~/path/to/draft         # open a draft JSON folder
 
-# Linha de comando
-build/src/cli/clivcut-render projeto.clivcut saida.mp4 --codec hevc --height 2160
-build/src/cli/clivcut-render ~/pasta_do_draft saida.mp4         # renderiza um draft JSON
-build/src/cli/clivcut-render --convert ~/pasta_do_draft projeto.clivcut
+# Command line
+build/src/cli/clivcut-render project.clivcut out.mp4 --codec hevc --height 2160
+build/src/cli/clivcut-render ~/draft_folder out.mp4             # render a draft JSON
+build/src/cli/clivcut-render --convert ~/draft_folder project.clivcut
 build/src/cli/clivcut-render --probe video.mp4
-build/src/cli/clivcut-render --transcribe --model small --language pt video.mp4 legendas.srt
-build/src/cli/clivcut-render --bench video_4k.mp4            # mede a decodificação (--no-hw compara com software)
+build/src/cli/clivcut-render --transcribe --model small --language pt video.mp4 captions.srt
+build/src/cli/clivcut-render --bench video_4k.mp4            # benchmark decoding (--no-hw compares with software)
 ```
 
-Os modelos de transcrição ficam em `~/.local/share/clivcut/models`. Para mudar o local, use `CLIVCUT_MODELS_DIR`. Baixe pela aba **Legendas** do app ou manualmente:
+Transcription models live in `~/.local/share/clivcut/models`. Set `CLIVCUT_MODELS_DIR` to change the location. Download them from the app's **Captions** tab or manually:
 `curl -L -o ~/.local/share/clivcut/models/ggml-small.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin`
 
-Variáveis úteis:
-- `CLIVCUT_RHI=vulkan|opengl` escolhe o backend do export.
-- `QSG_RHI_BACKEND=vulkan|opengl` escolhe o backend da interface.
-- `CLIVCUT_HWDEC=0` desliga a decodificação por hardware.
-- `CLIVCUT_CACHE_DIR` muda a pasta de cache (proxies), que por padrão é `~/.cache/clivcut`.
-- `CLIVCUT_FFMPEG_LOG=1` mostra todos os logs do FFmpeg.
+Useful environment variables:
+- `CLIVCUT_RHI=vulkan|opengl` selects the export backend.
+- `QSG_RHI_BACKEND=vulkan|opengl` selects the UI backend.
+- `CLIVCUT_HWDEC=0` disables hardware decoding.
+- `CLIVCUT_CACHE_DIR` changes the cache folder (proxies), `~/.cache/clivcut` by default.
+- `CLIVCUT_FFMPEG_LOG=1` shows all FFmpeg logs.
 
-### Atalhos
+### Shortcuts
 
-| Ação | Tecla |
+| Action | Key |
 |---|---|
-| Reproduzir/pausar | Espaço |
-| Dividir | Ctrl+B |
-| Excluir à esquerda/direita do cursor | Q / W |
-| Excluir (com ripple) | Del (Shift+Del) |
-| Desfazer/refazer | Ctrl+Z / Ctrl+Shift+Z |
-| Duplicar | Ctrl+D |
-| Copiar / recortar / colar | Ctrl+C / Ctrl+X / Ctrl+V |
-| Copiar / colar atributos | Ctrl+Alt+C / Ctrl+Alt+V |
-| Agrupar / desagrupar | Ctrl+G / Ctrl+Shift+G |
-| Selecionar tudo | Ctrl+A |
-| Seleção por retângulo | arrastar no vazio da timeline (Ctrl/Shift soma) |
-| Quadro anterior/próximo (1 s com Shift) | ← / → |
-| Início/fim | Home / End |
-| Marcador | M |
-| Congelar quadro | Alt+F |
-| Novo texto | Ctrl+T |
-| Snapping liga/desliga | N |
-| Zoom da timeline / ajustar | Ctrl+= / Ctrl+− / Shift+Z |
-| Importar / Exportar / Salvar | Ctrl+I / Ctrl+E / Ctrl+S |
+| Play/pause | Space |
+| Split | Ctrl+B |
+| Delete left/right of the playhead | Q / W |
+| Delete (ripple) | Del (Shift+Del) |
+| Undo/redo | Ctrl+Z / Ctrl+Shift+Z |
+| Duplicate | Ctrl+D |
+| Copy / cut / paste | Ctrl+C / Ctrl+X / Ctrl+V |
+| Copy / paste attributes | Ctrl+Alt+C / Ctrl+Alt+V |
+| Group / ungroup | Ctrl+G / Ctrl+Shift+G |
+| Select all | Ctrl+A |
+| Rubber-band selection | drag on empty timeline space (Ctrl/Shift adds) |
+| Previous/next frame (1 s with Shift) | ← / → |
+| Start/end | Home / End |
+| Marker | M |
+| Freeze frame | Alt+F |
+| New text | Ctrl+T |
+| Toggle snapping | N |
+| Timeline zoom / fit | Ctrl+= / Ctrl+− / Shift+Z |
+| Import / Export / Save | Ctrl+I / Ctrl+E / Ctrl+S |
 
-## Arquitetura
+## Architecture
 
-Visão geral em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Overview in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ```
-src/core    modelo, edição, keyframes, histórico, avaliação por quadro, importador de drafts JSON (só QtCore)
-src/media   FFmpeg: probe, decodificação com seek preciso, áudio 48 kHz, encoder
-src/render  compositor Qt RHI + shaders GLSL, rasterização de texto
-src/engine  mixer de áudio, fonte de quadros, exportador
-src/app     interface Qt Quick (QML), preview na GPU, saída de áudio SDL2
+src/core    model, editing, keyframes, history, per-frame evaluation, draft JSON importer (QtCore only)
+src/media   FFmpeg: probe, frame-accurate seeking decode, 48 kHz audio, encoder
+src/render  Qt RHI compositor + GLSL shaders, text rasterization
+src/engine  audio mixer, frame source, exporter
+src/app     Qt Quick (QML) UI, GPU preview, SDL2 audio output
 src/cli     clivcut-render
 tests       QtTest
 ```
 
-## Licença
+## License
 
-GPL-3.0-or-later. Veja [LICENSE](LICENSE).
+GPL-3.0-or-later. See [LICENSE](LICENSE).

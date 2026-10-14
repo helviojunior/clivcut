@@ -1,18 +1,18 @@
-# Arquitetura do clivcut
+# clivcut architecture
 
-## Princípios
+## Principles
 
-1. **Uma única fonte de verdade por quadro.** `clv::evaluate(project, t)` (em `src/core/Evaluate.cpp`) resolve quais camadas visuais e fontes de áudio estão ativas no instante `t`, já com keyframes, animações e transições aplicados. O preview e o export usam essa mesma função e o mesmo `render::Compositor`.
-2. **Tempo inteiro em microssegundos.** É a mesma unidade usada pelos drafts JSON importados. Dividir e aparar não acumulam erro, e a conversão para quadros é feita só nas bordas (`Project::snapToFrame`).
-3. **Modelo simples e copiável.** `clv::Project` é feito de structs simples. O undo guarda snapshots, e outras threads (render, áudio, export) recebem um `shared_ptr<const Project>` imutável.
-4. **GPU portátil.** Qt RHI roda Vulkan, OpenGL, Metal ou D3D com os mesmos shaders GLSL (compilados pelo `qsb`). No preview o compositor usa a GPU do Qt Quick (`QQuickRhiItem`). No export ele cria um RHI offscreen próprio.
+1. **A single source of truth per frame.** `clv::evaluate(project, t)` (in `src/core/Evaluate.cpp`) resolves which visual layers and audio sources are active at time `t`, with keyframes, animations and transitions already applied. Preview and export both use this function and the same `render::Compositor`.
+2. **Integer time in microseconds.** This is the same unit used by imported draft JSON files. Splitting and trimming accumulate no error, and conversion to frames happens only at the edges (`Project::snapToFrame`).
+3. **A simple, copyable model.** `clv::Project` is made of plain structs. Undo stores snapshots, and other threads (render, audio, export) receive an immutable `shared_ptr<const Project>`.
+4. **Portable GPU.** Qt RHI runs Vulkan, OpenGL, Metal or D3D with the same GLSL shaders (compiled by `qsb`). In the preview the compositor uses Qt Quick's GPU (`QQuickRhiItem`). For export it creates its own offscreen RHI.
 
-## Camadas
+## Layers
 
 ```
             ┌───────────────────── src/app (Qt Quick) ─────────────────────┐
             │ Main.qml · MediaPanel · PreviewPanel · Inspector · Timeline  │
-            │ ProjectController (singleton QML "Project")                  │
+            │ ProjectController (QML singleton "Project")                  │
             │ PreviewItem (QQuickRhiItem) · AudioOutput (SDL2) · providers │
             └──────────────┬───────────────────────────┬───────────────────┘
                            │                           │
@@ -24,46 +24,46 @@
            Model · Edit · Keyframes · History · Evaluate · Serialize · DraftImport
 ```
 
-| Módulo | Responsabilidade |
+| Module | Responsibility |
 |---|---|
-| `core` | modelo, operações de edição, avaliação, formato `.clivcut`, importação de drafts |
-| `media` | probe, decodificação com seek, reamostragem de áudio, encoder |
-| `render` | compositor GPU, modos de mesclagem, chroma, transições, texto |
-| `engine` | mixer, fonte de quadros por clipe, export |
-| `app` | interface QML, preview, áudio de reprodução |
+| `core` | model, editing operations, evaluation, `.clivcut` format, draft import |
+| `media` | probe, seeking decode, audio resampling, encoder |
+| `render` | GPU compositor, blend modes, chroma key, transitions, text |
+| `engine` | mixer, per-clip frame source, export |
+| `app` | QML UI, preview, playback audio |
 
-## Fluxo de reprodução
+## Playback flow
 
-1. `ProjectController::play()` liga o `AudioOutput`. Uma thread produtora mixa o projeto cerca de 200 ms à frente num anel, e o callback do SDL consome.
-2. A posição do áudio é o **relógio mestre**. Um timer de 15 ms atualiza `playhead`, e o `PreviewItem` pede um novo quadro.
-3. Na thread de render do Qt Quick, `PreviewRenderer` avalia o projeto, pede os quadros ao `DecoderFrameSource` (um `VideoDecoder` por clipe, na resolução do preview) e compõe direto na textura do item.
+1. `ProjectController::play()` starts `AudioOutput`. A producer thread mixes the project about 200 ms ahead into a ring buffer, which the SDL callback consumes.
+2. The audio position is the **master clock**. A 15 ms timer updates `playhead`, and `PreviewItem` requests a new frame.
+3. On the Qt Quick render thread, `PreviewRenderer` evaluates the project, requests frames from `DecoderFrameSource` (one `VideoDecoder` per clip, at preview resolution) and composites directly into the item's texture.
 
-## Fluxo de export
+## Export flow
 
-O `Exporter` roda numa thread própria com um `OffscreenRhi`. Para cada quadro ele faz:
+`Exporter` runs on its own thread with an `OffscreenRhi`. For each frame it does:
 1. `evaluate`;
 2. `composite`;
-3. readback da GPU;
+3. GPU readback;
 4. `Encoder::writeVideo` (swscale RGBA → YUV, libavcodec);
-5. a mixagem do intervalo de áudio exato do quadro → `Encoder::writeAudio` (AAC).
+5. mixes the frame's exact audio interval → `Encoder::writeAudio` (AAC).
 
-## Formato de projeto (`.clivcut`)
+## Project format (`.clivcut`)
 
-É JSON legível e versionado (`format: "clivcut"`, `version: 1`). Contém o projeto (canvas, fps, fundo, ímã), os assets (caminhos absolutos e metadados), as faixas com os clipes (tempo em µs, transformação, keyframes por propriedade, cor, mesclagem, chroma, transição de entrada, animações) e os marcadores.
+Human-readable, versioned JSON (`format: "clivcut"`, `version: 1`). It holds the project (canvas, fps, background, magnet), the assets (absolute paths and metadata), the tracks with their clips (time in µs, transform, per-property keyframes, color, blend mode, chroma key, in transition, animations) and the markers.
 
-## Importação de drafts JSON
+## Draft JSON import
 
 `core/DraftImport.cpp`:
-- **Localização e validação:** lê `draft_content.json` ou `draft_info.json`. Se o arquivo não começa com `{`, o draft é criptografado, e isso é reportado sem tentar decifrar.
-- **Mídias:** monta um índice global `id → material`, resolve o placeholder de caminho da pasta do draft e converte vídeos, fotos e áudios em assets.
-- **Clipes:** converte segmentos em clipes, invertendo o eixo Y (+y para cima no draft, para baixo no clivcut).
-- **Keyframes:** mapeia os `common_keyframes` de posição, escala, rotação, opacidade e volume.
-- **Materiais secundários:** os `audio_fades` viram fades, e as `transitions` viram dissolver, na borda do clipe que entra.
-- **Ignorado, com aviso:** efeitos, stickers e filtros proprietários.
+- **Discovery and validation:** reads `draft_content.json` or `draft_info.json`. If the file does not start with `{`, the draft is encrypted; this is reported without any attempt to decrypt it.
+- **Media:** builds a global `id → material` index, resolves the draft-folder path placeholder and converts videos, photos and audio into assets.
+- **Clips:** converts segments into clips, flipping the Y axis (+y is up in the draft, down in clivcut).
+- **Keyframes:** maps `common_keyframes` for position, scale, rotation, opacity and volume.
+- **Secondary materials:** `audio_fades` become fades, and `transitions` become dissolves on the edge of the incoming clip.
+- **Ignored, with a warning:** proprietary effects, stickers and filters.
 
-## Testes
+## Tests
 
-- `tst_core`: modelo, edição, keyframes, transições, histórico, serialização e importador de drafts.
-- `tst_media`: probe, consistência entre seek e decodificação sequencial, áudio, miniaturas e forma de onda.
-- `tst_render`: orientação, escala, opacidade, multiplicar e texto, com readback da GPU (Vulkan e OpenGL).
-- `tst_controller`: fluxo da interface (importar → editar → desfazer → salvar → reabrir → exportar).
+- `tst_core`: model, editing, keyframes, transitions, history, serialization and draft importer.
+- `tst_media`: probe, seek vs. sequential decode consistency, audio, thumbnails and waveforms.
+- `tst_render`: orientation, scale, opacity, multiply and text, with GPU readback (Vulkan and OpenGL).
+- `tst_controller`: UI flow (import → edit → undo → save → reopen → export).
