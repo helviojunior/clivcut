@@ -56,3 +56,9 @@
 - Plugins de IA generativa com provedores configuráveis (local ou remoto), sempre opcionais.
 - Gravação de tela e webcam via PipeWire / portal.
 - Acervo de músicas e efeitos sonoros com licença livre.
+- Versões móveis (Android primeiro, depois iOS):
+  - Compilar FFmpeg, ONNX Runtime (AAR / xcframework) e whisper.cpp para arm64; trocar SDL2 por `QAudioSink`.
+  - Decodificação por hardware com MediaCodec no Android (VideoToolbox já cobre o iOS).
+  - Interface de toque própria em QML reaproveitando o `ProjectController`: layout em retrato, pinça na timeline, toque longo para arrastar clipes.
+  - Acesso a arquivos: URIs `content://` no Android, sandbox e galeria no iOS; limites de memória na exportação.
+  - iOS: build do FFmpeg só LGPL e dinâmico (compatível com a App Store), assinatura com conta Apple Developer.
