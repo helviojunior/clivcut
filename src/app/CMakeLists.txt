@@ -99,7 +99,7 @@ if(WIN32 OR APPLE)
         if(WIN32)
             # DLLs de terceiros (FFmpeg, SDL2, x264...) ao lado do executável.
             install(TARGETS clivcut RUNTIME_DEPENDENCIES
-                PRE_EXCLUDE_REGEXES "api-ms-.*" "ext-ms-.*" "Qt6.*"
+                PRE_EXCLUDE_REGEXES "api-ms-.*" "ext-ms-.*" "[Qq]t6.*" # no Windows os nomes chegam em minúsculas
                 POST_EXCLUDE_REGEXES ".*[Ss]ystem32/.*\\.dll"
                 DIRECTORIES $<TARGET_FILE_DIR:clivcut> ${CMAKE_PREFIX_PATH}
                 RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
