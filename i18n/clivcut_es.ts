@@ -28,8 +28,8 @@
             <translation>Animaciones</translation>
         </message>
         <message>
-            <source>Shortcuts and commands</source>
-            <translation>Atajos y comandos</translation>
+            <source>Keyboard shortcuts</source>
+            <translation>Atajos de teclado</translation>
         </message>
         <message>
             <source>Light theme</source>
@@ -1021,8 +1021,8 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
             <translation>Desactivado, la voz se vuelve más aguda al acelerar y más grave al ralentizar</translation>
         </message>
         <message>
-            <source>❄ Freeze frame at playhead (Alt+F)</source>
-            <translation>❄ Congelar fotograma en el cursor (Alt+F)</translation>
+            <source>❄ Freeze frame at playhead</source>
+            <translation>❄ Congelar fotograma en el cursor</translation>
         </message>
         <message>
             <source>Blend mode</source>
@@ -1173,6 +1173,237 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         </message>
     </context>
     <context>
+        <name>Keymap</name>
+        <message>
+            <source>Playback</source>
+            <translation>Reproducción</translation>
+        </message>
+        <message>
+            <source>Play / pause</source>
+            <translation>Reproducir / pausar</translation>
+        </message>
+        <message>
+            <source>Previous frame</source>
+            <translation>Fotograma anterior</translation>
+        </message>
+        <message>
+            <source>Next frame</source>
+            <translation>Fotograma siguiente</translation>
+        </message>
+        <message>
+            <source>Back 1 second</source>
+            <translation>Retroceder 1 segundo</translation>
+        </message>
+        <message>
+            <source>Forward 1 second</source>
+            <translation>Avanzar 1 segundo</translation>
+        </message>
+        <message>
+            <source>Go to start</source>
+            <translation>Ir al inicio</translation>
+        </message>
+        <message>
+            <source>Go to end</source>
+            <translation>Ir al final</translation>
+        </message>
+        <message>
+            <source>Editing</source>
+            <translation>Edición</translation>
+        </message>
+        <message>
+            <source>Split at playhead</source>
+            <translation>Dividir en el cursor</translation>
+        </message>
+        <message>
+            <source>Delete left of playhead</source>
+            <translation>Eliminar a la izquierda del cursor</translation>
+        </message>
+        <message>
+            <source>Delete right of playhead</source>
+            <translation>Eliminar a la derecha del cursor</translation>
+        </message>
+        <message>
+            <source>Delete selection</source>
+            <translation>Eliminar selección</translation>
+        </message>
+        <message>
+            <source>Ripple delete</source>
+            <translation>Eliminar y cerrar el hueco</translation>
+        </message>
+        <message>
+            <source>Undo</source>
+            <translation>Deshacer</translation>
+        </message>
+        <message>
+            <source>Redo</source>
+            <translation>Rehacer</translation>
+        </message>
+        <message>
+            <source>Duplicate</source>
+            <translation>Duplicar</translation>
+        </message>
+        <message>
+            <source>Copy</source>
+            <translation>Copiar</translation>
+        </message>
+        <message>
+            <source>Cut</source>
+            <translation>Cortar</translation>
+        </message>
+        <message>
+            <source>Paste at playhead</source>
+            <translation>Pegar en el cursor</translation>
+        </message>
+        <message>
+            <source>Copy attributes</source>
+            <translation>Copiar atributos</translation>
+        </message>
+        <message>
+            <source>Paste attributes</source>
+            <translation>Pegar atributos</translation>
+        </message>
+        <message>
+            <source>Group clips</source>
+            <translation>Agrupar clips</translation>
+        </message>
+        <message>
+            <source>Ungroup</source>
+            <translation>Desagrupar</translation>
+        </message>
+        <message>
+            <source>Detach audio from video</source>
+            <translation>Separar el audio del vídeo</translation>
+        </message>
+        <message>
+            <source>Freeze frame</source>
+            <translation>Congelar fotograma</translation>
+        </message>
+        <message>
+            <source>Add text</source>
+            <translation>Añadir texto</translation>
+        </message>
+        <message>
+            <source>Select all</source>
+            <translation>Seleccionar todo</translation>
+        </message>
+        <message>
+            <source>Clear selection</source>
+            <translation>Borrar selección</translation>
+        </message>
+        <message>
+            <source>Timeline</source>
+            <translation>Línea de tiempo</translation>
+        </message>
+        <message>
+            <source>Add marker</source>
+            <translation>Añadir marcador</translation>
+        </message>
+        <message>
+            <source>Mark in</source>
+            <translation>Marcar entrada</translation>
+        </message>
+        <message>
+            <source>Mark out</source>
+            <translation>Marcar salida</translation>
+        </message>
+        <message>
+            <source>Clear in/out</source>
+            <translation>Borrar entrada/salida</translation>
+        </message>
+        <message>
+            <source>Go to in point</source>
+            <translation>Ir a la entrada</translation>
+        </message>
+        <message>
+            <source>Go to out point</source>
+            <translation>Ir a la salida</translation>
+        </message>
+        <message>
+            <source>Toggle auto snapping</source>
+            <translation>Activar/desactivar el ajuste automático</translation>
+        </message>
+        <message>
+            <source>Toggle main track magnet</source>
+            <translation>Activar/desactivar el imán de la pista principal</translation>
+        </message>
+        <message>
+            <source>Zoom in</source>
+            <translation>Acercar</translation>
+        </message>
+        <message>
+            <source>Zoom out</source>
+            <translation>Alejar</translation>
+        </message>
+        <message>
+            <source>Fit timeline to window</source>
+            <translation>Ajustar la línea de tiempo a la ventana</translation>
+        </message>
+        <message>
+            <source>Interface</source>
+            <translation>Interfaz</translation>
+        </message>
+        <message>
+            <source>Command palette</source>
+            <translation>Paleta de comandos</translation>
+        </message>
+        <message>
+            <source>Keyboard shortcuts</source>
+            <translation>Atajos de teclado</translation>
+        </message>
+        <message>
+            <source>Panel: Media</source>
+            <translation>Panel: Medios</translation>
+        </message>
+        <message>
+            <source>Panel: Text</source>
+            <translation>Panel: Texto</translation>
+        </message>
+        <message>
+            <source>Panel: Captions</source>
+            <translation>Panel: Subtítulos</translation>
+        </message>
+        <message>
+            <source>Panel: Filters</source>
+            <translation>Panel: Filtros</translation>
+        </message>
+        <message>
+            <source>Panel: Transitions</source>
+            <translation>Panel: Transiciones</translation>
+        </message>
+        <message>
+            <source>Panel: Animations</source>
+            <translation>Panel: Animaciones</translation>
+        </message>
+        <message>
+            <source>File</source>
+            <translation>Archivo</translation>
+        </message>
+        <message>
+            <source>New project</source>
+            <translation>Nuevo proyecto</translation>
+        </message>
+        <message>
+            <source>Open project</source>
+            <translation>Abrir proyecto</translation>
+        </message>
+        <message>
+            <source>Save project</source>
+            <translation>Guardar proyecto</translation>
+        </message>
+        <message>
+            <source>Save project as</source>
+            <translation>Guardar proyecto como</translation>
+        </message>
+        <message>
+            <source>Import media</source>
+            <translation>Importar medios</translation>
+        </message>
+        <message>
+            <source>Export</source>
+            <translation>Exportar</translation>
+        </message>
+    </context>
+    <context>
         <name>Main</name>
         <message>
             <source>Drop to import</source>
@@ -1215,66 +1446,6 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
             <translation>Volver a vincular medio</translation>
         </message>
         <message>
-            <source>Play / pause</source>
-            <translation>Reproducir / pausar</translation>
-        </message>
-        <message>
-            <source>Space</source>
-            <translation>Espacio</translation>
-        </message>
-        <message>
-            <source>Split at playhead</source>
-            <translation>Dividir en el cursor</translation>
-        </message>
-        <message>
-            <source>Delete left of playhead</source>
-            <translation>Eliminar a la izquierda del cursor</translation>
-        </message>
-        <message>
-            <source>Delete right of playhead</source>
-            <translation>Eliminar a la derecha del cursor</translation>
-        </message>
-        <message>
-            <source>Delete selection</source>
-            <translation>Eliminar selección</translation>
-        </message>
-        <message>
-            <source>Duplicate</source>
-            <translation>Duplicar</translation>
-        </message>
-        <message>
-            <source>Copy</source>
-            <translation>Copiar</translation>
-        </message>
-        <message>
-            <source>Paste at playhead</source>
-            <translation>Pegar en el cursor</translation>
-        </message>
-        <message>
-            <source>Group clips</source>
-            <translation>Agrupar clips</translation>
-        </message>
-        <message>
-            <source>Ungroup</source>
-            <translation>Desagrupar</translation>
-        </message>
-        <message>
-            <source>Freeze frame</source>
-            <translation>Congelar fotograma</translation>
-        </message>
-        <message>
-            <source>Detach audio from video</source>
-            <translation>Separar el audio del vídeo</translation>
-        </message>
-        <message>
-            <source>Add marker</source>
-            <translation>Añadir marcador</translation>
-        </message>
-        <message>
-            <source>Add text</source>
-            <translation>Añadir texto</translation>
-        </message>
-        <message>
             <source>Add adjustment layer</source>
             <translation>Añadir capa de ajuste</translation>
         </message>
@@ -1291,40 +1462,8 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
             <translation>Importar subtítulos (SRT/VTT)</translation>
         </message>
         <message>
-            <source>Export video</source>
-            <translation>Exportar vídeo</translation>
-        </message>
-        <message>
-            <source>New project</source>
-            <translation>Nuevo proyecto</translation>
-        </message>
-        <message>
             <source>Home screen</source>
             <translation>Pantalla de inicio</translation>
-        </message>
-        <message>
-            <source>Undo</source>
-            <translation>Deshacer</translation>
-        </message>
-        <message>
-            <source>Redo</source>
-            <translation>Rehacer</translation>
-        </message>
-        <message>
-            <source>Select all</source>
-            <translation>Seleccionar todo</translation>
-        </message>
-        <message>
-            <source>Fit timeline to window</source>
-            <translation>Ajustar la línea de tiempo a la ventana</translation>
-        </message>
-        <message>
-            <source>Toggle main track magnet</source>
-            <translation>Activar/desactivar el imán de la pista principal</translation>
-        </message>
-        <message>
-            <source>Toggle auto snapping</source>
-            <translation>Activar/desactivar el ajuste automático</translation>
         </message>
         <message>
             <source>Use proxies for playback</source>
@@ -1337,46 +1476,6 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <message>
             <source>Dark theme</source>
             <translation>Tema oscuro</translation>
-        </message>
-        <message>
-            <source>Mark in</source>
-            <translation>Marcar entrada</translation>
-        </message>
-        <message>
-            <source>Mark out</source>
-            <translation>Marcar salida</translation>
-        </message>
-        <message>
-            <source>Clear in/out</source>
-            <translation>Borrar entrada/salida</translation>
-        </message>
-        <message>
-            <source>Go to in point</source>
-            <translation>Ir a la entrada</translation>
-        </message>
-        <message>
-            <source>Go to out point</source>
-            <translation>Ir a la salida</translation>
-        </message>
-        <message>
-            <source>Panel: Media</source>
-            <translation>Panel: Medios</translation>
-        </message>
-        <message>
-            <source>Panel: Text</source>
-            <translation>Panel: Texto</translation>
-        </message>
-        <message>
-            <source>Panel: Filters</source>
-            <translation>Panel: Filtros</translation>
-        </message>
-        <message>
-            <source>Panel: Transitions</source>
-            <translation>Panel: Transiciones</translation>
-        </message>
-        <message>
-            <source>Panel: Animations</source>
-            <translation>Panel: Animaciones</translation>
         </message>
         <message>
             <source>Language: %1</source>
@@ -1723,8 +1822,12 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
             <translation>Importa medios y arrástralos a la línea de tiempo</translation>
         </message>
         <message>
-            <source>Home</source>
-            <translation>Inicio</translation>
+            <source>Go to start</source>
+            <translation>Ir al inicio</translation>
+        </message>
+        <message>
+            <source>Go to end</source>
+            <translation>Ir al final</translation>
         </message>
         <message>
             <source>Previous frame</source>
@@ -1735,16 +1838,8 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
             <translation>Reproducir/pausar</translation>
         </message>
         <message>
-            <source>Space</source>
-            <translation>Espacio</translation>
-        </message>
-        <message>
             <source>Next frame</source>
             <translation>Fotograma siguiente</translation>
-        </message>
-        <message>
-            <source>End</source>
-            <translation>Fin</translation>
         </message>
     </context>
     <context>
@@ -2234,6 +2329,45 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         </message>
     </context>
     <context>
+        <name>ShortcutsDialog</name>
+        <message>
+            <source>Keyboard shortcuts</source>
+            <translation>Atajos de teclado</translation>
+        </message>
+        <message>
+            <source>Reset all</source>
+            <translation>Restablecer todo</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>Cerrar</translation>
+        </message>
+        <message>
+            <source>Filter by action or key…</source>
+            <translation>Filtrar por acción o tecla…</translation>
+        </message>
+        <message>
+            <source>Click + to add a shortcut and press the keys. Esc cancels. Keys already in use move to the new action.</source>
+            <translation>Haz clic en + para añadir un atajo y pulsa las teclas. Esc cancela. Las teclas ya usadas pasan a la nueva acción.</translation>
+        </message>
+        <message>
+            <source>Press the keys…</source>
+            <translation>Pulsa las teclas…</translation>
+        </message>
+        <message>
+            <source>Add shortcut</source>
+            <translation>Añadir atajo</translation>
+        </message>
+        <message>
+            <source>Restore default</source>
+            <translation>Restablecer predeterminado</translation>
+        </message>
+        <message>
+            <source>%1 was removed from “%2”.</source>
+            <translation>%1 se quitó de “%2”.</translation>
+        </message>
+    </context>
+    <context>
         <name>SpeedCurves</name>
         <message>
             <source>Montage</source>
@@ -2343,52 +2477,40 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
             <translation>Arrastra medios aquí — pista principal</translation>
         </message>
         <message>
-            <source>Copy	Ctrl+C</source>
-            <translation>Copiar	Ctrl+C</translation>
+            <source>Copy</source>
+            <translation>Copiar</translation>
         </message>
         <message>
-            <source>Cut	Ctrl+X</source>
-            <translation>Cortar	Ctrl+X</translation>
+            <source>Cut</source>
+            <translation>Cortar</translation>
         </message>
         <message>
-            <source>Paste at playhead	Ctrl+V</source>
-            <translation>Pegar en el cursor	Ctrl+V</translation>
+            <source>Paste at playhead</source>
+            <translation>Pegar en el cursor</translation>
         </message>
         <message>
-            <source>Duplicate	Ctrl+D</source>
-            <translation>Duplicar	Ctrl+D</translation>
+            <source>Copy attributes</source>
+            <translation>Copiar atributos</translation>
         </message>
         <message>
-            <source>Copy attributes	Ctrl+Alt+C</source>
-            <translation>Copiar atributos	Ctrl+Alt+C</translation>
+            <source>Paste attributes</source>
+            <translation>Pegar atributos</translation>
         </message>
         <message>
-            <source>Paste attributes	Ctrl+Alt+V</source>
-            <translation>Pegar atributos	Ctrl+Alt+V</translation>
+            <source>Group</source>
+            <translation>Agrupar</translation>
         </message>
         <message>
-            <source>Group	Ctrl+G</source>
-            <translation>Agrupar	Ctrl+G</translation>
+            <source>Ungroup</source>
+            <translation>Desagrupar</translation>
         </message>
         <message>
-            <source>Ungroup	Ctrl+Shift+G</source>
-            <translation>Desagrupar	Ctrl+Shift+G</translation>
+            <source>Detach audio</source>
+            <translation>Separar audio</translation>
         </message>
         <message>
-            <source>Split at playhead	Ctrl+B</source>
-            <translation>Dividir en el cursor	Ctrl+B</translation>
-        </message>
-        <message>
-            <source>Freeze frame	Alt+F</source>
-            <translation>Congelar fotograma	Alt+F</translation>
-        </message>
-        <message>
-            <source>Detach audio	Ctrl+Shift+D</source>
-            <translation>Separar audio	Ctrl+Shift+D</translation>
-        </message>
-        <message>
-            <source>Delete	Del</source>
-            <translation>Eliminar	Supr</translation>
+            <source>Delete</source>
+            <translation>Eliminar</translation>
         </message>
     </context>
     <context>
@@ -2405,28 +2527,28 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
             <translation>Inicio</translation>
         </message>
         <message>
-            <source>New project…	Ctrl+N</source>
-            <translation>Nuevo proyecto…	Ctrl+N</translation>
-        </message>
-        <message>
-            <source>Open…	Ctrl+O</source>
-            <translation>Abrir…	Ctrl+O</translation>
-        </message>
-        <message>
-            <source>Save	Ctrl+S</source>
-            <translation>Guardar	Ctrl+S</translation>
-        </message>
-        <message>
-            <source>Save as…	Ctrl+Shift+S</source>
-            <translation>Guardar como…	Ctrl+Shift+S</translation>
-        </message>
-        <message>
             <source>Import draft JSON…</source>
             <translation>Importar draft JSON…</translation>
         </message>
         <message>
-            <source>Export video…	Ctrl+E</source>
-            <translation>Exportar vídeo…	Ctrl+E</translation>
+            <source>New project…</source>
+            <translation>Nuevo proyecto…</translation>
+        </message>
+        <message>
+            <source>Open…</source>
+            <translation>Abrir…</translation>
+        </message>
+        <message>
+            <source>Save</source>
+            <translation>Guardar</translation>
+        </message>
+        <message>
+            <source>Save as…</source>
+            <translation>Guardar como…</translation>
+        </message>
+        <message>
+            <source>Export…</source>
+            <translation>Exportar…</translation>
         </message>
         <message>
             <source>Language</source>

@@ -162,8 +162,8 @@ Rectangle {
                 font.family: "monospace"
             }
             Item { Layout.fillWidth: true }
-            IconButton { iconName: "skip-back"; tip: qsTr("Home"); shortcut: "Home"; onClicked: Project.jumpToEdge(false) }
-            IconButton { iconName: "chevron-left"; tip: qsTr("Previous frame"); shortcut: "←"; onClicked: Project.stepFrames(-1) }
+            IconButton { iconName: "skip-back"; tip: qsTr("Go to start"); shortcut: Keymap.label("start"); onClicked: Project.jumpToEdge(false) }
+            IconButton { iconName: "chevron-left"; tip: qsTr("Previous frame"); shortcut: Keymap.label("prevFrame"); onClicked: Project.stepFrames(-1) }
             // Play em destaque
             AbstractButton {
                 id: playButton
@@ -187,10 +187,10 @@ Rectangle {
                 }
                 ToolTip.visible: hovered
                 ToolTip.delay: 450
-                ToolTip.text: qsTr("Play/pause") + "   " + qsTr("Space")
+                ToolTip.text: qsTr("Play/pause") + "   " + Keymap.label("play")
             }
-            IconButton { iconName: "chevron-right"; tip: qsTr("Next frame"); shortcut: "→"; onClicked: Project.stepFrames(1) }
-            IconButton { iconName: "skip-forward"; tip: qsTr("End"); shortcut: "End"; onClicked: Project.jumpToEdge(true) }
+            IconButton { iconName: "chevron-right"; tip: qsTr("Next frame"); shortcut: Keymap.label("nextFrame"); onClicked: Project.stepFrames(1) }
+            IconButton { iconName: "skip-forward"; tip: qsTr("Go to end"); shortcut: Keymap.label("end"); onClicked: Project.jumpToEdge(true) }
             Item { Layout.fillWidth: true }
             Text {
                 text: Project.fps.toFixed(Project.fps % 1 === 0 ? 0 : 2) + " fps"

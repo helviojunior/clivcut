@@ -12,12 +12,12 @@ Rectangle {
     signal shortcutsRequested()
 
     readonly property var sections: [
-        { icon: "image-play", label: qsTr("Media"), shortcut: "Alt+1" },
-        { icon: "type", label: qsTr("Text"), shortcut: "Alt+2" },
-        { icon: "captions", label: qsTr("Captions"), shortcut: "Alt+3" },
-        { icon: "palette", label: qsTr("Filters"), shortcut: "Alt+4" },
-        { icon: "arrow-right-left", label: qsTr("Transitions"), shortcut: "Alt+5" },
-        { icon: "sparkles", label: qsTr("Animations"), shortcut: "Alt+6" }
+        { icon: "image-play", label: qsTr("Media"), action: "panel0" },
+        { icon: "type", label: qsTr("Text"), action: "panel1" },
+        { icon: "captions", label: qsTr("Captions"), action: "panel2" },
+        { icon: "palette", label: qsTr("Filters"), action: "panel3" },
+        { icon: "arrow-right-left", label: qsTr("Transitions"), action: "panel4" },
+        { icon: "sparkles", label: qsTr("Animations"), action: "panel5" }
     ]
     function activate(i) {
         if (i === current && !collapsed)
@@ -83,7 +83,7 @@ Rectangle {
                 TapHandler { onTapped: root.activate(entry.index) }
                 ToolTip.visible: hover.hovered
                 ToolTip.delay: 600
-                ToolTip.text: entry.modelData.label + "   " + entry.modelData.shortcut
+                ToolTip.text: entry.modelData.label + "   " + Keymap.label(entry.modelData.action)
             }
         }
 
@@ -92,8 +92,8 @@ Rectangle {
         IconButton {
             Layout.alignment: Qt.AlignHCenter
             iconName: "keyboard"
-            tip: qsTr("Shortcuts and commands")
-            shortcut: "Ctrl+K"
+            tip: qsTr("Keyboard shortcuts")
+            shortcut: Keymap.label("shortcuts")
             onClicked: root.shortcutsRequested()
         }
         IconButton {

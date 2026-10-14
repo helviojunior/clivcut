@@ -29,6 +29,7 @@
 #include <QGuiApplication>
 #include <QMimeData>
 #include <QJSEngine>
+#include <QKeySequence>
 #include <QQmlEngine>
 #include <QDateTime>
 #include <QDir>
@@ -2412,6 +2413,25 @@ void ProjectController::startNextDenoise()
             startNextDenoise();
         }, Qt::QueuedConnection);
     }).detach();
+}
+
+// ---------------------------------------------------------------------------
+// Atalhos
+
+QString ProjectController::keySequence(int key, int modifiers) const
+{
+    const auto mods = Qt::KeyboardModifiers(modifiers) & ~Qt::KeypadModifier;
+    return QKeySequence(QKeyCombination(mods, Qt::Key(key))).toString(QKeySequence::PortableText);
+}
+
+QString ProjectController::shortcutText(const QString &sequence) const
+{
+    return QKeySequence(sequence, QKeySequence::PortableText).toString(QKeySequence::NativeText);
+}
+
+bool ProjectController::sameShortcut(const QString &a, const QString &b) const
+{
+    return QKeySequence(a, QKeySequence::PortableText) == QKeySequence(b, QKeySequence::PortableText);
 }
 
 // ---------------------------------------------------------------------------

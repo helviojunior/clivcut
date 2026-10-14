@@ -750,7 +750,7 @@ Rectangle {
                     }
                     Button {
                         visible: root.isMedia && root.sel.mediaKind === "video"
-                        text: qsTr("❄ Freeze frame at playhead (Alt+F)")
+                        text: qsTr("❄ Freeze frame at playhead") + (Keymap.label("freeze") !== "" ? " (" + Keymap.label("freeze") + ")" : "")
                         focusPolicy: Qt.NoFocus
                         onClicked: Project.freezeFrame()
                     }

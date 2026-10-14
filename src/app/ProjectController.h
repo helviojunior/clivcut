@@ -293,6 +293,10 @@ public:
 
     // --- utilitários para QML ---
     Q_INVOKABLE QString formatTime(double us) const;
+    /// Atalhos: sequência portátil ("Ctrl+B") a partir de uma tecla do QML, texto nativo e comparação.
+    Q_INVOKABLE QString keySequence(int key, int modifiers) const;
+    Q_INVOKABLE QString shortcutText(const QString &sequence) const;
+    Q_INVOKABLE bool sameShortcut(const QString &a, const QString &b) const;
     Q_INVOKABLE QString assetPath(const QString &assetId) const;
 
 signals:

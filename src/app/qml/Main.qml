@@ -102,7 +102,7 @@ ApplicationWindow {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         visible: !window.showWelcome
-        onShortcutsRequested: commandPalette.open()
+        onShortcutsRequested: shortcutsDialog.open()
         Settings {
             category: "panels"
             property alias section: rail.current
@@ -206,57 +206,85 @@ ApplicationWindow {
         }
     }
 
-    // --- atalhos ---
-    Shortcut { sequences: ["Space"]; enabled: !window.typing; onActivated: Project.togglePlay() }
-    Shortcut { sequences: ["Ctrl+B"]; enabled: !window.typing; onActivated: Project.splitAtPlayhead() }
-    Shortcut { sequences: ["Q"]; enabled: !window.typing; onActivated: Project.deleteLeft() }
-    Shortcut { sequences: ["W"]; enabled: !window.typing; onActivated: Project.deleteRight() }
-    Shortcut { sequences: [StandardKey.Delete, "Backspace"]; enabled: !window.typing; onActivated: Project.deleteSelection(false) }
-    Shortcut { sequences: ["Shift+Delete"]; enabled: !window.typing; onActivated: Project.deleteSelection(true) }
-    Shortcut { sequences: [StandardKey.Undo]; enabled: !window.typing; onActivated: Project.undo() }
-    Shortcut { sequences: [StandardKey.Redo, "Ctrl+Shift+Z"]; enabled: !window.typing; onActivated: Project.redo() }
-    Shortcut { sequences: ["Ctrl+D"]; enabled: !window.typing; onActivated: Project.duplicateSelection() }
-    Shortcut { sequences: [StandardKey.Copy]; enabled: !window.typing; onActivated: Project.copySelection() }
-    Shortcut { sequences: [StandardKey.Cut]; enabled: !window.typing; onActivated: Project.cutSelection() }
-    Shortcut { sequences: [StandardKey.Paste]; enabled: !window.typing; onActivated: Project.paste() }
-    Shortcut { sequences: ["Ctrl+Alt+C"]; enabled: !window.typing; onActivated: Project.copyAttributes() }
-    Shortcut { sequences: ["Ctrl+Alt+V"]; enabled: !window.typing; onActivated: Project.pasteAttributesToSelection() }
-    Shortcut { sequences: ["Ctrl+G"]; enabled: !window.typing; onActivated: Project.groupSelection() }
-    Shortcut { sequences: ["Ctrl+Shift+D"]; enabled: !window.typing; onActivated: Project.detachAudio() }
-    Shortcut { sequences: ["Ctrl+Shift+G"]; enabled: !window.typing; onActivated: Project.ungroupSelection() }
-    Shortcut { sequences: [StandardKey.SelectAll]; enabled: !window.typing; onActivated: Project.selectAll() }
-    Shortcut { sequences: ["Left"]; enabled: !window.typing; onActivated: Project.stepFrames(-1) }
-    Shortcut { sequences: ["Right"]; enabled: !window.typing; onActivated: Project.stepFrames(1) }
-    Shortcut { sequences: ["Shift+Left"]; enabled: !window.typing; onActivated: Project.stepFrames(-Math.round(Project.fps)) }
-    Shortcut { sequences: ["Shift+Right"]; enabled: !window.typing; onActivated: Project.stepFrames(Math.round(Project.fps)) }
-    Shortcut { sequences: ["Home"]; enabled: !window.typing; onActivated: Project.jumpToEdge(false) }
-    Shortcut { sequences: ["End"]; enabled: !window.typing; onActivated: Project.jumpToEdge(true) }
-    Shortcut { sequences: ["M"]; enabled: !window.typing; onActivated: Project.addMarker() }
-    Shortcut { sequences: ["I"]; enabled: !window.typing; onActivated: Project.markIn() }
-    Shortcut { sequences: ["O"]; enabled: !window.typing; onActivated: Project.markOut() }
-    Shortcut { sequences: ["Alt+X"]; enabled: !window.typing; onActivated: Project.clearInOut() }
-    Shortcut { sequences: ["Shift+I"]; enabled: !window.typing; onActivated: Project.jumpToInOut(false) }
-    Shortcut { sequences: ["Shift+O"]; enabled: !window.typing; onActivated: Project.jumpToInOut(true) }
-    Shortcut { sequences: ["Alt+F"]; enabled: !window.typing; onActivated: Project.freezeFrame() }
-    Shortcut { sequences: ["Ctrl+T"]; enabled: !window.typing; onActivated: Project.addText("", "") }
-    Shortcut { sequences: ["N"]; enabled: !window.typing; onActivated: Project.snapping = !Project.snapping }
-    Shortcut { sequences: ["Ctrl+=", "Ctrl++"]; enabled: !window.typing; onActivated: timeline.zoomBy(1.25) }
-    Shortcut { sequences: ["Ctrl+-"]; enabled: !window.typing; onActivated: timeline.zoomBy(0.8) }
-    Shortcut { sequences: ["Shift+Z"]; enabled: !window.typing; onActivated: { timeline.userZoomed = false; timeline.zoomToFit() } }
-    Shortcut { sequences: ["Escape"]; enabled: !window.typing; onActivated: Project.clearSelection() }
-    Shortcut { sequences: ["Ctrl+K", "Ctrl+Shift+P"]; onActivated: commandPalette.open() }
-    Shortcut { sequences: ["Alt+1"]; onActivated: rail.activate(0) }
-    Shortcut { sequences: ["Alt+2"]; onActivated: rail.activate(1) }
-    Shortcut { sequences: ["Alt+3"]; onActivated: rail.activate(2) }
-    Shortcut { sequences: ["Alt+4"]; onActivated: rail.activate(3) }
-    Shortcut { sequences: ["Alt+5"]; onActivated: rail.activate(4) }
-    Shortcut { sequences: ["Alt+6"]; onActivated: rail.activate(5) }
-    Shortcut { sequences: [StandardKey.Save]; onActivated: window.save() }
-    Shortcut { sequences: [StandardKey.SaveAs]; onActivated: saveDialog.open() }
-    Shortcut { sequences: [StandardKey.Open]; onActivated: window.guarded("open") }
-    Shortcut { sequences: [StandardKey.New]; onActivated: window.guarded("new") }
-    Shortcut { sequences: ["Ctrl+I"]; onActivated: mediaDialog.open() }
-    Shortcut { sequences: ["Ctrl+E"]; onActivated: exportDialog.open() }
+    // --- atalhos: padrões e personalizações vêm do Keymap; aqui só o que cada ação faz ---
+    readonly property var handlers: ({
+        play: () => Project.togglePlay(),
+        prevFrame: () => Project.stepFrames(-1),
+        nextFrame: () => Project.stepFrames(1),
+        back1s: () => Project.stepFrames(-Math.round(Project.fps)),
+        forward1s: () => Project.stepFrames(Math.round(Project.fps)),
+        start: () => Project.jumpToEdge(false),
+        end: () => Project.jumpToEdge(true),
+        split: () => Project.splitAtPlayhead(),
+        deleteLeft: () => Project.deleteLeft(),
+        deleteRight: () => Project.deleteRight(),
+        delete: () => Project.deleteSelection(false),
+        rippleDelete: () => Project.deleteSelection(true),
+        undo: () => Project.undo(),
+        redo: () => Project.redo(),
+        duplicate: () => Project.duplicateSelection(),
+        copy: () => Project.copySelection(),
+        cut: () => Project.cutSelection(),
+        paste: () => Project.paste(),
+        copyAttributes: () => Project.copyAttributes(),
+        pasteAttributes: () => Project.pasteAttributesToSelection(),
+        group: () => Project.groupSelection(),
+        ungroup: () => Project.ungroupSelection(),
+        detachAudio: () => Project.detachAudio(),
+        freeze: () => Project.freezeFrame(),
+        addText: () => Project.addText("", ""),
+        selectAll: () => Project.selectAll(),
+        deselect: () => Project.clearSelection(),
+        marker: () => Project.addMarker(),
+        markIn: () => Project.markIn(),
+        markOut: () => Project.markOut(),
+        clearInOut: () => Project.clearInOut(),
+        goIn: () => Project.jumpToInOut(false),
+        goOut: () => Project.jumpToInOut(true),
+        snapping: () => Project.snapping = !Project.snapping,
+        magnet: () => Project.magnet = !Project.magnet,
+        zoomIn: () => timeline.zoomBy(1.25),
+        zoomOut: () => timeline.zoomBy(0.8),
+        zoomFit: () => { timeline.userZoomed = false; timeline.zoomToFit() },
+        palette: () => commandPalette.open(),
+        shortcuts: () => shortcutsDialog.open(),
+        panel0: () => rail.activate(0),
+        panel1: () => rail.activate(1),
+        panel2: () => rail.activate(2),
+        panel3: () => rail.activate(3),
+        panel4: () => rail.activate(4),
+        panel5: () => rail.activate(5),
+        newProject: () => window.guarded("new"),
+        open: () => window.guarded("open"),
+        save: () => window.save(),
+        saveAs: () => saveDialog.open(),
+        import: () => mediaDialog.open(),
+        export: () => exportDialog.open()
+    })
+    readonly property var actionIcons: ({
+        play: "play", prevFrame: "chevron-left", nextFrame: "chevron-right", start: "skip-back", end: "skip-forward",
+        split: "scissors", deleteLeft: "arrow-left-to-line", deleteRight: "arrow-right-to-line", delete: "trash-2",
+        rippleDelete: "trash-2", undo: "undo-2", redo: "redo-2", duplicate: "copy", copy: "copy", cut: "scissors",
+        paste: "copy", group: "link", ungroup: "link", detachAudio: "audio-lines", freeze: "snowflake", addText: "type",
+        selectAll: "layers", marker: "bookmark", markIn: "arrow-right-to-line", markOut: "arrow-left-to-line",
+        clearInOut: "x", goIn: "skip-back", goOut: "skip-forward", snapping: "crosshair", magnet: "magnet",
+        zoomIn: "zoom-in", zoomOut: "zoom-out", zoomFit: "maximize-2", shortcuts: "keyboard", panel0: "image-play",
+        panel1: "type", panel2: "captions", panel3: "palette", panel4: "arrow-right-left", panel5: "sparkles",
+        newProject: "file-plus-2", open: "folder-open", save: "download", saveAs: "download", import: "plus", export: "upload"
+    })
+    Repeater {
+        model: Keymap.actions
+        Item {
+            id: binding
+            required property var modelData
+            Shortcut {
+                sequences: Keymap.keys(binding.modelData.id)
+                // Desligado ao editar atalhos e, para ações de edição, ao digitar num campo.
+                enabled: !shortcutsDialog.opened && !(binding.modelData.edit && window.typing)
+                onActivated: window.handlers[binding.modelData.id]()
+            }
+        }
+    }
 
     function save() {
         if (Project.filePath === "")
@@ -327,53 +355,21 @@ ApplicationWindow {
         id: commandPalette
         objectName: "commandPalette"
         parent: Overlay.overlay
-        commands: [
-            { name: qsTr("Play / pause"), shortcut: qsTr("Space"), icon: "play", run: () => Project.togglePlay() },
-            { name: qsTr("Split at playhead"), shortcut: "Ctrl+B", icon: "scissors", run: () => Project.splitAtPlayhead() },
-            { name: qsTr("Delete left of playhead"), shortcut: "Q", icon: "arrow-left-to-line", run: () => Project.deleteLeft() },
-            { name: qsTr("Delete right of playhead"), shortcut: "W", icon: "arrow-right-to-line", run: () => Project.deleteRight() },
-            { name: qsTr("Delete selection"), shortcut: "Del", icon: "trash-2", run: () => Project.deleteSelection(false) },
-            { name: qsTr("Duplicate"), shortcut: "Ctrl+D", icon: "copy", run: () => Project.duplicateSelection() },
-            { name: qsTr("Copy"), shortcut: "Ctrl+C", icon: "copy", run: () => Project.copySelection() },
-            { name: qsTr("Paste at playhead"), shortcut: "Ctrl+V", icon: "copy", run: () => Project.paste() },
-            { name: qsTr("Group clips"), shortcut: "Ctrl+G", icon: "link", run: () => Project.groupSelection() },
-            { name: qsTr("Ungroup"), shortcut: "Ctrl+Shift+G", icon: "link", run: () => Project.ungroupSelection() },
-            { name: qsTr("Freeze frame"), shortcut: "Alt+F", icon: "snowflake", run: () => Project.freezeFrame() },
-            { name: qsTr("Detach audio from video"), shortcut: "Ctrl+Shift+D", icon: "audio-lines", run: () => Project.detachAudio() },
-            { name: qsTr("Add marker"), shortcut: "M", icon: "bookmark", run: () => Project.addMarker() },
-            { name: qsTr("Add text"), shortcut: "Ctrl+T", icon: "type", run: () => Project.addText("", "") },
+        commands: Keymap.actions.filter(a => a.id !== "palette").map(a => ({
+            name: a.name, shortcut: Keymap.label(a.id), icon: window.actionIcons[a.id] || "", run: window.handlers[a.id]
+        })).concat([
             { name: qsTr("Add adjustment layer"), shortcut: "", icon: "sliders-horizontal", run: () => Project.addFilterClip("") },
             { name: qsTr("Normalize loudness (-14 LUFS)"), shortcut: "", icon: "volume-2", run: () => Project.normalizeLoudness(-14) },
-            { name: qsTr("Generate auto captions"), shortcut: "Alt+3", icon: "captions", run: () => rail.activate(2) },
-            { name: qsTr("Import media"), shortcut: "Ctrl+I", icon: "plus", run: () => mediaDialog.open() },
+            { name: qsTr("Generate auto captions"), shortcut: Keymap.label("panel2"), icon: "captions", run: () => rail.activate(2) },
             { name: qsTr("Import captions (SRT/VTT)"), shortcut: "", icon: "captions", run: () => rail.activate(2) },
-            { name: qsTr("Export video"), shortcut: "Ctrl+E", icon: "upload", run: () => exportDialog.open() },
-            { name: qsTr("Save project"), shortcut: "Ctrl+S", icon: "download", run: () => window.save() },
-            { name: qsTr("Open project"), shortcut: "Ctrl+O", icon: "folder-open", run: () => window.guarded("open") },
-            { name: qsTr("New project"), shortcut: "Ctrl+N", icon: "file-plus-2", run: () => window.guarded("new") },
             { name: qsTr("Home screen"), shortcut: "", icon: "clapperboard", run: () => window.showWelcome = true },
-            { name: qsTr("Undo"), shortcut: "Ctrl+Z", icon: "undo-2", run: () => Project.undo() },
-            { name: qsTr("Redo"), shortcut: "Ctrl+Shift+Z", icon: "redo-2", run: () => Project.redo() },
-            { name: qsTr("Select all"), shortcut: "Ctrl+A", icon: "layers", run: () => Project.selectAll() },
-            { name: qsTr("Fit timeline to window"), shortcut: "Shift+Z", icon: "maximize-2", run: () => { timeline.userZoomed = false; timeline.zoomToFit() } },
-            { name: qsTr("Toggle main track magnet"), shortcut: "", icon: "magnet", run: () => Project.magnet = !Project.magnet },
-            { name: qsTr("Toggle auto snapping"), shortcut: "N", icon: "crosshair", run: () => Project.snapping = !Project.snapping },
             { name: qsTr("Use proxies for playback"), shortcut: "", icon: "gauge", run: () => Project.useProxies = !Project.useProxies },
             { name: Theme.dark ? qsTr("Light theme") : qsTr("Dark theme"), shortcut: "", icon: Theme.dark ? "sun" : "moon", run: () => Theme.dark = !Theme.dark },
-            { name: qsTr("Mark in"), shortcut: "I", icon: "arrow-right-to-line", run: () => Project.markIn() },
-            { name: qsTr("Mark out"), shortcut: "O", icon: "arrow-left-to-line", run: () => Project.markOut() },
-            { name: qsTr("Clear in/out"), shortcut: "Alt+X", icon: "x", run: () => Project.clearInOut() },
-            { name: qsTr("Go to in point"), shortcut: "Shift+I", icon: "skip-back", run: () => Project.jumpToInOut(false) },
-            { name: qsTr("Go to out point"), shortcut: "Shift+O", icon: "skip-forward", run: () => Project.jumpToInOut(true) },
-            { name: qsTr("Panel: Media"), shortcut: "Alt+1", icon: "image-play", run: () => rail.activate(0) },
-            { name: qsTr("Panel: Text"), shortcut: "Alt+2", icon: "type", run: () => rail.activate(1) },
-            { name: qsTr("Panel: Filters"), shortcut: "Alt+4", icon: "palette", run: () => rail.activate(3) },
-            { name: qsTr("Panel: Transitions"), shortcut: "Alt+5", icon: "arrow-right-left", run: () => rail.activate(4) },
-            { name: qsTr("Panel: Animations"), shortcut: "Alt+6", icon: "sparkles", run: () => rail.activate(5) },
             { name: qsTr("Language: %1").arg(qsTr("System default")), shortcut: "", icon: "languages", run: () => Project.language = "" }
         ].concat(Project.languages.map(l => ({ name: qsTr("Language: %1").arg(l.name), shortcut: "", icon: "languages",
-                                                run: () => Project.language = l.code })))
+                                                run: () => Project.language = l.code }))))
     }
+    ShortcutsDialog { id: shortcutsDialog; objectName: "shortcutsDialog"; parent: Overlay.overlay }
     NewProjectDialog { id: newDialog }
 
     // --- mensagens ---

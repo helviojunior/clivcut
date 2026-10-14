@@ -62,6 +62,16 @@ private slots:
         QCOMPARE(m_ctrl->assets().size(), 1);
     }
 
+    void shortcutHelpers()
+    {
+        QCOMPARE(m_ctrl->keySequence(Qt::Key_B, Qt::ControlModifier), QStringLiteral("Ctrl+B"));
+        QCOMPARE(m_ctrl->keySequence(Qt::Key_5, Qt::KeypadModifier), QStringLiteral("5")); // teclado numérico = mesma tecla
+        QCOMPARE(m_ctrl->keySequence(Qt::Key_Delete, Qt::ShiftModifier), QStringLiteral("Shift+Del"));
+        QVERIFY(m_ctrl->sameShortcut(QStringLiteral("Ctrl+Shift+Z"), QStringLiteral("Shift+Ctrl+Z")));
+        QVERIFY(!m_ctrl->sameShortcut(QStringLiteral("Ctrl+Z"), QStringLiteral("Ctrl+Shift+Z")));
+        QVERIFY(!m_ctrl->shortcutText(QStringLiteral("Ctrl+B")).isEmpty());
+    }
+
     void splitUndoRedo()
     {
         m_ctrl->clearSelection();

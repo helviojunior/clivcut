@@ -38,7 +38,7 @@ Rectangle {
                 visible: root.section === 0
                 iconName: "plus"
                 tip: qsTr("Import media")
-                shortcut: "Ctrl+I"
+                shortcut: Keymap.label("import")
                 onClicked: root.importRequested()
             }
         }

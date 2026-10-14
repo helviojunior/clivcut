@@ -56,13 +56,13 @@ ToolBar {
                 id: fileMenu
                 MenuItem { text: qsTr("Home"); onTriggered: root.homeRequested() }
                 MenuSeparator {}
-                MenuItem { text: qsTr("New project…\tCtrl+N"); onTriggered: root.newRequested() }
-                MenuItem { text: qsTr("Open…\tCtrl+O"); onTriggered: root.openRequested() }
-                MenuItem { text: qsTr("Save\tCtrl+S"); onTriggered: root.saveRequested() }
-                MenuItem { text: qsTr("Save as…\tCtrl+Shift+S"); onTriggered: root.saveAsRequested() }
+                MenuItem { text: qsTr("New project…") + "\t" + Keymap.label("newProject"); onTriggered: root.newRequested() }
+                MenuItem { text: qsTr("Open…") + "\t" + Keymap.label("open"); onTriggered: root.openRequested() }
+                MenuItem { text: qsTr("Save") + "\t" + Keymap.label("save"); onTriggered: root.saveRequested() }
+                MenuItem { text: qsTr("Save as…") + "\t" + Keymap.label("saveAs"); onTriggered: root.saveAsRequested() }
                 MenuSeparator {}
                 MenuItem { text: qsTr("Import draft JSON…"); onTriggered: root.importDraftRequested() }
-                MenuItem { text: qsTr("Export video…\tCtrl+E"); onTriggered: root.exportRequested() }
+                MenuItem { text: qsTr("Export…") + "\t" + Keymap.label("export"); onTriggered: root.exportRequested() }
                 MenuSeparator {}
                 Menu {
                     title: qsTr("Language")
@@ -147,7 +147,7 @@ ToolBar {
                     color: Theme.surfaceHi
                     implicitWidth: kText.implicitWidth + 10
                     implicitHeight: 20
-                    Text { id: kText; anchors.centerIn: parent; text: "Ctrl K"; color: Theme.textDim; font.pixelSize: 10 }
+                    Text { id: kText; anchors.centerIn: parent; text: Keymap.label("palette"); color: Theme.textDim; font.pixelSize: 10 }
                 }
                 Item { width: 2 }
             }
@@ -158,14 +158,14 @@ ToolBar {
         IconButton {
             iconName: "undo-2"
             tip: Project.canUndo ? qsTr("Undo: %1").arg(Project.undoText) : qsTr("Undo")
-            shortcut: "Ctrl+Z"
+            shortcut: Keymap.label("undo")
             enabled: Project.canUndo
             onClicked: Project.undo()
         }
         IconButton {
             iconName: "redo-2"
             tip: Project.canRedo ? qsTr("Redo: %1").arg(Project.redoText) : qsTr("Redo")
-            shortcut: "Ctrl+Shift+Z"
+            shortcut: Keymap.label("redo")
             enabled: Project.canRedo
             onClicked: Project.redo()
         }

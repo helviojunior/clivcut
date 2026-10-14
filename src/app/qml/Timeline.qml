@@ -96,18 +96,18 @@ Rectangle {
                 anchors.leftMargin: 8
                 anchors.rightMargin: 12
                 spacing: 2
-                IconButton { iconName: "scissors"; tip: qsTr("Split at playhead"); shortcut: "Ctrl+B"; onClicked: Project.splitAtPlayhead() }
-                IconButton { iconName: "arrow-left-to-line"; tip: qsTr("Delete left of playhead"); shortcut: "Q"; onClicked: Project.deleteLeft() }
-                IconButton { iconName: "arrow-right-to-line"; tip: qsTr("Delete right of playhead"); shortcut: "W"; onClicked: Project.deleteRight() }
-                IconButton { iconName: "trash-2"; tip: qsTr("Delete selection"); shortcut: "Del"; enabled: Project.selection.length > 0; onClicked: Project.deleteSelection(false) }
-                IconButton { iconName: "copy"; tip: qsTr("Duplicate"); shortcut: "Ctrl+D"; enabled: Project.selection.length > 0; onClicked: Project.duplicateSelection() }
-                IconButton { iconName: "snowflake"; tip: qsTr("Freeze frame"); shortcut: "Alt+F"; onClicked: Project.freezeFrame() }
-                IconButton { iconName: "bookmark"; tip: qsTr("Add marker"); shortcut: "M"; onClicked: Project.addMarker() }
+                IconButton { iconName: "scissors"; tip: qsTr("Split at playhead"); shortcut: Keymap.label("split"); onClicked: Project.splitAtPlayhead() }
+                IconButton { iconName: "arrow-left-to-line"; tip: qsTr("Delete left of playhead"); shortcut: Keymap.label("deleteLeft"); onClicked: Project.deleteLeft() }
+                IconButton { iconName: "arrow-right-to-line"; tip: qsTr("Delete right of playhead"); shortcut: Keymap.label("deleteRight"); onClicked: Project.deleteRight() }
+                IconButton { iconName: "trash-2"; tip: qsTr("Delete selection"); shortcut: Keymap.label("delete"); enabled: Project.selection.length > 0; onClicked: Project.deleteSelection(false) }
+                IconButton { iconName: "copy"; tip: qsTr("Duplicate"); shortcut: Keymap.label("duplicate"); enabled: Project.selection.length > 0; onClicked: Project.duplicateSelection() }
+                IconButton { iconName: "snowflake"; tip: qsTr("Freeze frame"); shortcut: Keymap.label("freeze"); onClicked: Project.freezeFrame() }
+                IconButton { iconName: "bookmark"; tip: qsTr("Add marker"); shortcut: Keymap.label("marker"); onClicked: Project.addMarker() }
                 Item { Layout.fillWidth: true }
-                IconButton { iconName: "magnet"; tip: qsTr("Main track magnet (no gaps)"); active: Project.magnet; onClicked: Project.magnet = !Project.magnet }
-                IconButton { iconName: "crosshair"; tip: qsTr("Auto snapping"); shortcut: "N"; active: Project.snapping; onClicked: Project.snapping = !Project.snapping }
+                IconButton { iconName: "magnet"; tip: qsTr("Main track magnet (no gaps)"); shortcut: Keymap.label("magnet"); active: Project.magnet; onClicked: Project.magnet = !Project.magnet }
+                IconButton { iconName: "crosshair"; tip: qsTr("Auto snapping"); shortcut: Keymap.label("snapping"); active: Project.snapping; onClicked: Project.snapping = !Project.snapping }
                 Rectangle { width: 1; height: 18; color: Theme.border; Layout.leftMargin: 4; Layout.rightMargin: 4 }
-                IconButton { iconName: "zoom-out"; tip: qsTr("Zoom out"); shortcut: "Ctrl+−"; onClicked: root.zoomBy(0.8) }
+                IconButton { iconName: "zoom-out"; tip: qsTr("Zoom out"); shortcut: Keymap.label("zoomOut"); onClicked: root.zoomBy(0.8) }
                 Slider {
                     Layout.preferredWidth: 120
                     focusPolicy: Qt.NoFocus
@@ -116,11 +116,11 @@ Rectangle {
                     value: Math.log(root.pxPerSec)
                     onMoved: root.zoomBy(Math.exp(value) / root.pxPerSec)
                 }
-                IconButton { iconName: "zoom-in"; tip: qsTr("Zoom in"); shortcut: "Ctrl++"; onClicked: root.zoomBy(1.25) }
+                IconButton { iconName: "zoom-in"; tip: qsTr("Zoom in"); shortcut: Keymap.label("zoomIn"); onClicked: root.zoomBy(1.25) }
                 IconButton {
                     iconName: "maximize-2"
                     tip: qsTr("Fit to window")
-                    shortcut: "Shift+Z"
+                    shortcut: Keymap.label("zoomFit")
                     onClicked: {
                         root.userZoomed = false;
                         root.zoomToFit();
@@ -519,21 +519,21 @@ Rectangle {
     Menu {
         id: clipMenu
         property string clipId: ""
-        MenuItem { text: qsTr("Copy\tCtrl+C"); enabled: Project.selection.length > 0; onTriggered: Project.copySelection() }
-        MenuItem { text: qsTr("Cut\tCtrl+X"); enabled: Project.selection.length > 0; onTriggered: Project.cutSelection() }
-        MenuItem { text: qsTr("Paste at playhead\tCtrl+V"); enabled: Project.canPaste; onTriggered: Project.paste() }
-        MenuItem { text: qsTr("Duplicate\tCtrl+D"); enabled: Project.selection.length > 0; onTriggered: Project.duplicateSelection() }
+        MenuItem { text: qsTr("Copy") + "\t" + Keymap.label("copy"); enabled: Project.selection.length > 0; onTriggered: Project.copySelection() }
+        MenuItem { text: qsTr("Cut") + "\t" + Keymap.label("cut"); enabled: Project.selection.length > 0; onTriggered: Project.cutSelection() }
+        MenuItem { text: qsTr("Paste at playhead") + "\t" + Keymap.label("paste"); enabled: Project.canPaste; onTriggered: Project.paste() }
+        MenuItem { text: qsTr("Duplicate") + "\t" + Keymap.label("duplicate"); enabled: Project.selection.length > 0; onTriggered: Project.duplicateSelection() }
         MenuSeparator {}
-        MenuItem { text: qsTr("Copy attributes\tCtrl+Alt+C"); enabled: Project.selectedClip.id !== undefined; onTriggered: Project.copyAttributes() }
-        MenuItem { text: qsTr("Paste attributes\tCtrl+Alt+V"); enabled: Project.canPasteAttributes && Project.selection.length > 0; onTriggered: Project.pasteAttributesToSelection() }
+        MenuItem { text: qsTr("Copy attributes") + "\t" + Keymap.label("copyAttributes"); enabled: Project.selectedClip.id !== undefined; onTriggered: Project.copyAttributes() }
+        MenuItem { text: qsTr("Paste attributes") + "\t" + Keymap.label("pasteAttributes"); enabled: Project.canPasteAttributes && Project.selection.length > 0; onTriggered: Project.pasteAttributesToSelection() }
         MenuSeparator {}
-        MenuItem { text: qsTr("Group\tCtrl+G"); enabled: Project.selection.length > 1; onTriggered: Project.groupSelection() }
-        MenuItem { text: qsTr("Ungroup\tCtrl+Shift+G"); enabled: Project.selection.length > 0; onTriggered: Project.ungroupSelection() }
+        MenuItem { text: qsTr("Group") + "\t" + Keymap.label("group"); enabled: Project.selection.length > 1; onTriggered: Project.groupSelection() }
+        MenuItem { text: qsTr("Ungroup") + "\t" + Keymap.label("ungroup"); enabled: Project.selection.length > 0; onTriggered: Project.ungroupSelection() }
         MenuSeparator {}
-        MenuItem { text: qsTr("Split at playhead\tCtrl+B"); onTriggered: Project.splitAtPlayhead() }
-        MenuItem { text: qsTr("Freeze frame\tAlt+F"); enabled: clipMenu.clipId !== ""; onTriggered: Project.freezeFrame() }
-        MenuItem { text: qsTr("Detach audio\tCtrl+Shift+D"); enabled: clipMenu.clipId !== ""; onTriggered: Project.detachAudio() }
-        MenuItem { text: qsTr("Delete\tDel"); enabled: Project.selection.length > 0; onTriggered: Project.deleteSelection(false) }
+        MenuItem { text: qsTr("Split at playhead") + "\t" + Keymap.label("split"); onTriggered: Project.splitAtPlayhead() }
+        MenuItem { text: qsTr("Freeze frame") + "\t" + Keymap.label("freeze"); enabled: clipMenu.clipId !== ""; onTriggered: Project.freezeFrame() }
+        MenuItem { text: qsTr("Detach audio") + "\t" + Keymap.label("detachAudio"); enabled: clipMenu.clipId !== ""; onTriggered: Project.detachAudio() }
+        MenuItem { text: qsTr("Delete") + "\t" + Keymap.label("delete"); enabled: Project.selection.length > 0; onTriggered: Project.deleteSelection(false) }
     }
     function openClipMenu(clipId) {
         clipMenu.clipId = clipId;

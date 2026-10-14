@@ -168,6 +168,8 @@ Useful environment variables:
 
 ### Shortcuts
 
+Every shortcut can be changed in **Keyboard shortcuts** (keyboard button at the bottom of the left rail, or the command palette). These are the defaults:
+
 | Action | Key |
 |---|---|
 | Play/pause | Space |

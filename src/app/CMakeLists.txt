@@ -18,7 +18,7 @@ qt_add_executable(clivcut
     Language.h Language.cpp
 )
 
-set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(qml/Theme.qml qml/Keymap.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 # Ícones da interface (Lucide, ISC: icons/ui/LICENSE).
 file(GLOB CLIVCUT_UI_ICONS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS icons/ui/*.svg)
@@ -29,6 +29,8 @@ qt_add_qml_module(clivcut
     QML_FILES
         qml/Main.qml
         qml/Theme.qml
+        qml/Keymap.qml
+        qml/ShortcutsDialog.qml
         qml/TopBar.qml
         qml/MediaPanel.qml
         qml/CaptionsPanel.qml
