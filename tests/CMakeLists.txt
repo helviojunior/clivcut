@@ -1,0 +1,36 @@
+add_executable(tst_core tst_core.cpp)
+target_link_libraries(tst_core PRIVATE clivcut_core Qt6::Test)
+add_test(NAME core COMMAND tst_core)
+
+add_executable(tst_media tst_media.cpp)
+target_link_libraries(tst_media PRIVATE clivcut_media Qt6::Test)
+add_test(NAME media COMMAND tst_media)
+
+add_executable(tst_render tst_render.cpp)
+target_link_libraries(tst_render PRIVATE clivcut_render Qt6::Test)
+add_test(NAME render COMMAND tst_render)
+set_tests_properties(render PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+if(CLIVCUT_BUILD_APP)
+    add_executable(tst_controller tst_controller.cpp
+        ${CMAKE_SOURCE_DIR}/src/app/ProjectController.cpp
+        ${CMAKE_SOURCE_DIR}/src/app/AudioOutput.cpp)
+    target_include_directories(tst_controller PRIVATE ${CMAKE_SOURCE_DIR}/src/app)
+    target_link_libraries(tst_controller PRIVATE clivcut_engine Qt6::Qml Qt6::Network Qt6::Test clivcut::sdl2)
+    if(TARGET whisper)
+        target_compile_definitions(tst_controller PRIVATE CLIVCUT_WHISPER_SAMPLES="${CLIVCUT_WHISPER_SAMPLES}")
+    endif()
+    add_test(NAME controller COMMAND tst_controller)
+    set_tests_properties(controller PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;SDL_AUDIODRIVER=dummy")
+endif()
+
+if(TARGET whisper)
+    add_executable(tst_transcribe tst_transcribe.cpp)
+    target_link_libraries(tst_transcribe PRIVATE clivcut_engine Qt6::Test)
+    target_compile_definitions(tst_transcribe PRIVATE CLIVCUT_WHISPER_SAMPLES="${CLIVCUT_WHISPER_SAMPLES}")
+    add_test(NAME transcribe COMMAND tst_transcribe)
+endif()
+
+add_executable(tst_proxy tst_proxy.cpp)
+target_link_libraries(tst_proxy PRIVATE clivcut_engine Qt6::Test)
+add_test(NAME proxy COMMAND tst_proxy)

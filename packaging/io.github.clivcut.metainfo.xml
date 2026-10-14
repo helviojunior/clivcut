@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.clivcut</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>clivcut</name>
+  <summary>Editor de vídeo simples e rápido, com legendas automáticas locais</summary>
+  <summary xml:lang="en">Simple, fast video editor with local automatic captions</summary>
+  <description>
+    <p>
+      O clivcut é um editor de vídeo open-source com um fluxo direto, inspirado em
+      editores populares para criadores: faixa principal magnética, cortes rápidos,
+      texto, transições, filtros e exportação em um clique.
+    </p>
+    <ul>
+      <li>Timeline multifaixa com ímã, snapping, grupos, copiar/colar e keyframes</li>
+      <li>Legendas automáticas 100% locais com whisper.cpp, em mais de 90 idiomas</li>
+      <li>Filtros, LUTs .cube, camadas de ajuste, máscaras, chroma key e modos de mesclagem</li>
+      <li>Preview e exportação na GPU (Vulkan/OpenGL), decodificação por hardware e proxies</li>
+      <li>Exporta H.264, HEVC, AV1 e ProRes até 4K</li>
+      <li>Importa projetos em formato draft JSON (draft_content.json)</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.clivcut.desktop</launchable>
+  <url type="homepage">https://github.com/thiagovespa/clivcut</url>
+  <developer id="io.github.thiagovespa">
+    <name>Thiago Vespa</name>
+  </developer>
+  <content_rating type="oars-1.1"/>
+  <requires>
+    <display_length compare="ge">1024</display_length>
+  </requires>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Video</category>
+    <category>AudioVideoEditing</category>
+  </categories>
+  <releases>
+    <release version="0.1.0" date="2026-10-14">
+      <description>
+        <p>Primeira versão: timeline, efeitos de cor, legendas automáticas, proxies e exportação.</p>
+      </description>
+    </release>
+  </releases>
+</component>

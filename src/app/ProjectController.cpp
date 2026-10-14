@@ -1,0 +1,2114 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "ProjectController.h"
+
+#include "AudioOutput.h"
+#include "core/DraftImport.h"
+#include "core/Captions.h"
+#include "core/Clipboard.h"
+#include "core/Edit.h"
+#include "core/Evaluate.h"
+#include "core/Keyframes.h"
+#include "core/Lut.h"
+#include "core/Serialize.h"
+#include "core/SpeedCurve.h"
+#include "engine/Exporter.h"
+#include "engine/Proxy.h"
+#include "engine/Transcriber.h"
+#include "engine/WhisperModels.h"
+#include "media/Encoder.h"
+#include "media/MediaProbe.h"
+#include "render/OffscreenRhi.h"
+
+#include <QClipboard>
+#include <QColor>
+#include <QGuiApplication>
+#include <QMimeData>
+#include <QJSEngine>
+#include <QDateTime>
+#include <QDir>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLockFile>
+#include <QFile>
+#include <QFileInfo>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QSaveFile>
+#include <QOffscreenSurface>
+#include <QSet>
+#include <QSettings>
+#include <QStandardPaths>
+
+#include <algorithm>
+#include <cmath>
+#include <thread>
+
+using namespace clv;
+
+namespace {
+
+ProjectController *g_instance = nullptr;
+
+const char *kindName(TrackKind k)
+{
+    switch (k) {
+    case TrackKind::Video: return "video";
+    case TrackKind::Audio: return "audio";
+    case TrackKind::Text: return "text";
+    case TrackKind::Adjust: return "adjust";
+    }
+    return "video";
+}
+
+const char *mediaKindName(MediaKind k)
+{
+    switch (k) {
+    case MediaKind::Video: return "video";
+    case MediaKind::Audio: return "audio";
+    case MediaKind::Image: return "image";
+    }
+    return "video";
+}
+
+std::optional<Prop> propFromKey(const QString &key)
+{
+    for (int i = 0; i < kPropCount; ++i)
+        if (key == QLatin1String(propName(static_cast<Prop>(i))))
+            return static_cast<Prop>(i);
+    return std::nullopt;
+}
+
+QString localPath(const QUrl &url)
+{
+    return url.isLocalFile() ? url.toLocalFile() : url.toString();
+}
+
+} // namespace
+
+ProjectController::ProjectController(QObject *parent) : QObject(parent)
+{
+    g_instance = this;
+    m_project = createProject();
+    m_snapshot = std::make_shared<const Project>(m_project);
+    m_audio = std::make_unique<AudioOutput>();
+    m_useProxies = QSettings().value(QStringLiteral("playback/useProxies"), true).toBool();
+    // Cópia de recuperação periódica (só quando há alterações novas).
+    bool customInterval = false;
+    const int interval = qEnvironmentVariableIntValue("CLIVCUT_AUTOSAVE_MS", &customInterval);
+    m_autosave.setInterval(customInterval && interval > 0 ? interval : 30'000);
+    connect(&m_autosave, &QTimer::timeout, this, &ProjectController::autosaveNow);
+    m_autosave.start();
+    m_ticker.setInterval(15);
+    m_ticker.setTimerType(Qt::PreciseTimer);
+    connect(&m_ticker, &QTimer::timeout, this, &ProjectController::tick);
+}
+
+ProjectController::~ProjectController()
+{
+    // Saída normal sem alterações pendentes: a cópia de recuperação não é mais necessária.
+    if (!modified())
+        removeRecovery();
+    m_cancelExport = true;
+    *m_proxyCancel = true;
+    if (g_instance == this)
+        g_instance = nullptr;
+}
+
+ProjectController *ProjectController::instance()
+{
+    return g_instance;
+}
+
+ProjectController *ProjectController::create(QQmlEngine *, QJSEngine *)
+{
+    Q_ASSERT(g_instance);
+    QJSEngine::setObjectOwnership(g_instance, QJSEngine::CppOwnership);
+    return g_instance;
+}
+
+std::shared_ptr<const Project> ProjectController::snapshot() const
+{
+    std::lock_guard lock(m_snapMutex);
+    return m_snapshot;
+}
+
+// ---------------------------------------------------------------------------
+// Infraestrutura de edição
+
+template <typename F>
+bool ProjectController::edit(const QString &label, F &&fn, const QString &coalesceKey)
+{
+    Project before = m_project;
+    if (!fn(m_project)) {
+        m_project = std::move(before);
+        return false;
+    }
+    const bool coalesce = !coalesceKey.isEmpty() && coalesceKey == m_lastCoalesceKey && m_coalesceTimer.isValid() &&
+                          m_coalesceTimer.elapsed() < 800;
+    if (!coalesce)
+        m_history.push(before, label);
+    m_lastCoalesceKey = coalesceKey;
+    m_coalesceTimer.restart();
+    commitChange();
+    return true;
+}
+
+void ProjectController::commitChange()
+{
+    {
+        std::lock_guard lock(m_snapMutex);
+        m_snapshot = std::make_shared<const Project>(m_project);
+    }
+    if (m_playing)
+        m_audio->updateProject(snapshot());
+    // Seleção só com clipes que ainda existem.
+    const int before = m_selection.size();
+    m_selection.erase(std::remove_if(m_selection.begin(), m_selection.end(),
+                                     [&](const QString &id) { return !edit::findClip(m_project, id); }),
+                      m_selection.end());
+    if (m_selection.size() != before)
+        emit selectionChanged();
+    ++m_revisionCounter;
+    emit projectChanged();
+    emit selectedClipChanged();
+    emit historyChanged();
+    emit modifiedChanged();
+    emit revisionChanged();
+}
+
+void ProjectController::setProject(Project p, const QString &path)
+{
+    pause();
+    removeRecovery(); // o projeto anterior foi salvo ou descartado pelo usuário
+    m_autosavedRevision = 0;
+    m_project = std::move(p);
+    m_history.clear();
+    m_savedRevision = 0;
+    m_filePath = path;
+    m_selection.clear();
+    m_playhead = 0;
+    commitChange(); // atualiza o snapshot antes de o QML pedir miniaturas
+    emit fileChanged();
+    emit selectionChanged();
+    refreshProxies();
+    emit assetsChanged();
+    emit playheadChanged();
+}
+
+void ProjectController::setStatus(const QString &msg)
+{
+    m_status = msg;
+    emit statusMessageChanged();
+}
+
+// ---------------------------------------------------------------------------
+// Propriedades
+
+void ProjectController::setProjectName(const QString &name)
+{
+    if (name == m_project.name || name.trimmed().isEmpty())
+        return;
+    edit(tr("Renomear projeto"), [&](Project &p) {
+        p.name = name.trimmed();
+        return true;
+    });
+}
+
+void ProjectController::setMagnet(bool on)
+{
+    if (on == m_project.mainTrackMagnet)
+        return;
+    edit(on ? tr("Ativar ímã") : tr("Desativar ímã"), [&](Project &p) {
+        p.mainTrackMagnet = on;
+        edit::packMainTrack(p);
+        return true;
+    });
+}
+
+void ProjectController::setSnapping(bool on)
+{
+    if (on == m_snapping)
+        return;
+    m_snapping = on;
+    emit snappingChanged();
+}
+
+QVariantList ProjectController::tracks() const
+{
+    QVariantList out;
+    for (int ti = 0; ti < static_cast<int>(m_project.tracks.size()); ++ti) {
+        const Track &t = m_project.tracks[ti];
+        QVariantList clips;
+        for (const Clip &c : t.clips) {
+            const MediaAsset *a = c.hasMedia() ? m_project.asset(c.assetId) : nullptr;
+            bool hasKf = false;
+            QVariantList kfTimes;
+            QSet<Micros> seen;
+            for (const auto &list : c.keyframes)
+                for (const auto &k : list) {
+                    hasKf = true;
+                    if (!seen.contains(k.t)) {
+                        seen.insert(k.t);
+                        kfTimes << static_cast<double>(k.t);
+                    }
+                }
+            QString label = c.isText()     ? c.text.section(QLatin1Char('\n'), 0, 0)
+                            : c.isAdjust() ? (findBuiltinFilter(c.color.filter) ? findBuiltinFilter(c.color.filter)->name
+                                                                                : tr("Ajuste"))
+                            : (a ? a->name : tr("Mídia ausente"));
+            if (c.speed <= 0)
+                label = tr("Congelado · %1").arg(label);
+            else if (c.speedCurve.size() >= 2)
+                label = tr("Curva · %1").arg(label);
+            else if (c.speed != 1)
+                label = QStringLiteral("%1x · %2").arg(c.speed, 0, 'g', 3).arg(label);
+            clips << QVariantMap{
+                {"id", c.id},
+                {"type", c.isText() ? "text" : c.isAdjust() ? "adjust" : "media"},
+                {"start", static_cast<double>(c.start)},
+                {"duration", static_cast<double>(c.duration)},
+                {"end", static_cast<double>(c.end())},
+                {"filter", c.color.filter},
+                {"audioOnly", c.audioOnly},
+                {"audioMuted", c.audioMuted},
+                {"groupId", c.groupId},
+                {"assetId", c.assetId},
+                {"mediaKind", a ? mediaKindName(a->kind) : (c.isAdjust() ? "adjust" : "text")},
+                {"label", label},
+                {"sourceIn", static_cast<double>(c.sourceIn)},
+                {"speed", c.speed},
+                {"reverse", c.reverse},
+                {"assetDuration", a ? static_cast<double>(a->duration) : 0.0},
+                {"hasAudio", a && a->hasAudio},
+                {"missing", a && !QFileInfo::exists(a->path)},
+                {"transition", c.transitionIn ? transitionName(c.transitionIn->kind) : QString()},
+                {"transitionDuration", c.transitionIn ? static_cast<double>(c.transitionIn->duration) : 0.0},
+                {"hasKeyframes", hasKf},
+                {"keyframeTimes", kfTimes},
+                {"fadeIn", static_cast<double>(c.fadeIn)},
+                {"fadeOut", static_cast<double>(c.fadeOut)},
+                {"selected", m_selection.contains(c.id)},
+            };
+        }
+        out << QVariantMap{
+            {"index", ti},
+            {"id", t.id},
+            {"kind", kindName(t.kind)},
+            {"name", t.name},
+            {"muted", t.muted},
+            {"hidden", t.hidden},
+            {"locked", t.locked},
+            {"isMain", ti == 0},
+            {"clips", clips},
+        };
+    }
+    return out;
+}
+
+QVariantList ProjectController::assets() const
+{
+    std::vector<const MediaAsset *> list;
+    for (const auto &[id, a] : m_project.assets)
+        list.push_back(&a);
+    std::sort(list.begin(), list.end(), [](auto *a, auto *b) { return a->name.localeAwareCompare(b->name) < 0; });
+    QVariantList out;
+    for (const MediaAsset *a : list) {
+        int uses = 0;
+        for (const auto &t : m_project.tracks)
+            for (const auto &c : t.clips)
+                uses += c.assetId == a->id;
+        out << QVariantMap{
+            {"id", a->id},
+            {"name", a->name},
+            {"path", a->path},
+            {"kind", mediaKindName(a->kind)},
+            {"duration", static_cast<double>(a->duration)},
+            {"width", a->width},
+            {"height", a->height},
+            {"hasAudio", a->hasAudio},
+            {"missing", !QFileInfo::exists(a->path)},
+            {"uses", uses},
+            {"proxyState", a->kind != MediaKind::Video ? QStringLiteral("none")
+                           : m_proxyBuilding == a->path ? QStringLiteral("building")
+                           : m_proxyQueue.contains(a->path) ? QStringLiteral("queued")
+                           : !engine::registeredProxy(a->path).isEmpty() ? QStringLiteral("ready")
+                                                                          : QStringLiteral("none")},
+            {"proxyProgress", m_proxyBuilding == a->path ? m_proxyProgress : 0.0},
+        };
+    }
+    return out;
+}
+
+QVariantList ProjectController::markers() const
+{
+    QVariantList out;
+    for (const auto &m : m_project.markers)
+        out << QVariantMap{{"id", m.id}, {"t", static_cast<double>(m.t)}, {"label", m.label}, {"color", m.color}};
+    return out;
+}
+
+QString ProjectController::primaryClipId() const
+{
+    if (m_selection.size() == 1)
+        return m_selection.first();
+    return m_selection.contains(m_primary) ? m_primary : QString();
+}
+
+QVariantMap ProjectController::selectedClip() const
+{
+    const QString primary = primaryClipId();
+    if (primary.isEmpty())
+        return {};
+    const Clip *c = edit::clipById(m_project, primary);
+    if (!c)
+        return {};
+    const Micros rel = std::clamp<Micros>(m_playhead - c->start, 0, c->duration);
+    const bool underPlayhead = m_playhead >= c->start && m_playhead < c->end();
+    QVariantMap m{
+        {"id", c->id},
+        {"type", c->isText() ? "text" : c->isAdjust() ? "adjust" : "media"},
+        {"start", static_cast<double>(c->start)},
+        {"duration", static_cast<double>(c->duration)},
+        {"underPlayhead", underPlayhead},
+        {"playheadU", c->duration > 0 ? static_cast<double>(rel) / c->duration : 0.0},
+        {"inCaptionTrack", m_project.tracks[edit::findClip(m_project, c->id)->track].captions},
+        {"flipH", c->transform.flipH},
+        {"flipV", c->transform.flipV},
+        {"animIn", animationName(c->animIn.kind)},
+        {"animInDuration", static_cast<double>(c->animIn.duration)},
+        {"animOut", animationName(c->animOut.kind)},
+        {"animOutDuration", static_cast<double>(c->animOut.duration)},
+    };
+    for (int i = 0; i < kPropCount; ++i) {
+        const auto p = static_cast<Prop>(i);
+        const QString name = QString::fromLatin1(propName(p));
+        m.insert(name, propAt(*c, p, rel));
+        m.insert(QStringLiteral("kf_") + name, !c->keyframes[i].empty());
+        m.insert(QStringLiteral("kfAt_") + name, keyframeAt(c->keyframes[i], rel, m_project.frameDuration() / 2) != nullptr);
+    }
+    if (c->isText()) {
+        const TextStyle &s = c->style;
+        m.insert({{"text", c->text},
+                  {"fontFamily", s.fontFamily},
+                  {"fontSize", s.fontSize},
+                  {"bold", s.bold},
+                  {"italic", s.italic},
+                  {"color", s.color},
+                  {"strokeColor", s.strokeColor},
+                  {"strokeWidth", s.strokeWidth},
+                  {"background", s.background},
+                  {"align", s.align},
+                  {"shadow", s.shadow}});
+        return m;
+    }
+    const ColorAdjust &col = c->color;
+    m.insert({{"temperature", col.temperature},
+              {"exposure", col.exposure},
+              {"tint", col.tint},
+              {"highlights", col.highlights},
+              {"shadows", col.shadows},
+              {"vignette", col.vignette},
+              {"sharpen", col.sharpen},
+              {"filter", col.filter},
+              {"filterName", findBuiltinFilter(col.filter) ? findBuiltinFilter(col.filter)->name : QString()},
+              {"filterIntensity", col.filterIntensity},
+              {"lutPath", col.lutPath},
+              {"lutName", QFileInfo(col.lutPath).fileName()},
+              {"lutIntensity", col.lutIntensity},
+              {"maskShape", maskShapeName(c->mask.shape)},
+              {"maskX", c->mask.x},
+              {"maskY", c->mask.y},
+              {"maskWidth", c->mask.width},
+              {"maskHeight", c->mask.height},
+              {"maskRotation", c->mask.rotation},
+              {"maskFeather", c->mask.feather},
+              {"maskRoundness", c->mask.roundness},
+              {"maskInvert", c->mask.invert}});
+    if (c->isAdjust())
+        return m;
+    const MediaAsset *a = m_project.asset(c->assetId);
+    m.insert({{"assetName", a ? a->name : QString()},
+              {"mediaKind", a ? mediaKindName(a->kind) : "video"},
+              {"hasAudio", a && a->hasAudio},
+              {"audioOnly", c->audioOnly},
+              {"audioMuted", c->audioMuted},
+              {"speed", c->speed},
+              {"speedCurve", [&] {
+                   QVariantList pts;
+                   for (const auto &pt : c->speedCurve)
+                       pts << QVariantMap{{"u", pt.u}, {"v", pt.v}};
+                   return pts;
+               }()},
+
+              {"reverse", c->reverse},
+              {"fadeIn", static_cast<double>(c->fadeIn)},
+              {"fadeOut", static_cast<double>(c->fadeOut)},
+              {"blend", blendModeName(c->blend)},
+              {"chromaEnabled", c->chroma.enabled},
+              {"chromaColor", c->chroma.color},
+              {"chromaSimilarity", c->chroma.similarity},
+              {"chromaSmoothness", c->chroma.smoothness},
+              {"cropLeft", c->crop.left},
+              {"cropTop", c->crop.top},
+              {"cropRight", c->crop.right},
+              {"cropBottom", c->crop.bottom},
+              {"transition", c->transitionIn ? transitionName(c->transitionIn->kind) : QString()},
+              {"transitionDuration", c->transitionIn ? static_cast<double>(c->transitionIn->duration) : 500000.0}});
+    return m;
+}
+
+QStringList ProjectController::videoCodecs() const
+{
+    return media::availableVideoCodecs();
+}
+
+// ---------------------------------------------------------------------------
+// Arquivos
+
+void ProjectController::newProject(int width, int height, double fps)
+{
+    setProject(createProject(tr("Novo projeto"), width, height, fps), {});
+    setStatus(tr("Projeto criado (%1×%2, %3 fps)").arg(width).arg(height).arg(fps));
+}
+
+bool ProjectController::openProject(const QUrl &url)
+{
+    const QString path = localPath(url);
+    if (QFileInfo(path).isDir() || QFileInfo(path).fileName().startsWith(QLatin1String("draft_")))
+        return importDraft(url);
+    Project p;
+    QString err;
+    if (!loadProjectFile(path, p, &err)) {
+        emit errorOccurred(tr("Não foi possível abrir o projeto: %1").arg(err));
+        return false;
+    }
+    setProject(std::move(p), path);
+    setStatus(tr("Projeto aberto: %1").arg(QFileInfo(path).fileName()));
+    return true;
+}
+
+bool ProjectController::saveProject()
+{
+    if (m_filePath.isEmpty())
+        return false;
+    QString err;
+    if (!saveProjectFile(m_project, m_filePath, &err)) {
+        emit errorOccurred(tr("Falha ao salvar: %1").arg(err));
+        return false;
+    }
+    m_savedRevision = m_history.revision();
+    removeRecovery();
+    emit modifiedChanged();
+    setStatus(tr("Projeto salvo"));
+    return true;
+}
+
+bool ProjectController::saveProjectAs(const QUrl &url)
+{
+    QString path = localPath(url);
+    if (!path.endsWith(QLatin1String(".clivcut")))
+        path += QStringLiteral(".clivcut");
+    m_filePath = path;
+    emit fileChanged();
+    return saveProject();
+}
+
+bool ProjectController::importDraft(const QUrl &url)
+{
+    auto r = clv::importDraft(localPath(url));
+    if (!r.ok) {
+        emit errorOccurred(r.error);
+        return false;
+    }
+    // Completa metadados lendo as mídias que existem.
+    for (auto &[id, a] : r.project.assets) {
+        MediaAsset probed;
+        if (QFileInfo::exists(a.path) && media::probe(a.path, probed)) {
+            a.kind = probed.kind;
+            a.width = probed.width;
+            a.height = probed.height;
+            a.hasAudio = probed.hasAudio;
+            a.hasVideo = probed.hasVideo;
+            a.fps = probed.fps;
+            if (a.duration <= 0)
+                a.duration = probed.duration;
+        }
+    }
+    setProject(std::move(r.project), {});
+    setStatus(r.warnings.isEmpty() ? tr("Draft importado")
+                                   : tr("Draft importado com %1 aviso(s): %2").arg(r.warnings.size()).arg(r.warnings.first()));
+    return true;
+}
+
+void ProjectController::importMedia(const QList<QUrl> &urls)
+{
+    QStringList failed;
+    QString lastId;
+    Project before = m_project;
+    int added = 0;
+    for (const QUrl &url : urls) {
+        const QString path = localPath(url);
+        bool exists = false;
+        for (const auto &[id, a] : m_project.assets)
+            exists = exists || a.path == path;
+        if (exists)
+            continue;
+        MediaAsset a;
+        QString err;
+        if (!media::probe(path, a, &err)) {
+            failed << QFileInfo(path).fileName();
+            continue;
+        }
+        a.id = newId("ast");
+        lastId = a.id;
+        m_project.assets.emplace(a.id, a);
+        ++added;
+    }
+    if (added > 0) {
+        m_history.push(before, tr("Importar mídia"));
+        commitChange();
+        refreshProxies();
+        emit assetsChanged();
+        setStatus(tr("%n arquivo(s) importado(s)", nullptr, added));
+    }
+    if (!failed.isEmpty())
+        emit errorOccurred(tr("Formato não suportado: %1").arg(failed.join(QStringLiteral(", "))));
+}
+
+void ProjectController::setCanvas(int width, int height)
+{
+    if (width == m_project.width && height == m_project.height)
+        return;
+    edit(tr("Proporção do canvas"), [&](Project &p) {
+        p.width = width;
+        p.height = height;
+        return true;
+    });
+}
+
+void ProjectController::setBackground(const QString &color)
+{
+    edit(tr("Cor de fundo"), [&](Project &p) {
+        p.background = color;
+        return true;
+    }, QStringLiteral("bg"));
+}
+
+void ProjectController::relinkAsset(const QString &assetId, const QUrl &url)
+{
+    auto it = m_project.assets.find(assetId);
+    if (it == m_project.assets.end())
+        return;
+    MediaAsset probed;
+    const QString path = localPath(url);
+    if (!media::probe(path, probed)) {
+        emit errorOccurred(tr("Não foi possível ler %1").arg(path));
+        return;
+    }
+    edit(tr("Reconectar mídia"), [&](Project &p) {
+        MediaAsset &a = p.assets[assetId];
+        probed.id = a.id;
+        a = probed;
+        return true;
+    });
+    emit assetsChanged();
+}
+
+// ---------------------------------------------------------------------------
+// Timeline
+
+void ProjectController::addAssetToTimeline(const QString &assetId, int trackIndex, double start)
+{
+    const MediaAsset *a = m_project.asset(assetId);
+    if (!a)
+        return;
+    QString newClip;
+    edit(tr("Adicionar à timeline"), [&](Project &p) {
+        Micros at = start >= 0 ? static_cast<Micros>(start) : m_playhead;
+        Clip c = createMediaClip(*a, at);
+        if (trackIndex < 0 && start < 0 && a->kind != MediaKind::Audio) {
+            // Duplo clique: entra na faixa principal, no fim.
+            c.start = p.tracks[0].clips.empty() ? 0 : p.tracks[0].clips.back().end();
+            trackIndex = 0;
+        }
+        newClip = edit::insertClip(p, std::move(c), trackIndex);
+        return !newClip.isEmpty();
+    });
+    if (!newClip.isEmpty()) {
+        m_selection = {newClip};
+        emit selectionChanged();
+        emit selectedClipChanged();
+        emit assetsChanged();
+    }
+}
+
+QString ProjectController::defaultTextFor(const QString &preset) const
+{
+    if (preset == QLatin1String("title"))
+        return tr("Título");
+    if (preset == QLatin1String("subtitle"))
+        return tr("Legenda");
+    return tr("Texto");
+}
+
+void ProjectController::addText(const QString &text, const QString &preset)
+{
+    QString id;
+    edit(tr("Adicionar texto"), [&](Project &p) {
+        Clip c = createTextClip(text.isEmpty() ? defaultTextFor(preset) : text, m_playhead);
+        if (preset == QLatin1String("title")) {
+            c.style.fontSize = 120;
+            c.transform.y = 0;
+        } else if (preset == QLatin1String("subtitle")) {
+            c.style.fontSize = 56;
+            c.style.bold = false;
+            c.style.background = QStringLiteral("#99000000");
+            c.style.strokeWidth = 0;
+            c.transform.y = 0.75;
+        } else if (preset == QLatin1String("highlight")) {
+            c.style.fontSize = 90;
+            c.style.color = QStringLiteral("#ffe14d");
+            c.style.strokeWidth = 6;
+            c.transform.y = 0;
+            c.animIn = {AnimationKind::Zoom, 400'000};
+        }
+        id = edit::insertClip(p, std::move(c), -1);
+        return !id.isEmpty();
+    });
+    if (!id.isEmpty()) {
+        m_selection = {id};
+        emit selectionChanged();
+        emit selectedClipChanged();
+    }
+}
+
+void ProjectController::splitAtPlayhead()
+{
+    const Micros t = m_project.snapToFrame(m_playhead);
+    edit(tr("Dividir"), [&](Project &p) { return edit::splitAt(p, t, m_selection) > 0 || edit::splitAt(p, t) > 0; });
+}
+
+void ProjectController::deleteSelection(bool ripple)
+{
+    if (m_selection.isEmpty())
+        return;
+    const QStringList ids = m_selection;
+    edit(tr("Excluir"), [&](Project &p) { return edit::deleteClips(p, ids, ripple); });
+}
+
+void ProjectController::deleteLeft()
+{
+    const Micros t = m_project.snapToFrame(m_playhead);
+    QStringList targets = m_selection;
+    if (targets.isEmpty())
+        for (const auto &c : m_project.tracks[0].clips)
+            if (t > c.start && t < c.end())
+                targets << c.id;
+    edit(tr("Excluir à esquerda"), [&](Project &p) {
+        bool any = false;
+        for (const auto &id : targets)
+            any = edit::trimToPlayhead(p, id, t, edit::Edge::Start, true) || any;
+        return any;
+    });
+    // Na faixa principal magnética o clipe recua: o cursor vai para o novo início.
+    if (!targets.isEmpty())
+        if (const Clip *c = edit::clipById(m_project, targets.first()))
+            seek(static_cast<double>(c->start));
+}
+
+void ProjectController::deleteRight()
+{
+    const Micros t = m_project.snapToFrame(m_playhead);
+    QStringList targets = m_selection;
+    if (targets.isEmpty())
+        for (const auto &c : m_project.tracks[0].clips)
+            if (t > c.start && t < c.end())
+                targets << c.id;
+    edit(tr("Excluir à direita"), [&](Project &p) {
+        bool any = false;
+        for (const auto &id : targets)
+            any = edit::trimToPlayhead(p, id, t, edit::Edge::End, true) || any;
+        return any;
+    });
+}
+
+void ProjectController::duplicateSelection()
+{
+    QStringList created;
+    edit(tr("Duplicar"), [&](Project &p) {
+        for (const auto &id : m_selection)
+            if (auto n = edit::duplicateClip(p, id))
+                created << *n;
+        return !created.isEmpty();
+    });
+    if (!created.isEmpty()) {
+        m_selection = created;
+        emit selectionChanged();
+        emit selectedClipChanged();
+    }
+}
+
+bool ProjectController::moveClip(const QString &clipId, int trackIndex, double start)
+{
+    // Vários selecionados (ou grupo): move todos no tempo, cada um na sua faixa.
+    if (m_selection.size() > 1 && m_selection.contains(clipId)) {
+        const Clip *c = edit::clipById(m_project, clipId);
+        if (!c)
+            return false;
+        const Micros delta = m_project.snapToFrame(static_cast<Micros>(start)) - c->start;
+        const QStringList ids = m_selection;
+        return edit(tr("Mover clipes"), [&](Project &p) { return edit::moveClips(p, ids, delta); });
+    }
+    return edit(tr("Mover clipe"), [&](Project &p) {
+        return edit::moveClip(p, clipId, trackIndex, p.snapToFrame(static_cast<Micros>(start)));
+    });
+}
+
+bool ProjectController::trimClip(const QString &clipId, bool startEdge, double time)
+{
+    return edit(tr("Aparar clipe"), [&](Project &p) {
+        return edit::trimClip(p, clipId, startEdge ? edit::Edge::Start : edit::Edge::End,
+                              p.snapToFrame(static_cast<Micros>(time)));
+    });
+}
+
+double ProjectController::snapTime(double t, const QStringList &ignore, double thresholdUs) const
+{
+    if (!m_snapping)
+        return t;
+    return static_cast<double>(edit::snap(m_project, static_cast<Micros>(t), static_cast<Micros>(thresholdUs), ignore,
+                                          m_playhead));
+}
+
+void ProjectController::setTrackFlag(int trackIndex, const QString &flag, bool value)
+{
+    if (trackIndex < 0 || trackIndex >= static_cast<int>(m_project.tracks.size()))
+        return;
+    edit(tr("Alterar faixa"), [&](Project &p) {
+        Track &t = p.tracks[trackIndex];
+        if (flag == QLatin1String("muted"))
+            t.muted = value;
+        else if (flag == QLatin1String("hidden"))
+            t.hidden = value;
+        else if (flag == QLatin1String("locked"))
+            t.locked = value;
+        else
+            return false;
+        return true;
+    });
+}
+
+void ProjectController::addMarker()
+{
+    edit(tr("Adicionar marcador"), [&](Project &p) {
+        for (const auto &m : p.markers)
+            if (std::llabs(m.t - m_playhead) < p.frameDuration())
+                return false;
+        p.markers.push_back({newId("mrk"), m_project.snapToFrame(m_playhead), QString(), QStringLiteral("#f5c242")});
+        return true;
+    });
+}
+
+void ProjectController::detachAudio()
+{
+    QStringList targets = m_selection;
+    if (targets.isEmpty())
+        for (const auto &c : m_project.tracks[0].clips)
+            if (m_playhead >= c.start && m_playhead < c.end())
+                targets << c.id;
+    QStringList created;
+    edit(tr("Separar áudio"), [&](Project &p) {
+        for (const auto &id : targets)
+            if (auto a = edit::detachAudio(p, id))
+                created << *a;
+        return !created.isEmpty();
+    });
+    if (created.isEmpty())
+        setStatus(tr("Selecione um clipe de vídeo com áudio"));
+    else
+        setStatus(tr("Áudio separado em %n clipe(s)", nullptr, static_cast<int>(created.size())));
+}
+
+void ProjectController::freezeFrame()
+{
+    QString target;
+    for (const auto &id : m_selection)
+        target = id;
+    if (target.isEmpty())
+        for (const auto &c : m_project.tracks[0].clips)
+            if (m_playhead >= c.start && m_playhead < c.end())
+                target = c.id;
+    auto ref = edit::findClip(m_project, target);
+    if (!ref || ref->track != 0) {
+        setStatus(tr("Selecione um clipe de vídeo da faixa principal para congelar o quadro"));
+        return;
+    }
+    const Micros t = m_project.snapToFrame(m_playhead);
+    edit(tr("Congelar quadro"), [&](Project &p) {
+        const Clip original = p.tracks[0].clips[ref->index];
+        if (original.isText())
+            return false;
+        Clip freeze = original;
+        freeze.id = newId("clp");
+        freeze.sourceIn = sourceTimeAt(p, original, t - original.start);
+        freeze.speed = 0;
+        freeze.reverse = false;
+        freeze.volume = 0;
+        freeze.start = t;
+        freeze.duration = 3 * kSecond;
+        freeze.fadeIn = freeze.fadeOut = 0;
+        freeze.transitionIn.reset();
+        freeze.animIn = freeze.animOut = {};
+        for (auto &list : freeze.keyframes)
+            list.clear();
+        if (t > original.start && t < original.end())
+            edit::splitClip(p, original.id, t);
+        return !edit::insertClip(p, std::move(freeze), 0).isEmpty();
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Seleção e propriedades
+
+void ProjectController::select(const QString &clipId, bool additive)
+{
+    if (clipId.isEmpty()) {
+        clearSelection();
+        return;
+    }
+    // Clicar num clipe de grupo seleciona o grupo inteiro.
+    m_primary = clipId;
+    const QStringList group = edit::expandToGroups(m_project, {clipId});
+    if (additive) {
+        if (m_selection.contains(clipId)) {
+            for (const auto &id : group)
+                m_selection.removeAll(id);
+        } else {
+            for (const auto &id : group)
+                if (!m_selection.contains(id))
+                    m_selection << id;
+        }
+    } else {
+        if (m_selection == group) {
+            emit selectedClipChanged(); // o clipe principal pode ter mudado dentro do grupo
+            return;
+        }
+        m_selection = group;
+    }
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit projectChanged();
+}
+
+void ProjectController::clearSelection()
+{
+    if (m_selection.isEmpty())
+        return;
+    m_selection.clear();
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit projectChanged();
+}
+
+namespace {
+
+/** Aplica uma propriedade ao clipe; animáveis com keyframes viram keyframe em `rel`. */
+bool applyClipProperty(Project &p, Clip *c, Micros rel, const QString &key, const QVariant &value)
+{
+    if (auto prop = propFromKey(key)) {
+        const double v = value.toDouble();
+        auto &kfs = c->keyframes[static_cast<int>(*prop)];
+        if (!kfs.empty())
+            upsertKeyframe(kfs, {rel, v, Easing::Linear}, p.frameDuration() / 2);
+        else
+            setBaseValue(*c, *prop, v);
+        return true;
+    }
+    TextStyle &s = c->style;
+    if (key == QLatin1String("flipH")) c->transform.flipH = value.toBool();
+    else if (key == QLatin1String("flipV")) c->transform.flipV = value.toBool();
+    else if (key == QLatin1String("text")) c->text = value.toString();
+    else if (key == QLatin1String("fontFamily")) s.fontFamily = value.toString();
+    else if (key == QLatin1String("fontSize")) s.fontSize = value.toDouble();
+    else if (key == QLatin1String("bold")) s.bold = value.toBool();
+    else if (key == QLatin1String("italic")) s.italic = value.toBool();
+    else if (key == QLatin1String("color")) s.color = value.toString();
+    else if (key == QLatin1String("strokeColor")) s.strokeColor = value.toString();
+    else if (key == QLatin1String("strokeWidth")) s.strokeWidth = value.toDouble();
+    else if (key == QLatin1String("background")) s.background = value.toString();
+    else if (key == QLatin1String("align")) s.align = value.toInt();
+    else if (key == QLatin1String("shadow")) s.shadow = value.toBool();
+    else if (key == QLatin1String("fadeIn")) c->fadeIn = std::clamp<Micros>(static_cast<Micros>(value.toDouble()), 0, c->duration);
+    else if (key == QLatin1String("fadeOut")) c->fadeOut = std::clamp<Micros>(static_cast<Micros>(value.toDouble()), 0, c->duration);
+    else if (key == QLatin1String("reverse")) c->reverse = value.toBool();
+    else if (key == QLatin1String("audioMuted")) c->audioMuted = value.toBool();
+    else if (key == QLatin1String("temperature")) c->color.temperature = value.toDouble();
+    else if (key == QLatin1String("maskShape")) c->mask.shape = maskShapeFromName(value.toString());
+    else if (key == QLatin1String("maskX")) c->mask.x = value.toDouble();
+    else if (key == QLatin1String("maskY")) c->mask.y = value.toDouble();
+    else if (key == QLatin1String("maskWidth")) c->mask.width = std::max(0.01, value.toDouble());
+    else if (key == QLatin1String("maskHeight")) c->mask.height = std::max(0.01, value.toDouble());
+    else if (key == QLatin1String("maskRotation")) c->mask.rotation = value.toDouble();
+    else if (key == QLatin1String("maskFeather")) c->mask.feather = std::clamp(value.toDouble(), 0.0, 1.0);
+    else if (key == QLatin1String("maskRoundness")) c->mask.roundness = std::clamp(value.toDouble(), 0.0, 1.0);
+    else if (key == QLatin1String("maskInvert")) c->mask.invert = value.toBool();
+    else if (key == QLatin1String("exposure")) c->color.exposure = value.toDouble();
+    else if (key == QLatin1String("tint")) c->color.tint = value.toDouble();
+    else if (key == QLatin1String("highlights")) c->color.highlights = value.toDouble();
+    else if (key == QLatin1String("shadows")) c->color.shadows = value.toDouble();
+    else if (key == QLatin1String("vignette")) c->color.vignette = value.toDouble();
+    else if (key == QLatin1String("sharpen")) c->color.sharpen = value.toDouble();
+    else if (key == QLatin1String("filter")) c->color.filter = value.toString();
+    else if (key == QLatin1String("filterIntensity")) c->color.filterIntensity = std::clamp(value.toDouble(), 0.0, 1.0);
+    else if (key == QLatin1String("lutPath")) c->color.lutPath = value.toString();
+    else if (key == QLatin1String("lutIntensity")) c->color.lutIntensity = std::clamp(value.toDouble(), 0.0, 1.0);
+    else if (key == QLatin1String("blend")) c->blend = blendModeFromName(value.toString());
+    else if (key == QLatin1String("chromaEnabled")) c->chroma.enabled = value.toBool();
+    else if (key == QLatin1String("chromaColor")) c->chroma.color = value.toString();
+    else if (key == QLatin1String("chromaSimilarity")) c->chroma.similarity = value.toDouble();
+    else if (key == QLatin1String("chromaSmoothness")) c->chroma.smoothness = value.toDouble();
+    else if (key == QLatin1String("cropLeft")) c->crop.left = std::clamp(value.toDouble(), 0.0, 0.95 - c->crop.right);
+    else if (key == QLatin1String("cropRight")) c->crop.right = std::clamp(value.toDouble(), 0.0, 0.95 - c->crop.left);
+    else if (key == QLatin1String("cropTop")) c->crop.top = std::clamp(value.toDouble(), 0.0, 0.95 - c->crop.bottom);
+    else if (key == QLatin1String("cropBottom")) c->crop.bottom = std::clamp(value.toDouble(), 0.0, 0.95 - c->crop.top);
+    else return false;
+    return true;
+}
+
+} // namespace
+
+void ProjectController::setClipProperty(const QString &clipId, const QString &key, const QVariant &value)
+{
+    setClipProperties(clipId, QVariantMap{{key, value}});
+}
+
+void ProjectController::setClipProperties(const QString &clipId, const QVariantMap &values)
+{
+    const Clip *existing = edit::clipById(m_project, clipId);
+    if (!existing || values.isEmpty())
+        return;
+    const Micros rel = std::clamp<Micros>(m_playhead - existing->start, 0, existing->duration);
+    const QStringList keys = values.keys();
+    edit(tr("Alterar %1").arg(keys.join(QStringLiteral(", "))), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c)
+            return false;
+        bool any = false;
+        for (auto it = values.begin(); it != values.end(); ++it)
+            any = applyClipProperty(p, c, rel, it.key(), it.value()) || any;
+        return any;
+    }, clipId + keys.join(QLatin1Char('|')));
+}
+
+void ProjectController::toggleKeyframe(const QString &clipId, const QString &prop)
+{
+    const auto p = propFromKey(prop);
+    const Clip *c = edit::clipById(m_project, clipId);
+    if (!p || !c)
+        return;
+    const Micros rel = m_playhead - c->start;
+    if (rel < 0 || rel > c->duration) {
+        setStatus(tr("Posicione o cursor sobre o clipe para criar keyframes"));
+        return;
+    }
+    edit(tr("Keyframe"), [&](Project &proj) {
+        Clip *cc = edit::clipById(proj, clipId);
+        auto &kfs = cc->keyframes[static_cast<int>(*p)];
+        const Micros tol = proj.frameDuration() / 2;
+        const double current = propAt(*cc, *p, rel);
+        if (!removeKeyframeAt(kfs, rel, tol))
+            upsertKeyframe(kfs, {rel, current, Easing::Linear}, tol);
+        else if (kfs.empty())
+            setBaseValue(*cc, *p, current); // último keyframe removido: o valor visível vira o base
+        return true;
+    });
+}
+
+void ProjectController::setTransition(const QString &clipId, const QString &kind, double durationUs)
+{
+    edit(tr("Transição"), [&](Project &p) {
+        auto ref = edit::findClip(p, clipId);
+        if (!ref || ref->index == 0)
+            return false;
+        Clip &c = p.tracks[ref->track].clips[ref->index];
+        if (kind.isEmpty() || kind == QLatin1String("none")) {
+            c.transitionIn.reset();
+            return true;
+        }
+        const Clip &prev = p.tracks[ref->track].clips[ref->index - 1];
+        const Micros maxD = std::min(prev.duration, c.duration);
+        c.transitionIn = Transition{transitionFromName(kind), std::clamp<Micros>(static_cast<Micros>(durationUs), 100'000, maxD)};
+        return true;
+    }, clipId + QStringLiteral("transition"));
+}
+
+void ProjectController::setAnimation(const QString &clipId, bool in, const QString &kind, double durationUs)
+{
+    edit(tr("Animação"), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c)
+            return false;
+        ClipAnimation &a = in ? c->animIn : c->animOut;
+        a.kind = animationFromName(kind);
+        a.duration = std::clamp<Micros>(static_cast<Micros>(durationUs), 100'000, c->duration);
+        return true;
+    }, clipId + (in ? QStringLiteral("animIn") : QStringLiteral("animOut")));
+}
+
+namespace {
+std::vector<SpeedPoint> pointsFrom(const QVariantList &list)
+{
+    std::vector<SpeedPoint> out;
+    for (const QVariant &v : list) {
+        const QVariantMap m = v.toMap();
+        out.push_back({m.value("u").toDouble(), m.value("v").toDouble()});
+    }
+    return out;
+}
+} // namespace
+
+QVariantList ProjectController::speedPresets() const
+{
+    QVariantList out;
+    for (const auto &p : clv::speedPresets()) {
+        QVariantList pts;
+        for (const auto &pt : p.points)
+            pts << QVariantMap{{"u", pt.u}, {"v", pt.v}};
+        out << QVariantMap{{"id", p.id}, {"name", p.name}, {"points", pts}};
+    }
+    return out;
+}
+
+void ProjectController::setSpeedCurve(const QString &clipId, const QVariantList &points)
+{
+    const auto pts = pointsFrom(points);
+    edit(tr("Curva de velocidade"), [&](Project &p) { return edit::setSpeedCurve(p, clipId, pts); },
+         clipId + QStringLiteral("curve"));
+}
+
+void ProjectController::applySpeedPreset(const QString &clipId, const QString &presetId)
+{
+    for (const auto &preset : clv::speedPresets())
+        if (preset.id == presetId) {
+            edit(tr("Curva: %1").arg(preset.name),
+                 [&](Project &p) { return edit::setSpeedCurve(p, clipId, preset.points); });
+            return;
+        }
+}
+
+void ProjectController::setSpeed(const QString &clipId, double speed)
+{
+    edit(tr("Velocidade"), [&](Project &p) { return edit::setSpeed(p, clipId, speed); }, clipId + QStringLiteral("speed"));
+}
+
+void ProjectController::resetClipProperties(const QString &clipId, const QString &group)
+{
+    edit(tr("Redefinir"), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c)
+            return false;
+        auto clearKf = [&](std::initializer_list<Prop> props) {
+            for (Prop pr : props)
+                c->keyframes[static_cast<int>(pr)].clear();
+        };
+        if (group == QLatin1String("transform")) {
+            const bool text = c->isText();
+            c->transform = Transform{};
+            if (text)
+                c->transform.y = 0.6;
+            c->crop = Crop{};
+            clearKf({Prop::X, Prop::Y, Prop::Scale, Prop::Rotation, Prop::Opacity});
+        } else if (group == QLatin1String("color")) {
+            const ColorAdjust old = c->color;
+            c->color = ColorAdjust{};
+            c->color.filter = old.filter; // filtro e LUT têm seus próprios botões de remover
+            c->color.filterIntensity = old.filterIntensity;
+            c->color.lutPath = old.lutPath;
+            c->color.lutIntensity = old.lutIntensity;
+            clearKf({Prop::Brightness, Prop::Contrast, Prop::Saturation});
+        } else if (group == QLatin1String("mask")) {
+            c->mask = Mask{};
+        } else if (group == QLatin1String("audio")) {
+            c->volume = 1;
+            c->fadeIn = c->fadeOut = 0;
+            clearKf({Prop::Volume});
+        } else {
+            return false;
+        }
+        return true;
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Histórico
+
+void ProjectController::undo()
+{
+    if (!m_history.undo(m_project))
+        return;
+    m_lastCoalesceKey.clear();
+    commitChange();
+    emit assetsChanged();
+}
+
+void ProjectController::redo()
+{
+    if (!m_history.redo(m_project))
+        return;
+    m_lastCoalesceKey.clear();
+    commitChange();
+    emit assetsChanged();
+}
+
+// ---------------------------------------------------------------------------
+// Reprodução
+
+void ProjectController::seek(double t)
+{
+    const Micros clamped = std::clamp<Micros>(static_cast<Micros>(t), 0, std::max<Micros>(0, m_project.duration()));
+    if (clamped == m_playhead && !m_playing)
+        return;
+    m_playhead = clamped;
+    if (m_playing) {
+        m_playStart = m_playhead;
+        m_clock.restart();
+        if (m_audio->available())
+            m_audio->start(snapshot(), m_playhead);
+    }
+    emit playheadChanged();
+    emit selectedClipChanged();
+}
+
+void ProjectController::play()
+{
+    if (m_playing || m_project.duration() <= 0)
+        return;
+    if (m_playhead >= m_project.duration() - m_project.frameDuration())
+        m_playhead = 0;
+    m_playing = true;
+    m_playStart = m_playhead;
+    m_clock.restart();
+    if (m_audio->available())
+        m_audio->start(snapshot(), m_playhead);
+    m_ticker.start();
+    emit playingChanged();
+}
+
+void ProjectController::pause()
+{
+    if (!m_playing)
+        return;
+    m_playing = false;
+    m_ticker.stop();
+    m_audio->stop();
+    m_playhead = m_project.snapToFrame(m_playhead);
+    emit playingChanged();
+    emit playheadChanged();
+    emit selectedClipChanged();
+}
+
+void ProjectController::togglePlay()
+{
+    m_playing ? pause() : play();
+}
+
+void ProjectController::tick()
+{
+    Micros pos = m_audio->available() ? m_audio->position() : m_playStart + m_clock.nsecsElapsed() / 1000;
+    const Micros end = m_project.duration();
+    if (pos >= end) {
+        pos = end;
+        m_playhead = pos;
+        pause();
+        return;
+    }
+    m_playhead = pos;
+    emit playheadChanged();
+}
+
+void ProjectController::stepFrames(int n)
+{
+    pause();
+    seek(static_cast<double>(m_project.snapToFrame(m_playhead) + n * m_project.frameDuration()));
+}
+
+void ProjectController::jumpToEdge(bool end)
+{
+    seek(end ? static_cast<double>(m_project.duration()) : 0.0);
+}
+
+// ---------------------------------------------------------------------------
+// Export
+
+void ProjectController::exportVideo(const QUrl &url, int height, double fps, const QString &codec, int crf)
+{
+    if (m_exporting)
+        return;
+    pause();
+    QString path = localPath(url);
+    if (QFileInfo(path).suffix().isEmpty())
+        path += codec == QLatin1String("prores") ? QStringLiteral(".mov") : QStringLiteral(".mp4");
+
+    engine::ExportOptions opts;
+    opts.outputPath = path;
+    const double aspect = static_cast<double>(m_project.width) / m_project.height;
+    // A "altura" escolhida vale para o lado menor (vídeos verticais: 1080p = 1080 de largura).
+    if (m_project.width >= m_project.height) {
+        opts.encode.height = height;
+        opts.encode.width = static_cast<int>(std::lround(height * aspect));
+    } else {
+        opts.encode.width = height;
+        opts.encode.height = static_cast<int>(std::lround(height / aspect));
+    }
+    opts.encode.fps = fps > 0 ? fps : m_project.fps;
+    opts.encode.crf = crf;
+    opts.encode.codec = codec == QLatin1String("hevc")     ? media::VideoCodec::HEVC
+                        : codec == QLatin1String("av1")    ? media::VideoCodec::AV1
+                        : codec == QLatin1String("prores") ? media::VideoCodec::ProRes
+                                                           : media::VideoCodec::H264;
+
+    m_exporting = true;
+    m_exportProgress = 0;
+    m_cancelExport = false;
+    emit exportChanged();
+
+    // A superfície GL (fallback) precisa nascer na thread da GUI.
+    auto *surface = render::OffscreenRhi::createFallbackSurface();
+    auto snap = snapshot();
+    std::thread([this, snap, opts, surface]() {
+        render::OffscreenRhi rhi;
+        QString err;
+        bool ok = rhi.create(&err, surface);
+        if (ok) {
+            engine::Exporter exporter;
+            ok = exporter.run(
+                *snap, opts,
+                [this](double f) {
+                    QMetaObject::invokeMethod(this, [this, f] {
+                        m_exportProgress = f;
+                        emit exportChanged();
+                    }, Qt::QueuedConnection);
+                    return !m_cancelExport.load();
+                },
+                &err, &rhi);
+        }
+        QMetaObject::invokeMethod(this, [this, ok, err, path = opts.outputPath, surface] {
+            delete surface;
+            m_exporting = false;
+            emit exportChanged();
+            emit exportFinished(ok, ok ? path : err);
+            setStatus(ok ? tr("Exportado: %1").arg(path) : err);
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+void ProjectController::cancelExport()
+{
+    m_cancelExport = true;
+}
+
+// ---------------------------------------------------------------------------
+// Utilitários
+
+QString ProjectController::formatTime(double us) const
+{
+    const Micros t = static_cast<Micros>(us);
+    const Micros totalFrames = static_cast<Micros>(std::floor(static_cast<double>(t) * m_project.fps / kSecond + 1e-6));
+    const int fpsInt = std::max(1, static_cast<int>(std::lround(m_project.fps)));
+    const Micros secs = t / kSecond;
+    return QStringLiteral("%1:%2:%3")
+        .arg(secs / 60, 2, 10, QLatin1Char('0'))
+        .arg(secs % 60, 2, 10, QLatin1Char('0'))
+        .arg(totalFrames % fpsInt, 2, 10, QLatin1Char('0'));
+}
+
+QString ProjectController::assetPath(const QString &assetId) const
+{
+    const MediaAsset *a = m_project.asset(assetId);
+    return a ? a->path : QString();
+}
+
+// ---------------------------------------------------------------------------
+// Legendas
+
+bool ProjectController::transcriptionAvailable() const
+{
+    return engine::transcriptionAvailable();
+}
+
+QVariantList ProjectController::captionModels() const
+{
+    QVariantList out;
+    for (const auto &m : engine::whisperModels())
+        out << QVariantMap{
+            {"id", m.id},
+            {"label", m.label},
+            {"sizeMb", static_cast<int>(m.sizeBytes / 1'000'000)},
+            {"description", m.description},
+            {"installed", engine::whisperModelInstalled(m.id)},
+        };
+    return out;
+}
+
+QVariantList ProjectController::audioTracks() const
+{
+    QVariantList out;
+    for (int i = 0; i < static_cast<int>(m_project.tracks.size()); ++i) {
+        const Track &t = m_project.tracks[i];
+        bool hasAudio = false;
+        for (const Clip &c : t.clips)
+            if (const MediaAsset *a = c.isText() ? nullptr : m_project.asset(c.assetId))
+                hasAudio = hasAudio || a->hasAudio;
+        if (hasAudio)
+            out << QVariantMap{{"index", i}, {"name", i == 0 ? tr("Principal") : t.name}};
+    }
+    return out;
+}
+
+void ProjectController::downloadModel(const QString &id)
+{
+    if (m_modelReply || engine::whisperModelInstalled(id))
+        return;
+    if (!m_network)
+        m_network = new QNetworkAccessManager(this);
+    QDir().mkpath(engine::whisperModelsDir());
+    const QString finalPath = engine::whisperModelPath(id);
+    auto *file = new QFile(finalPath + QStringLiteral(".part"), this);
+    if (!file->open(QIODevice::WriteOnly)) {
+        emit errorOccurred(tr("Não foi possível gravar em %1").arg(file->fileName()));
+        delete file;
+        return;
+    }
+    QNetworkRequest req(engine::whisperModelUrl(id));
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    m_modelReply = m_network->get(req);
+    m_downloadingModel = id;
+    m_modelDownloadProgress = 0;
+    emit captionModelsChanged();
+    emit modelDownloadProgressChanged();
+
+    connect(m_modelReply, &QNetworkReply::readyRead, file, [this, file] { file->write(m_modelReply->readAll()); });
+    connect(m_modelReply, &QNetworkReply::downloadProgress, this, [this](qint64 got, qint64 total) {
+        m_modelDownloadProgress = total > 0 ? static_cast<double>(got) / total : 0;
+        emit modelDownloadProgressChanged();
+    });
+    connect(m_modelReply, &QNetworkReply::finished, this, [this, file, finalPath, id] {
+        file->write(m_modelReply->readAll());
+        file->close();
+        const bool ok = m_modelReply->error() == QNetworkReply::NoError && file->size() > 1'000'000;
+        const QString err = m_modelReply->errorString();
+        const bool cancelled = m_modelReply->error() == QNetworkReply::OperationCanceledError;
+        if (ok) {
+            QFile::remove(finalPath);
+            file->rename(finalPath);
+        } else {
+            file->remove();
+        }
+        file->deleteLater();
+        m_modelReply->deleteLater();
+        m_modelReply = nullptr;
+        m_downloadingModel.clear();
+        emit captionModelsChanged();
+        if (ok)
+            setStatus(tr("Modelo %1 instalado").arg(id));
+        else if (!cancelled)
+            emit errorOccurred(tr("Falha ao baixar o modelo: %1").arg(err));
+    });
+}
+
+void ProjectController::cancelModelDownload()
+{
+    if (m_modelReply)
+        m_modelReply->abort();
+}
+
+void ProjectController::generateCaptions(const QString &modelId, const QString &language, int trackIndex, bool replace)
+{
+    if (m_transcribing)
+        return;
+    if (!engine::whisperModelInstalled(modelId)) {
+        emit errorOccurred(tr("Baixe o modelo antes de gerar legendas"));
+        return;
+    }
+    pause();
+    engine::TranscribeOptions opts;
+    opts.modelPath = engine::whisperModelPath(modelId);
+    opts.language = language.isEmpty() ? QStringLiteral("auto") : language;
+    opts.trackIndex = trackIndex;
+    m_transcribing = true;
+    m_transcribeProgress = 0;
+    m_cancelTranscription = false;
+    emit transcribeChanged();
+
+    auto snap = snapshot();
+    std::thread([this, snap, opts, replace] {
+        std::vector<CaptionSegment> segs;
+        QString err;
+        const bool ok = engine::transcribeProject(
+            *snap, opts,
+            [this](double f) {
+                QMetaObject::invokeMethod(this, [this, f] {
+                    m_transcribeProgress = f;
+                    emit transcribeChanged();
+                }, Qt::QueuedConnection);
+                return !m_cancelTranscription.load();
+            },
+            segs, &err);
+        QMetaObject::invokeMethod(this, [this, ok, err, segs = std::move(segs), replace] {
+            m_transcribing = false;
+            emit transcribeChanged();
+            if (!ok) {
+                if (!m_cancelTranscription)
+                    emit errorOccurred(err);
+                return;
+            }
+            if (segs.empty()) {
+                emit errorOccurred(tr("Nenhuma fala reconhecida"));
+                return;
+            }
+            edit(tr("Legendas automáticas"), [&](Project &p) {
+                if (replace)
+                    for (int i = static_cast<int>(p.tracks.size()) - 1; i >= 1; --i)
+                        if (p.tracks[i].captions)
+                            p.tracks.erase(p.tracks.begin() + i);
+                addCaptionTrack(p, segs);
+                return true;
+            });
+            setStatus(tr("%n legenda(s) geradas", nullptr, static_cast<int>(segs.size())));
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+void ProjectController::cancelTranscription()
+{
+    m_cancelTranscription = true;
+}
+
+bool ProjectController::importSubtitles(const QUrl &url)
+{
+    QFile f(localPath(url));
+    if (!f.open(QIODevice::ReadOnly)) {
+        emit errorOccurred(tr("Não foi possível abrir %1").arg(f.fileName()));
+        return false;
+    }
+    const auto segs = reflowCaptions(parseSubtitles(QString::fromUtf8(f.readAll())), 80);
+    if (segs.empty()) {
+        emit errorOccurred(tr("Nenhuma legenda válida em %1").arg(QFileInfo(f).fileName()));
+        return false;
+    }
+    edit(tr("Importar legendas"), [&](Project &p) {
+        addCaptionTrack(p, segs, QFileInfo(f).completeBaseName());
+        return true;
+    });
+    setStatus(tr("%n legenda(s) importadas", nullptr, static_cast<int>(segs.size())));
+    return true;
+}
+
+bool ProjectController::exportSubtitles(const QUrl &url)
+{
+    // Faixa escolhida: a do texto selecionado; senão a primeira faixa de legendas.
+    const Track *track = nullptr;
+    if (m_selection.size() == 1)
+        if (auto ref = edit::findClip(m_project, m_selection.first()))
+            if (m_project.tracks[ref->track].kind == TrackKind::Text)
+                track = &m_project.tracks[ref->track];
+    for (const auto &t : m_project.tracks)
+        if (!track && t.captions)
+            track = &t;
+    if (!track) {
+        emit errorOccurred(tr("Não há faixa de legendas para exportar"));
+        return false;
+    }
+    QString path = localPath(url);
+    if (QFileInfo(path).suffix().isEmpty())
+        path += QStringLiteral(".srt");
+    QSaveFile f(path);
+    if (!f.open(QIODevice::WriteOnly) || f.write(toSrt(captionsFromTrack(*track)).toUtf8()) < 0 || !f.commit()) {
+        emit errorOccurred(tr("Falha ao salvar %1").arg(path));
+        return false;
+    }
+    setStatus(tr("Legendas exportadas: %1").arg(path));
+    return true;
+}
+
+void ProjectController::applyStyleToTrack(const QString &clipId)
+{
+    auto ref = edit::findClip(m_project, clipId);
+    if (!ref)
+        return;
+    edit(tr("Aplicar estilo às legendas"), [&](Project &p) {
+        Track &t = p.tracks[ref->track];
+        const Clip src = t.clips[ref->index];
+        if (!src.isText())
+            return false;
+        for (Clip &c : t.clips) {
+            if (!c.isText())
+                continue;
+            c.style = src.style;
+            c.transform = src.transform;
+            c.animIn = src.animIn;
+            c.animOut = src.animOut;
+        }
+        return true;
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Filtros e ajustes
+
+QVariantList ProjectController::filters() const
+{
+    QVariantList out;
+    for (const auto &f : builtinFilters())
+        out << QVariantMap{{"id", f.id}, {"name", f.name}, {"category", f.category}};
+    return out;
+}
+
+void ProjectController::applyFilter(const QString &clipId, const QString &filterId)
+{
+    edit(tr("Filtro"), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c || c->isText())
+            return false;
+        if (!filterId.isEmpty() && !findBuiltinFilter(filterId))
+            return false;
+        c->color.filter = filterId;
+        if (c->color.filterIntensity <= 0)
+            c->color.filterIntensity = 0.8;
+        return true;
+    });
+}
+
+void ProjectController::addFilterClip(const QString &filterId)
+{
+    QString id;
+    edit(filterId.isEmpty() ? tr("Adicionar ajuste") : tr("Adicionar filtro"), [&](Project &p) {
+        // Cobre do cursor até o fim do clipe principal sob ele (ou 3 s).
+        Micros duration = 3 * kSecond;
+        for (const auto &c : p.tracks[0].clips)
+            if (m_playhead >= c.start && m_playhead < c.end())
+                duration = std::max(p.frameDuration(), c.end() - m_playhead);
+        id = edit::insertClip(p, createAdjustClip(p.snapToFrame(m_playhead), duration, filterId), -1);
+        return !id.isEmpty();
+    });
+    if (!id.isEmpty()) {
+        m_selection = {id};
+        emit selectionChanged();
+        emit selectedClipChanged();
+    }
+}
+
+bool ProjectController::loadLut(const QString &clipId, const QUrl &url)
+{
+    const QString path = localPath(url);
+    QString err;
+    if (!loadCube(path, &err).isValid()) {
+        emit errorOccurred(tr("LUT inválido (%1): %2").arg(QFileInfo(path).fileName(), err));
+        return false;
+    }
+    setClipProperties(clipId, {{QStringLiteral("lutPath"), path}, {QStringLiteral("lutIntensity"), 1.0}});
+    return true;
+}
+
+QString ProjectController::previewFrameRef() const
+{
+    auto ref = [&](const Clip &c) {
+        const Micros rel = std::clamp<Micros>(m_playhead - c.start, 0, std::max<Micros>(0, c.duration - 1));
+        return QStringLiteral("%1/%2").arg(c.assetId).arg(sourceTimeAt(m_project, c, rel));
+    };
+    // Clipe selecionado, senão o clipe visual sob o cursor, senão o primeiro clipe de vídeo/imagem.
+    if (m_selection.size() == 1)
+        if (const Clip *c = edit::clipById(m_project, m_selection.first()); c && c->hasMedia())
+            if (const MediaAsset *a = m_project.asset(c->assetId); a && a->hasVideo)
+                return ref(*c);
+    const Clip *fallback = nullptr;
+    for (const auto &t : m_project.tracks)
+        for (const auto &c : t.clips) {
+            const MediaAsset *a = c.hasMedia() ? m_project.asset(c.assetId) : nullptr;
+            if (!a || !a->hasVideo)
+                continue;
+            if (m_playhead >= c.start && m_playhead < c.end())
+                return ref(c);
+            if (!fallback)
+                fallback = &c;
+        }
+    return fallback ? ref(*fallback) : QString();
+}
+
+// ---------------------------------------------------------------------------
+// Proxies
+
+void ProjectController::setUseProxies(bool on)
+{
+    if (on == m_useProxies)
+        return;
+    m_useProxies = on;
+    QSettings().setValue(QStringLiteral("playback/useProxies"), on);
+    emit proxiesChanged();
+    ++m_revisionCounter;
+    emit revisionChanged(); // redesenha o preview com a outra fonte
+}
+
+void ProjectController::refreshProxies()
+{
+    for (const auto &[id, a] : m_project.assets) {
+        if (a.kind != MediaKind::Video || !QFileInfo::exists(a.path))
+            continue;
+        if (!engine::registeredProxy(a.path).isEmpty() || engine::discoverProxy(a.path))
+            continue;
+        if (engine::proxyRecommended(a))
+            enqueueProxy(a.path);
+    }
+}
+
+void ProjectController::generateProxy(const QString &assetId)
+{
+    const MediaAsset *a = m_project.asset(assetId);
+    if (!a || a->kind != MediaKind::Video)
+        return;
+    if (!engine::registeredProxy(a->path).isEmpty()) {
+        setStatus(tr("O proxy de %1 já existe").arg(a->name));
+        return;
+    }
+    enqueueProxy(a->path);
+}
+
+void ProjectController::enqueueProxy(const QString &mediaPath)
+{
+    if (m_proxyBuilding == mediaPath || m_proxyQueue.contains(mediaPath))
+        return;
+    m_proxyQueue << mediaPath;
+    emit proxiesChanged();
+    emit assetsChanged();
+    startNextProxy();
+}
+
+void ProjectController::cancelProxies()
+{
+    m_proxyQueue.clear();
+    *m_proxyCancel = true;
+    m_proxyBuilding.clear();
+    emit proxiesChanged();
+    emit assetsChanged();
+}
+
+void ProjectController::startNextProxy()
+{
+    if (!m_proxyBuilding.isEmpty() || m_proxyQueue.isEmpty())
+        return;
+    m_proxyBuilding = m_proxyQueue.takeFirst();
+    m_proxyProgress = 0;
+    m_proxyCancel = std::make_shared<std::atomic<bool>>(false);
+    emit proxiesChanged();
+    emit assetsChanged();
+
+    const QString path = m_proxyBuilding;
+    auto cancel = m_proxyCancel;
+    std::thread([this, path, cancel] {
+        QString err;
+        const QString out = engine::proxyPathFor(path);
+        double lastSent = 0;
+        const bool ok = engine::generateProxy(
+            path, out,
+            [&](double f) {
+                // Atualiza a interface a cada 2%.
+                if (f - lastSent >= 0.02 || f >= 1.0) {
+                    lastSent = f;
+                    if (!*cancel)
+                        QMetaObject::invokeMethod(this, [this, f] {
+                            m_proxyProgress = f;
+                            emit assetsChanged();
+                        }, Qt::QueuedConnection);
+                }
+                return !*cancel;
+            },
+            &err);
+        if (*cancel && !ok)
+            return; // controlador pode estar sendo destruído; nada a publicar
+        QMetaObject::invokeMethod(this, [this, ok, err, path, out] {
+            m_proxyBuilding.clear();
+            if (ok) {
+                engine::registerProxy(path, out);
+                setStatus(tr("Proxy pronto: %1").arg(QFileInfo(path).fileName()));
+                ++m_revisionCounter;
+                emit revisionChanged();
+            } else {
+                emit errorOccurred(tr("Falha ao gerar proxy de %1: %2").arg(QFileInfo(path).fileName(), err));
+            }
+            emit proxiesChanged();
+            emit assetsChanged();
+            startNextProxy();
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+// ---------------------------------------------------------------------------
+// Área de transferência e grupos
+
+bool ProjectController::canPaste() const
+{
+    if (!m_clipboard.empty())
+        return true;
+    const QMimeData *mime = QGuiApplication::clipboard()->mimeData();
+    return mime && mime->hasFormat(QString::fromLatin1(kClipboardMime));
+}
+
+void ProjectController::copySelection()
+{
+    if (m_selection.isEmpty())
+        return;
+    m_clipboard = copyClips(m_project, m_selection);
+    auto *mime = new QMimeData;
+    mime->setData(QString::fromLatin1(kClipboardMime), clipboardToJson(m_clipboard));
+    QGuiApplication::clipboard()->setMimeData(mime);
+    emit clipboardChanged();
+    setStatus(tr("%n clipe(s) copiado(s)", nullptr, static_cast<int>(m_clipboard.items.size())));
+}
+
+void ProjectController::cutSelection()
+{
+    if (m_selection.isEmpty())
+        return;
+    copySelection();
+    const QStringList ids = m_selection;
+    edit(tr("Recortar"), [&](Project &p) { return edit::deleteClips(p, ids, false); });
+}
+
+void ProjectController::paste()
+{
+    // Prefere a área de transferência do sistema (permite colar entre janelas/projetos).
+    Clipboard cb = m_clipboard;
+    if (const QMimeData *mime = QGuiApplication::clipboard()->mimeData();
+        mime && mime->hasFormat(QString::fromLatin1(kClipboardMime))) {
+        Clipboard sys;
+        if (clipboardFromJson(mime->data(QString::fromLatin1(kClipboardMime)), sys))
+            cb = std::move(sys);
+    }
+    if (cb.empty())
+        return;
+    QStringList created;
+    edit(tr("Colar"), [&](Project &p) {
+        created = pasteClips(p, cb, p.snapToFrame(m_playhead));
+        return !created.isEmpty();
+    });
+    if (!created.isEmpty()) {
+        m_selection = created;
+        emit selectionChanged();
+        emit selectedClipChanged();
+        emit assetsChanged();
+        refreshProxies();
+    }
+}
+
+void ProjectController::copyAttributes()
+{
+    const QString primary = primaryClipId();
+    if (primary.isEmpty())
+        return;
+    if (const Clip *c = edit::clipById(m_project, primary)) {
+        m_attributeSource = *c;
+        emit clipboardChanged();
+        setStatus(tr("Atributos copiados"));
+    }
+}
+
+void ProjectController::pasteAttributesToSelection()
+{
+    if (!m_attributeSource || m_selection.isEmpty())
+        return;
+    const QStringList ids = m_selection;
+    edit(tr("Colar atributos"), [&](Project &p) {
+        bool any = false;
+        for (const auto &id : ids)
+            if (Clip *c = edit::clipById(p, id); c && c->id != m_attributeSource->id) {
+                pasteAttributes(*c, *m_attributeSource);
+                any = true;
+            }
+        return any;
+    });
+}
+
+void ProjectController::groupSelection()
+{
+    if (m_selection.size() < 2)
+        return;
+    const QStringList ids = m_selection;
+    edit(tr("Agrupar"), [&](Project &p) { return !edit::groupClips(p, ids).isEmpty(); });
+}
+
+void ProjectController::ungroupSelection()
+{
+    const QStringList ids = m_selection;
+    edit(tr("Desagrupar"), [&](Project &p) { return edit::ungroupClips(p, ids); });
+}
+
+void ProjectController::selectInRange(double t0, double t1, const QVariantList &trackIndices, bool additive)
+{
+    const Micros a = static_cast<Micros>(std::min(t0, t1)), b = static_cast<Micros>(std::max(t0, t1));
+    QStringList found;
+    for (const QVariant &v : trackIndices) {
+        const int ti = v.toInt();
+        if (ti < 0 || ti >= static_cast<int>(m_project.tracks.size()) || m_project.tracks[ti].locked)
+            continue;
+        for (const Clip &c : m_project.tracks[ti].clips)
+            if (c.start < b && c.end() > a)
+                found << c.id;
+    }
+    found = edit::expandToGroups(m_project, found);
+    QStringList next = additive ? m_selection : QStringList{};
+    for (const auto &id : found)
+        if (!next.contains(id))
+            next << id;
+    if (next == m_selection)
+        return;
+    m_selection = next;
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit projectChanged();
+}
+
+void ProjectController::selectAll()
+{
+    QStringList all;
+    for (const auto &t : m_project.tracks)
+        if (!t.locked)
+            for (const auto &c : t.clips)
+                all << c.id;
+    m_selection = all;
+    emit selectionChanged();
+    emit selectedClipChanged();
+    emit projectChanged();
+}
+
+// ---------------------------------------------------------------------------
+// Recuperação
+
+QString ProjectController::recoveryDir()
+{
+    return QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath(QStringLiteral("recovery"));
+}
+
+QString ProjectController::recoveryFileFor(const QString &projectId) const
+{
+    return QDir(recoveryDir()).filePath(projectId + QStringLiteral(".clivcut"));
+}
+
+void ProjectController::removeRecovery()
+{
+    m_recoveryLock.reset();
+    QFile::remove(recoveryFileFor(m_project.id));
+    QFile::remove(recoveryFileFor(m_project.id) + QStringLiteral(".json"));
+}
+
+void ProjectController::autosaveNow()
+{
+    if (!modified() || m_history.revision() == m_autosavedRevision || m_project.id.isEmpty())
+        return;
+    QDir().mkpath(recoveryDir());
+    const QString file = recoveryFileFor(m_project.id);
+    if (!m_recoveryLock) {
+        m_recoveryLock = std::make_unique<QLockFile>(file + QStringLiteral(".lock"));
+        m_recoveryLock->setStaleLockTime(0); // só o PID decide se está vivo
+        m_recoveryLock->tryLock(0);
+    }
+    QString err;
+    if (!saveProjectFile(m_project, file, &err)) {
+        qWarning("clivcut: falha na cópia de recuperação: %s", qPrintable(err));
+        return;
+    }
+    // Metadados: de onde veio o projeto e quando foi gravado.
+    QSaveFile meta(file + QStringLiteral(".json"));
+    if (meta.open(QIODevice::WriteOnly)) {
+        meta.write(QJsonDocument(QJsonObject{{"originalPath", m_filePath},
+                                             {"name", m_project.name},
+                                             {"savedAt", QDateTime::currentDateTime().toString(Qt::ISODate)},
+                                             {"duration", static_cast<double>(m_project.duration())}})
+                       .toJson());
+        meta.commit();
+    }
+    m_autosavedRevision = m_history.revision();
+}
+
+QVariantList ProjectController::recoverableProjects() const
+{
+    QVariantList out;
+    const QDir dir(recoveryDir());
+    for (const QFileInfo &fi : dir.entryInfoList({QStringLiteral("*.clivcut")}, QDir::Files, QDir::Time)) {
+        if (fi.completeBaseName() == m_project.id)
+            continue; // a sessão atual
+        QLockFile lock(fi.absoluteFilePath() + QStringLiteral(".lock"));
+        lock.setStaleLockTime(0);
+        if (!lock.tryLock(0))
+            continue; // outra janela do clivcut ainda está editando este projeto
+        lock.unlock();
+        QJsonObject meta;
+        QFile mf(fi.absoluteFilePath() + QStringLiteral(".json"));
+        if (mf.open(QIODevice::ReadOnly))
+            meta = QJsonDocument::fromJson(mf.readAll()).object();
+        out << QVariantMap{
+            {"file", fi.absoluteFilePath()},
+            {"name", meta.value("name").toString(fi.completeBaseName())},
+            {"originalPath", meta.value("originalPath").toString()},
+            {"savedAt", QDateTime::fromString(meta.value("savedAt").toString(), Qt::ISODate)
+                            .toString(QStringLiteral("dd/MM/yyyy HH:mm"))},
+            {"duration", meta.value("duration").toDouble()},
+        };
+    }
+    return out;
+}
+
+bool ProjectController::recoverProject(const QString &recoveryFile)
+{
+    Project p;
+    QString err;
+    if (!loadProjectFile(recoveryFile, p, &err)) {
+        emit errorOccurred(tr("Não foi possível recuperar: %1").arg(err));
+        return false;
+    }
+    QString original;
+    QFile mf(recoveryFile + QStringLiteral(".json"));
+    if (mf.open(QIODevice::ReadOnly))
+        original = QJsonDocument::fromJson(mf.readAll()).object().value("originalPath").toString();
+    setProject(std::move(p), original);
+    // O conteúdo recuperado ainda não foi salvo: fica marcado como modificado
+    // (um passo de histórico vazio) e a cópia continua até salvar.
+    m_history.push(m_project, tr("Recuperar projeto"));
+    m_autosavedRevision = 0;
+    commitChange();
+    autosaveNow();
+    if (recoveryFile != recoveryFileFor(m_project.id)) {
+        QFile::remove(recoveryFile + QStringLiteral(".lock"));
+        QFile::remove(recoveryFile);
+        QFile::remove(recoveryFile + QStringLiteral(".json"));
+    }
+    setStatus(tr("Projeto recuperado: salve para manter as alterações"));
+    return true;
+}
+
+void ProjectController::discardRecovery(const QString &recoveryFile)
+{
+    QFile::remove(recoveryFile + QStringLiteral(".lock"));
+    QFile::remove(recoveryFile);
+    QFile::remove(recoveryFile + QStringLiteral(".json"));
+}
+
+void ProjectController::discardChanges()
+{
+    removeRecovery();
+    m_savedRevision = m_history.revision();
+    emit modifiedChanged();
+}
+
+// ---------------------------------------------------------------------------
+// Editor de keyframes
+
+namespace {
+QVariantMap keyframeToMap(const Keyframe &k)
+{
+    return {{"t", static_cast<double>(k.t)}, {"v", k.v}, {"ease", easingName(k.ease)},
+            {"bx1", k.bx1}, {"by1", k.by1}, {"bx2", k.bx2}, {"by2", k.by2}};
+}
+} // namespace
+
+QVariantList ProjectController::keyframes(const QString &clipId, const QString &prop) const
+{
+    const Clip *c = edit::clipById(m_project, clipId);
+    const auto p = propFromKey(prop);
+    QVariantList out;
+    if (c && p)
+        for (const auto &k : c->keyframes[static_cast<int>(*p)])
+            out << keyframeToMap(k);
+    return out;
+}
+
+QVariantList ProjectController::sampleKeyframes(const QString &clipId, const QString &prop, int samples) const
+{
+    const Clip *c = edit::clipById(m_project, clipId);
+    const auto p = propFromKey(prop);
+    QVariantList out;
+    if (!c || !p || samples < 2)
+        return out;
+    for (int i = 0; i < samples; ++i)
+        out << propAt(*c, *p, c->duration * i / (samples - 1));
+    return out;
+}
+
+void ProjectController::moveKeyframe(const QString &clipId, const QString &prop, double fromT, double toT, double value)
+{
+    const auto p = propFromKey(prop);
+    if (!p)
+        return;
+    edit(tr("Mover keyframe"), [&](Project &proj) {
+        Clip *c = edit::clipById(proj, clipId);
+        if (!c)
+            return false;
+        auto &list = c->keyframes[static_cast<int>(*p)];
+        const Micros tol = proj.frameDuration() / 2;
+        auto it = std::find_if(list.begin(), list.end(),
+                               [&](const Keyframe &k) { return std::llabs(k.t - static_cast<Micros>(fromT)) <= tol; });
+        if (it == list.end())
+            return false;
+        Keyframe k = *it;
+        list.erase(it);
+        k.t = std::clamp<Micros>(proj.snapToFrame(static_cast<Micros>(toT)), 0, c->duration);
+        k.v = value;
+        upsertKeyframe(list, k, tol); // substitui se cair sobre outro keyframe
+        return true;
+    }, clipId + prop + QStringLiteral("kfmove"));
+}
+
+void ProjectController::setKeyframeEasing(const QString &clipId, const QString &prop, double t, const QString &ease)
+{
+    const auto p = propFromKey(prop);
+    if (!p)
+        return;
+    edit(tr("Suavização do keyframe"), [&](Project &proj) {
+        Clip *c = edit::clipById(proj, clipId);
+        if (!c)
+            return false;
+        for (auto &k : c->keyframes[static_cast<int>(*p)])
+            if (std::llabs(k.t - static_cast<Micros>(t)) <= proj.frameDuration() / 2) {
+                k.ease = easingFromName(ease);
+                return true;
+            }
+        return false;
+    });
+}
+
+void ProjectController::setKeyframeBezier(const QString &clipId, const QString &prop, double t, double x1, double y1,
+                                          double x2, double y2)
+{
+    const auto p = propFromKey(prop);
+    if (!p)
+        return;
+    edit(tr("Curva do keyframe"), [&](Project &proj) {
+        Clip *c = edit::clipById(proj, clipId);
+        if (!c)
+            return false;
+        for (auto &k : c->keyframes[static_cast<int>(*p)])
+            if (std::llabs(k.t - static_cast<Micros>(t)) <= proj.frameDuration() / 2) {
+                k.ease = Easing::Bezier;
+                k.bx1 = std::clamp(x1, 0.0, 1.0);
+                k.by1 = std::clamp(y1, -1.0, 2.0);
+                k.bx2 = std::clamp(x2, 0.0, 1.0);
+                k.by2 = std::clamp(y2, -1.0, 2.0);
+                return true;
+            }
+        return false;
+    }, clipId + prop + QStringLiteral("bezier"));
+}
+
+void ProjectController::setEasingForAll(const QString &clipId, const QString &prop, const QString &ease)
+{
+    const auto p = propFromKey(prop);
+    if (!p)
+        return;
+    edit(tr("Suavização dos keyframes"), [&](Project &proj) {
+        Clip *c = edit::clipById(proj, clipId);
+        if (!c || c->keyframes[static_cast<int>(*p)].empty())
+            return false;
+        for (auto &k : c->keyframes[static_cast<int>(*p)])
+            k.ease = easingFromName(ease);
+        return true;
+    });
+}

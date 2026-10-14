@@ -1,0 +1,489 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import QtCore
+import Clivcut
+
+Rectangle {
+    id: root
+    signal importRequested()
+    signal importDraftRequested()
+    signal relinkRequested(string assetId)
+
+    color: Theme.panel
+
+    Settings {
+        category: "panels"
+        property alias mediaTab: tabs.currentIndex
+    }
+
+    readonly property var sel: Project.selectedClip
+    readonly property bool hasSel: sel.id !== undefined
+
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: 0
+
+        TabBar {
+            id: tabs
+            Layout.fillWidth: true
+            background: Rectangle { color: Theme.panel }
+            Repeater {
+                model: [
+                    { glyph: "▣", label: qsTr("Mídia") },
+                    { glyph: "T", label: qsTr("Texto") },
+                    { glyph: "≋", label: qsTr("Legendas") },
+                    { glyph: "◐", label: qsTr("Filtros") },
+                    { glyph: "⇄", label: qsTr("Transições") },
+                    { glyph: "✦", label: qsTr("Animações") }
+                ]
+                TabButton {
+                    id: tabButton
+                    required property var modelData
+                    focusPolicy: Qt.NoFocus
+                    implicitHeight: 48
+                    contentItem: Column {
+                        spacing: 2
+                        topPadding: 4
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            height: 20
+                            verticalAlignment: Text.AlignVCenter
+                            text: tabButton.modelData.glyph
+                            color: tabButton.checked ? Theme.accent : Theme.textDim
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+                        Text {
+                            width: tabButton.width - 4
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            horizontalAlignment: Text.AlignHCenter
+                            text: tabButton.modelData.label
+                            color: tabButton.checked ? Theme.accent : Theme.textDim
+                            font.pixelSize: 10
+                            elide: Text.ElideRight
+                        }
+                    }
+                    background: Rectangle {
+                        color: tabButton.hovered ? Theme.surface : "transparent"
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            width: parent.width
+                            height: 2
+                            color: tabButton.checked ? Theme.accent : "transparent"
+                        }
+                    }
+                }
+            }
+        }
+
+        StackLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            currentIndex: tabs.currentIndex
+
+            // ---------------- Mídia ----------------
+            ColumnLayout {
+                spacing: 8
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.margins: 10
+                    Button {
+                        text: qsTr("+  Importar")
+                        Layout.fillWidth: true
+                        focusPolicy: Qt.NoFocus
+                        onClicked: root.importRequested()
+                    }
+                    Button {
+                        text: qsTr("Importar draft")
+                        focusPolicy: Qt.NoFocus
+                        onClicked: root.importDraftRequested()
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Importar um projeto em formato draft JSON (pasta com draft_content.json)")
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: Project.assets.length === 0
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 10
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "⇩"
+                            color: Theme.textFaint
+                            font.pixelSize: 42
+                        }
+                        Text {
+                            width: 220
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.Wrap
+                            text: qsTr("Arraste vídeos, áudios e imagens para cá ou clique em Importar")
+                            color: Theme.textDim
+                            font.pixelSize: Theme.fontNormal
+                        }
+                    }
+                }
+
+                GridView {
+                    id: grid
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.leftMargin: 10
+                    visible: Project.assets.length > 0
+                    clip: true
+                    cellWidth: Math.floor((width - 4) / Math.max(1, Math.floor((width - 4) / 150)))
+                    cellHeight: cellWidth * 9 / 16 + 30
+                    model: Project.assets
+                    ScrollBar.vertical: ScrollBar {}
+
+                    delegate: Item {
+                        id: tile
+                        required property var modelData
+                        width: grid.cellWidth
+                        height: grid.cellHeight
+
+                        Rectangle {
+                            id: card
+                            z: 1 // acima da área de arraste: o botão "+" recebe cliques
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            radius: Theme.radius
+                            color: Theme.surface
+                            border.color: dragArea.containsMouse ? Theme.accent : "transparent"
+                            clip: true
+
+                            Image {
+                                id: thumb
+                                width: parent.width
+                                height: parent.width * 9 / 16
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                visible: tile.modelData.kind !== "audio"
+                                source: tile.modelData.kind !== "audio" ? "image://thumb/" + tile.modelData.id + "/" + Math.min(1000000, tile.modelData.duration / 2) : ""
+                                sourceSize.width: 240
+                            }
+                            Rectangle {
+                                visible: tile.modelData.kind === "audio"
+                                width: parent.width
+                                height: parent.width * 9 / 16
+                                color: Theme.clipAudio
+                                Image {
+                                    anchors.fill: parent
+                                    anchors.margins: 6
+                                    source: tile.modelData.kind === "audio" ? "image://wave/" + tile.modelData.id + "/0/" + tile.modelData.duration + "/bfffe3" : ""
+                                    sourceSize: Qt.size(240, 60)
+                                    asynchronous: true
+                                }
+                            }
+                            Rectangle {
+                                visible: tile.modelData.kind !== "image"
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: 4
+                                width: durText.implicitWidth + 8
+                                height: 16
+                                radius: 3
+                                color: "#b0000000"
+                                Text {
+                                    id: durText
+                                    anchors.centerIn: parent
+                                    text: Project.formatTime(tile.modelData.duration).substring(0, 5)
+                                    color: "white"
+                                    font.pixelSize: 10
+                                }
+                            }
+                            Rectangle {
+                                visible: tile.modelData.uses > 0
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.margins: 4
+                                width: 16
+                                height: 16
+                                radius: 8
+                                color: Theme.accent
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "✓"
+                                    color: "black"
+                                    font.pixelSize: 10
+                                }
+                            }
+                            // Proxy: pronto (P), na fila (P…) ou gerando (barra).
+                            Rectangle {
+                                visible: tile.modelData.proxyState === "ready" || tile.modelData.proxyState === "queued"
+                                anchors.left: parent.left
+                                anchors.bottom: thumb.bottom
+                                anchors.margins: 4
+                                width: proxyText.implicitWidth + 8
+                                height: 16
+                                radius: 3
+                                color: tile.modelData.proxyState === "ready" ? Theme.accent : "#b0000000"
+                                Text {
+                                    id: proxyText
+                                    anchors.centerIn: parent
+                                    text: tile.modelData.proxyState === "ready" ? "P" : "P…"
+                                    color: tile.modelData.proxyState === "ready" ? "black" : Theme.textDim
+                                    font.pixelSize: 10
+                                    font.bold: true
+                                }
+                                ToolTip.visible: proxyHover.hovered
+                                ToolTip.text: tile.modelData.proxyState === "ready" ? qsTr("Proxy pronto: reprodução leve")
+                                                                                   : qsTr("Proxy na fila")
+                                HoverHandler { id: proxyHover }
+                            }
+                            ProgressBar {
+                                visible: tile.modelData.proxyState === "building"
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: thumb.bottom
+                                anchors.margins: 4
+                                value: tile.modelData.proxyProgress
+                                ToolTip.visible: visible && barHover.hovered
+                                ToolTip.text: qsTr("Gerando proxy… %1%").arg(Math.round(value * 100))
+                                HoverHandler { id: barHover }
+                            }
+                            Text {
+                                anchors.bottom: parent.bottom
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.margins: 6
+                                text: tile.modelData.missing ? "⚠ " + tile.modelData.name : tile.modelData.name
+                                color: tile.modelData.missing ? Theme.danger : Theme.textDim
+                                font.pixelSize: Theme.fontSmall
+                                elide: Text.ElideMiddle
+                            }
+                            Rectangle {
+                                visible: dragArea.containsMouse
+                                anchors.right: parent.right
+                                anchors.bottom: thumb.bottom
+                                anchors.margins: 4
+                                width: 22
+                                height: 22
+                                radius: 11
+                                color: Theme.accent
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "+"
+                                    color: "black"
+                                    font.bold: true
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: Project.addAssetToTimeline(tile.modelData.id, -1, -1)
+                                }
+                                z: 2
+                            }
+                        }
+
+                        Menu {
+                            id: tileMenu
+                            MenuItem {
+                                text: qsTr("Adicionar à timeline")
+                                enabled: !tile.modelData.missing
+                                onTriggered: Project.addAssetToTimeline(tile.modelData.id, -1, -1)
+                            }
+                            MenuItem {
+                                text: tile.modelData.proxyState === "ready" ? qsTr("Proxy pronto") : qsTr("Gerar proxy")
+                                visible: tile.modelData.kind === "video"
+                                height: visible ? implicitHeight : 0
+                                enabled: tile.modelData.proxyState === "none" && !tile.modelData.missing
+                                onTriggered: Project.generateProxy(tile.modelData.id)
+                            }
+                            MenuItem {
+                                text: qsTr("Reconectar mídia…")
+                                onTriggered: root.relinkRequested(tile.modelData.id)
+                            }
+                        }
+                        MouseArea {
+                            id: dragArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onClicked: (m) => { if (m.button === Qt.RightButton) tileMenu.popup() }
+                            drag.target: dragProxy
+                            onDoubleClicked: {
+                                if (tile.modelData.missing)
+                                    root.relinkRequested(tile.modelData.id);
+                                else
+                                    Project.addAssetToTimeline(tile.modelData.id, -1, -1);
+                            }
+                        }
+                        // Arraste nativo (atravessa painéis) com o id da mídia.
+                        Item {
+                            id: dragProxy
+                            width: 1
+                            height: 1
+                            Drag.active: dragArea.drag.active
+                            Drag.dragType: Drag.Automatic
+                            Drag.supportedActions: Qt.CopyAction
+                            Drag.mimeData: { "clivcut/asset": tile.modelData.id }
+                            Drag.keys: ["clivcut/asset"]
+                        }
+                    }
+                }
+            }
+
+            // ---------------- Texto ----------------
+            Flickable {
+                contentHeight: textCol.implicitHeight + 20
+                clip: true
+                ColumnLayout {
+                    id: textCol
+                    x: 10
+                    y: 10
+                    width: parent.width - 20
+                    SectionLabel { text: qsTr("Adicionar texto") }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        TileButton { glyph: "Aa"; caption: qsTr("Texto padrão"); onClicked: Project.addText("", "") }
+                        TileButton { glyph: "T"; caption: qsTr("Título"); tint: "#3a2a55"; onClicked: Project.addText("", "title") }
+                        TileButton { glyph: "▭"; caption: qsTr("Legenda"); tint: "#202024"; onClicked: Project.addText("", "subtitle") }
+                        TileButton { glyph: "★"; caption: qsTr("Destaque"); tint: "#4d4310"; onClicked: Project.addText("", "highlight") }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        Layout.topMargin: 12
+                        wrapMode: Text.Wrap
+                        color: Theme.textFaint
+                        font.pixelSize: Theme.fontSmall
+                        text: qsTr("O texto entra no cursor da timeline, numa faixa de texto. Edite o conteúdo e o estilo no painel à direita.")
+                    }
+                }
+            }
+
+            // ---------------- Legendas ----------------
+            CaptionsPanel {}
+
+            // ---------------- Filtros ----------------
+            FiltersPanel {}
+
+            // ---------------- Transições ----------------
+            Flickable {
+                contentHeight: trCol.implicitHeight + 20
+                clip: true
+                ColumnLayout {
+                    id: trCol
+                    x: 10
+                    y: 10
+                    width: parent.width - 20
+                    SectionLabel { text: qsTr("Transição de entrada do clipe selecionado") }
+                    Text {
+                        Layout.fillWidth: true
+                        visible: !root.hasSel || root.sel.type !== "media"
+                        wrapMode: Text.Wrap
+                        color: Theme.textFaint
+                        font.pixelSize: Theme.fontSmall
+                        text: qsTr("Selecione um clipe que venha logo depois de outro na mesma faixa.")
+                    }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        enabled: root.hasSel && root.sel.type === "media"
+                        opacity: enabled ? 1 : 0.4
+                        Repeater {
+                            model: [
+                                { kind: "none", glyph: "∅", name: qsTr("Nenhuma") },
+                                { kind: "dissolve", glyph: "◐", name: qsTr("Dissolver") },
+                                { kind: "fadeBlack", glyph: "■", name: qsTr("Escurecer") },
+                                { kind: "wipeLeft", glyph: "⇥", name: qsTr("Cortina →") },
+                                { kind: "wipeRight", glyph: "⇤", name: qsTr("Cortina ←") },
+                                { kind: "slideLeft", glyph: "⇠", name: qsTr("Deslizar ←") },
+                                { kind: "slideRight", glyph: "⇢", name: qsTr("Deslizar →") },
+                                { kind: "circleOpen", glyph: "◎", name: qsTr("Círculo") },
+                                { kind: "zoomIn", glyph: "⤢", name: qsTr("Zoom") }
+                            ]
+                            TileButton {
+                                required property var modelData
+                                glyph: modelData.glyph
+                                caption: modelData.name
+                                selected: root.hasSel && (root.sel.transition === modelData.kind || (modelData.kind === "none" && !root.sel.transition))
+                                onClicked: Project.setTransition(root.sel.id, modelData.kind, root.sel.transitionDuration > 0 ? root.sel.transitionDuration : 500000)
+                            }
+                        }
+                    }
+                    PropSlider {
+                        visible: root.hasSel && root.sel.transition !== undefined && root.sel.transition !== ""
+                        label: qsTr("Duração")
+                        from: 0.1
+                        to: 3
+                        stepSize: 0.1
+                        decimals: 1
+                        suffix: "s"
+                        value: root.hasSel ? (root.sel.transitionDuration || 500000) / 1e6 : 0.5
+                        onMoved: (v) => Project.setTransition(root.sel.id, root.sel.transition, v * 1e6)
+                    }
+                }
+            }
+
+            // ---------------- Animações ----------------
+            Flickable {
+                contentHeight: anCol.implicitHeight + 20
+                clip: true
+                ColumnLayout {
+                    id: anCol
+                    x: 10
+                    y: 10
+                    width: parent.width - 20
+                    Text {
+                        Layout.fillWidth: true
+                        visible: !root.hasSel
+                        wrapMode: Text.Wrap
+                        color: Theme.textFaint
+                        font.pixelSize: Theme.fontSmall
+                        text: qsTr("Selecione um clipe para aplicar animações de entrada e saída.")
+                    }
+                    Repeater {
+                        model: [{ isIn: true, title: qsTr("Entrada") }, { isIn: false, title: qsTr("Saída") }]
+                        ColumnLayout {
+                            id: animGroup
+                            required property var modelData
+                            Layout.fillWidth: true
+                            enabled: root.hasSel
+                            opacity: enabled ? 1 : 0.4
+                            readonly property string current: root.hasSel ? (modelData.isIn ? root.sel.animIn : root.sel.animOut) : "none"
+                            readonly property real dur: root.hasSel ? (modelData.isIn ? root.sel.animInDuration : root.sel.animOutDuration) : 500000
+                            SectionLabel { text: animGroup.modelData.title }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Repeater {
+                                    model: [
+                                        { kind: "none", glyph: "∅", name: qsTr("Nenhuma") },
+                                        { kind: "fade", glyph: "◐", name: qsTr("Esmaecer") },
+                                        { kind: "zoom", glyph: "⤢", name: qsTr("Zoom") },
+                                        { kind: "slideUp", glyph: "↑", name: qsTr("Subir") },
+                                        { kind: "slideDown", glyph: "↓", name: qsTr("Descer") },
+                                        { kind: "slideLeft", glyph: "←", name: qsTr("Esquerda") },
+                                        { kind: "slideRight", glyph: "→", name: qsTr("Direita") }
+                                    ]
+                                    TileButton {
+                                        required property var modelData
+                                        glyph: modelData.glyph
+                                        caption: modelData.name
+                                        selected: animGroup.current === modelData.kind
+                                        onClicked: Project.setAnimation(root.sel.id, animGroup.modelData.isIn, modelData.kind, animGroup.dur)
+                                    }
+                                }
+                            }
+                            PropSlider {
+                                visible: animGroup.current !== "none"
+                                label: qsTr("Duração")
+                                from: 0.1
+                                to: 3
+                                stepSize: 0.1
+                                decimals: 1
+                                suffix: "s"
+                                value: animGroup.dur / 1e6
+                                onMoved: (v) => Project.setAnimation(root.sel.id, animGroup.modelData.isIn, animGroup.current, v * 1e6)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

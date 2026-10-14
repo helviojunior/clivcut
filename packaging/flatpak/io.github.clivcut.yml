@@ -1,0 +1,87 @@
+# Flatpak do clivcut.
+#
+#   flatpak install flathub org.kde.Sdk//6.9 org.kde.Platform//6.9
+#   flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.clivcut.yml
+#   flatpak run io.github.clivcut
+#
+# FFmpeg é compilado aqui com x264 (GPL) e VA-API; o do runtime não tem H.264.
+app-id: io.github.clivcut
+runtime: org.kde.Platform
+runtime-version: '6.9'
+sdk: org.kde.Sdk
+command: clivcut
+rename-desktop-file: io.github.clivcut.desktop
+rename-icon: io.github.clivcut
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --device=dri
+  # Download dos modelos de legendas (opcional, sob demanda).
+  - --share=network
+  # Projetos referenciam mídias por caminho absoluto em qualquer lugar da pasta pessoal.
+  - --filesystem=home
+  - --filesystem=xdg-run/pipewire-0
+  - --env=QT_QPA_PLATFORM=wayland;xcb
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /lib/cmake
+  - /share/man
+  - '*.a'
+modules:
+  - name: x264
+    config-opts:
+      - --enable-shared
+      - --enable-pic
+      - --disable-cli
+    sources:
+      - type: git
+        url: https://code.videolan.org/videolan/x264.git
+        branch: stable
+
+  - name: ffmpeg
+    config-opts:
+      - --enable-gpl
+      - --enable-shared
+      - --disable-static
+      - --disable-programs
+      - --disable-doc
+      - --enable-libx264
+      - --enable-libdav1d
+      - --enable-libopus
+      - --enable-libvpx
+      - --enable-vaapi
+      - --enable-vulkan
+    sources:
+      - type: git
+        url: https://git.ffmpeg.org/ffmpeg.git
+        tag: n8.0
+
+  - name: whisper-cpp
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DBUILD_SHARED_LIBS=ON
+      - -DWHISPER_BUILD_TESTS=OFF
+      - -DWHISPER_BUILD_EXAMPLES=OFF
+      - -DWHISPER_BUILD_SERVER=OFF
+      - -DGGML_NATIVE=OFF
+    sources:
+      - type: git
+        url: https://github.com/ggml-org/whisper.cpp.git
+        tag: v1.9.4
+
+  - name: clivcut
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCLIVCUT_BUILD_TESTS=OFF
+    sources:
+      - type: dir
+        path: ../..
+        skip:
+          - build
+          - build-appimage
+          - dist

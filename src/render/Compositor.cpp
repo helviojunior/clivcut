@@ -1,0 +1,512 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "Compositor.h"
+
+#include "TextRaster.h"
+#include "core/Lut.h"
+
+#include <QFile>
+#include <QFloat16>
+#include <QMatrix4x4>
+#include <QtMath>
+
+#include <rhi/qshader.h>
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstring>
+
+namespace clv::render {
+
+namespace {
+
+constexpr int kMaxLayers = 128;
+constexpr int kFloatsPerVertex = 4; // x, y, u, v
+
+QShader loadShader(const QString &name)
+{
+    QFile f(QStringLiteral(":/clivcut/shaders/") + name + QStringLiteral(".qsb"));
+    if (!f.open(QIODevice::ReadOnly))
+        qFatal("Shader ausente: %s", qPrintable(name));
+    return QShader::fromSerialized(f.readAll());
+}
+
+int blendIndex(BlendMode m)
+{
+    return static_cast<int>(m);
+}
+
+} // namespace
+
+struct Compositor::LayerUbo {
+    float mvp[16];
+    float canvasSize[4];
+    float adjust[4];
+    float chromaColor[4];
+    float chromaParams[4];
+    float mask[4];
+    float misc[4];
+    float adjust2[4];
+    float adjust3[4];
+    float clipMask[4];
+    float clipMaskGeom[4];
+    float clipMaskExtra[4];
+};
+
+struct Compositor::Slot {
+    std::unique_ptr<QRhiTexture> tex; ///< nulo em camadas de ajuste (usam o backdrop)
+    std::unique_ptr<QRhiShaderResourceBindings> srb;
+    QRhiTexture *filterLut = nullptr;
+    QRhiTexture *userLut = nullptr;
+    bool usesBackdrop = false;
+    QSize size;
+    qint64 imageKey = -1;
+    quint64 lastFrame = 0;
+};
+
+Compositor::Compositor(QRhi *rhi) : m_rhi(rhi) {}
+
+Compositor::~Compositor() = default;
+
+void Compositor::setRenderSize(QSize size)
+{
+    size = size.expandedTo(QSize(2, 2));
+    if (size == m_size)
+        return;
+    m_size = size;
+    // Recria tudo que depende do tamanho (as SRBs referenciam o backdrop).
+    m_slots.clear();
+    m_accum.reset();
+}
+
+QRhiTexture *Compositor::lutTexture(const QString &key, QRhiResourceUpdateBatch *u)
+{
+    if (key.isEmpty() || !m_rhi->isFeatureSupported(QRhi::ThreeDimensionalTextures))
+        return m_identityLut.get();
+    if (auto it = m_luts.find(key); it != m_luts.end())
+        return it->second.get();
+    const auto lut = lutForKey(key);
+    if (!lut) {
+        m_luts[key] = nullptr;
+        return m_identityLut.get();
+    }
+    m_luts[key] = uploadLut(*lut, u);
+    return m_luts[key].get();
+}
+
+std::unique_ptr<QRhiTexture> Compositor::uploadLut(const Lut3D &lut, QRhiResourceUpdateBatch *u)
+{
+    const int n = lut.size;
+    std::unique_ptr<QRhiTexture> tex(m_rhi->newTexture(QRhiTexture::RGBA16F, n, n, n, 1, QRhiTexture::ThreeDimensional));
+    tex->create();
+    QList<QRhiTextureUploadEntry> entries;
+    for (int z = 0; z < n; ++z) {
+        QByteArray slice(n * n * 4 * static_cast<int>(sizeof(qfloat16)), Qt::Uninitialized);
+        auto *dst = reinterpret_cast<qfloat16 *>(slice.data());
+        const float *src = lut.rgb.data() + static_cast<size_t>(z) * n * n * 3;
+        for (int i = 0; i < n * n; ++i) {
+            dst[i * 4 + 0] = qfloat16(src[i * 3 + 0]);
+            dst[i * 4 + 1] = qfloat16(src[i * 3 + 1]);
+            dst[i * 4 + 2] = qfloat16(src[i * 3 + 2]);
+            dst[i * 4 + 3] = qfloat16(1.0f);
+        }
+        entries.append(QRhiTextureUploadEntry(z, 0, QRhiTextureSubresourceUploadDescription(slice)));
+    }
+    QRhiTextureUploadDescription desc;
+    desc.setEntries(entries.begin(), entries.end());
+    u->uploadTexture(tex.get(), desc);
+    return tex;
+}
+
+void Compositor::ensureResources(QRhiResourceUpdateBatch *u)
+{
+    if (!m_identityLut) {
+        Lut3D identity;
+        identity.size = 2;
+        identity.rgb = {0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1};
+        if (m_rhi->isFeatureSupported(QRhi::ThreeDimensionalTextures))
+            m_identityLut = uploadLut(identity, u);
+        else {
+            m_identityLut.reset(m_rhi->newTexture(QRhiTexture::RGBA8, QSize(1, 1)));
+            m_identityLut->create();
+        }
+    }
+    if (m_accum)
+        return;
+    m_accum.reset(m_rhi->newTexture(QRhiTexture::RGBA8, m_size, 1,
+                                    QRhiTexture::RenderTarget | QRhiTexture::UsedAsTransferSource));
+    m_accum->create();
+    m_backdrop.reset(m_rhi->newTexture(QRhiTexture::RGBA8, m_size, 1, QRhiTexture::UsedAsTransferSource));
+    m_backdrop->create();
+
+    m_rtClear.reset(m_rhi->newTextureRenderTarget({m_accum.get()}));
+    m_rpClear.reset(m_rtClear->newCompatibleRenderPassDescriptor());
+    m_rtClear->setRenderPassDescriptor(m_rpClear.get());
+    m_rtClear->create();
+    m_rtLoad.reset(m_rhi->newTextureRenderTarget({m_accum.get()}, QRhiTextureRenderTarget::PreserveColorContents));
+    m_rpLoad.reset(m_rtLoad->newCompatibleRenderPassDescriptor());
+    m_rtLoad->setRenderPassDescriptor(m_rpLoad.get());
+    m_rtLoad->create();
+
+    if (!m_sampler) {
+        m_sampler.reset(m_rhi->newSampler(QRhiSampler::Linear, QRhiSampler::Linear, QRhiSampler::None,
+                                          QRhiSampler::ClampToEdge, QRhiSampler::ClampToEdge));
+        m_sampler->create();
+        m_uboStride = m_rhi->ubufAligned(sizeof(LayerUbo));
+        m_ubo.reset(m_rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, m_uboStride * kMaxLayers));
+        m_ubo->create();
+        m_vbo.reset(m_rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::VertexBuffer,
+                                     kMaxLayers * 4 * kFloatsPerVertex * sizeof(float)));
+        m_vbo->create();
+    }
+
+    // SRB de layout (compatível com as SRBs de cada slot).
+    m_layoutSrb.reset(m_rhi->newShaderResourceBindings());
+    m_layoutSrb->setBindings({
+        QRhiShaderResourceBinding::uniformBufferWithDynamicOffset(
+            0, QRhiShaderResourceBinding::VertexStage | QRhiShaderResourceBinding::FragmentStage, m_ubo.get(),
+            sizeof(LayerUbo)),
+        QRhiShaderResourceBinding::sampledTexture(1, QRhiShaderResourceBinding::FragmentStage, m_backdrop.get(),
+                                                  m_sampler.get()),
+        QRhiShaderResourceBinding::sampledTexture(2, QRhiShaderResourceBinding::FragmentStage, m_backdrop.get(),
+                                                  m_sampler.get()),
+        QRhiShaderResourceBinding::sampledTexture(3, QRhiShaderResourceBinding::FragmentStage, m_identityLut.get(),
+                                                  m_sampler.get()),
+        QRhiShaderResourceBinding::sampledTexture(4, QRhiShaderResourceBinding::FragmentStage, m_identityLut.get(),
+                                                  m_sampler.get()),
+    });
+    m_layoutSrb->create();
+
+    auto makePipe = [&](bool premulBlend) {
+        std::unique_ptr<QRhiGraphicsPipeline> pipe(m_rhi->newGraphicsPipeline());
+        pipe->setTopology(QRhiGraphicsPipeline::TriangleStrip);
+        pipe->setShaderStages({{QRhiShaderStage::Vertex, loadShader(QStringLiteral("layer.vert"))},
+                               {QRhiShaderStage::Fragment, loadShader(QStringLiteral("layer.frag"))}});
+        QRhiVertexInputLayout layout;
+        layout.setBindings({{kFloatsPerVertex * sizeof(float)}});
+        layout.setAttributes({{0, 0, QRhiVertexInputAttribute::Float2, 0},
+                              {0, 1, QRhiVertexInputAttribute::Float2, 2 * sizeof(float)}});
+        pipe->setVertexInputLayout(layout);
+        if (premulBlend) {
+            QRhiGraphicsPipeline::TargetBlend b;
+            b.enable = true;
+            b.srcColor = QRhiGraphicsPipeline::One;
+            b.dstColor = QRhiGraphicsPipeline::OneMinusSrcAlpha;
+            b.srcAlpha = QRhiGraphicsPipeline::One;
+            b.dstAlpha = QRhiGraphicsPipeline::OneMinusSrcAlpha;
+            pipe->setTargetBlends({b});
+        }
+        pipe->setShaderResourceBindings(m_layoutSrb.get());
+        pipe->setRenderPassDescriptor(m_rpClear.get());
+        pipe->create();
+        return pipe;
+    };
+    m_pipeNormal = makePipe(true);
+    m_pipeReplace = makePipe(false);
+}
+
+Compositor::Slot &Compositor::slotFor(const QString &key, QSize texSize, QRhiTexture *filterLut, QRhiTexture *userLut,
+                                      bool usesBackdrop)
+{
+    auto &ptr = m_slots[key];
+    if (!ptr)
+        ptr = std::make_shared<Slot>();
+    Slot &s = *ptr;
+    bool rebuild = !s.srb || s.filterLut != filterLut || s.userLut != userLut || s.usesBackdrop != usesBackdrop;
+    if (!usesBackdrop && (!s.tex || s.size != texSize)) {
+        s.tex.reset(m_rhi->newTexture(QRhiTexture::RGBA8, texSize));
+        s.tex->create();
+        s.size = texSize;
+        s.imageKey = -1;
+        rebuild = true;
+    }
+    if (usesBackdrop)
+        s.tex.reset();
+    if (rebuild) {
+        s.filterLut = filterLut;
+        s.userLut = userLut;
+        s.usesBackdrop = usesBackdrop;
+        QRhiTexture *layerTex = usesBackdrop ? m_backdrop.get() : s.tex.get();
+        s.srb.reset(m_rhi->newShaderResourceBindings());
+        s.srb->setBindings({
+            QRhiShaderResourceBinding::uniformBufferWithDynamicOffset(
+                0, QRhiShaderResourceBinding::VertexStage | QRhiShaderResourceBinding::FragmentStage, m_ubo.get(),
+                sizeof(LayerUbo)),
+            QRhiShaderResourceBinding::sampledTexture(1, QRhiShaderResourceBinding::FragmentStage, layerTex,
+                                                      m_sampler.get()),
+            QRhiShaderResourceBinding::sampledTexture(2, QRhiShaderResourceBinding::FragmentStage, m_backdrop.get(),
+                                                      m_sampler.get()),
+            QRhiShaderResourceBinding::sampledTexture(3, QRhiShaderResourceBinding::FragmentStage, filterLut,
+                                                      m_sampler.get()),
+            QRhiShaderResourceBinding::sampledTexture(4, QRhiShaderResourceBinding::FragmentStage, userLut,
+                                                      m_sampler.get()),
+        });
+        s.srb->create();
+    }
+    s.lastFrame = m_frameCounter;
+    return s;
+}
+
+void Compositor::fillUbo(LayerUbo &u, const VisualLayer &l, const Project &p, double frameAspect) const
+{
+    std::memset(&u, 0, sizeof u);
+    QMatrix4x4 m = m_rhi->clipSpaceCorrMatrix();
+    m.ortho(0, m_size.width(), m_size.height(), 0, -1, 1);
+    std::memcpy(u.mvp, m.constData(), sizeof u.mvp);
+    u.canvasSize[0] = m_size.width();
+    u.canvasSize[1] = m_size.height();
+    u.adjust[0] = static_cast<float>(l.brightness);
+    u.adjust[1] = static_cast<float>(l.contrast);
+    u.adjust[2] = static_cast<float>(l.saturation);
+    u.adjust[3] = static_cast<float>(l.temperature);
+    if (l.clip && l.clip->chroma.enabled && !l.clip->isText()) {
+        const QColor c(l.clip->chroma.color);
+        u.chromaColor[0] = c.redF();
+        u.chromaColor[1] = c.greenF();
+        u.chromaColor[2] = c.blueF();
+        u.chromaColor[3] = 1;
+        u.chromaParams[0] = static_cast<float>(l.clip->chroma.similarity);
+        u.chromaParams[1] = static_cast<float>(l.clip->chroma.smoothness);
+    }
+    u.mask[0] = static_cast<float>(l.mask);
+    u.mask[1] = static_cast<float>(l.maskProgress);
+    u.mask[2] = static_cast<float>(p.width) / p.height;
+    u.misc[0] = static_cast<float>(std::clamp(l.opacity, 0.0, 1.0));
+    u.misc[1] = static_cast<float>(blendIndex(l.blend));
+    u.misc[2] = m_rhi->isYUpInFramebuffer() ? 1.f : 0.f;
+    if (l.clip && !l.clip->isText()) {
+        const ColorAdjust &c = l.clip->color;
+        u.adjust2[0] = static_cast<float>(c.exposure);
+        u.adjust2[1] = static_cast<float>(c.tint);
+        u.adjust2[2] = static_cast<float>(c.highlights);
+        u.adjust2[3] = static_cast<float>(c.shadows);
+        u.adjust3[0] = static_cast<float>(c.vignette);
+        u.adjust3[1] = static_cast<float>(c.sharpen);
+        const bool lut3d = m_rhi->isFeatureSupported(QRhi::ThreeDimensionalTextures);
+        u.adjust3[2] = lut3d && c.hasFilter() ? static_cast<float>(c.filterIntensity) : 0.f;
+        u.adjust3[3] = lut3d && c.hasLut() ? static_cast<float>(c.lutIntensity) : 0.f;
+        u.misc[3] = l.clip->isAdjust() ? 1.f : 0.f;
+    }
+    if (l.clip && l.clip->mask.active() && !l.clip->isText()) {
+        const Mask &m = l.clip->mask;
+        u.clipMask[0] = static_cast<float>(m.shape);
+        u.clipMask[1] = m.invert ? 1.f : 0.f;
+        u.clipMask[2] = static_cast<float>(m.feather);
+        u.clipMask[3] = static_cast<float>(m.roundness);
+        u.clipMaskGeom[0] = static_cast<float>(m.x);
+        u.clipMaskGeom[1] = static_cast<float>(m.y);
+        u.clipMaskGeom[2] = static_cast<float>(m.width);
+        u.clipMaskGeom[3] = static_cast<float>(m.height);
+        u.clipMaskExtra[0] = static_cast<float>(qDegreesToRadians(m.rotation));
+        u.clipMaskExtra[1] = static_cast<float>(frameAspect);
+    }
+}
+
+void Compositor::composite(QRhiCommandBuffer *cb, const Project &p, const FrameDesc &frame, FrameSource &source)
+{
+    ++m_frameCounter;
+    QRhiResourceUpdateBatch *u = m_rhi->nextResourceUpdateBatch();
+    ensureResources(u);
+
+    const double k = static_cast<double>(m_size.width()) / p.width; // px de render por px do projeto
+    struct Draw {
+        Slot *slot;
+        bool normal;
+        int index;
+    };
+    std::vector<Draw> draws;
+    std::vector<float> verts;
+    verts.reserve(kMaxLayers * 4 * kFloatsPerVertex);
+
+    for (const VisualLayer &l : frame.layers) {
+        if (static_cast<int>(draws.size()) >= kMaxLayers)
+            break;
+        if (l.opacity <= 0.001 || !l.clip)
+            continue;
+
+        const ColorAdjust &color = l.clip->color;
+        QRhiTexture *filterLut = l.clip->isText() || !color.hasFilter() ? m_identityLut.get() : lutTexture(color.filter, u);
+        QRhiTexture *userLut = l.clip->isText() || !color.hasLut() ? m_identityLut.get() : lutTexture(color.lutPath, u);
+
+        if (l.clip->isAdjust()) {
+            // Camada de ajuste: quadro inteiro, amostrando o fundo já composto.
+            Slot &slot = slotFor(l.clip->id, {}, filterLut, userLut, true);
+            const bool flipV = m_rhi->isYUpInFramebuffer();
+            const float W = m_size.width(), H = m_size.height();
+            const float t0 = flipV ? 1.f : 0.f, t1 = flipV ? 0.f : 1.f;
+            verts.insert(verts.end(), {0, 0, 0, t0, W, 0, 1, t0, 0, H, 0, t1, W, H, 1, t1});
+            LayerUbo ubo;
+            fillUbo(ubo, l, p, static_cast<double>(p.width) / p.height);
+            const int index = static_cast<int>(draws.size());
+            u->updateDynamicBuffer(m_ubo.get(), index * m_uboStride, sizeof ubo, &ubo);
+            draws.push_back({&slot, false, index});
+            continue;
+        }
+
+        QImage img;
+        QString key;
+        QSizeF natural; // tamanho natural em px do projeto antes de escala
+        double fit = 1;
+        qint64 imageKey;
+        if (l.clip->isText()) {
+            const double pxScale = p.height / kTextReferenceHeight * k;
+            const quint64 tkey = textCacheKey(*l.clip, pxScale);
+            key = l.clip->id;
+            auto it = m_slots.find(key);
+            if (it != m_slots.end() && (*it)->imageKey == static_cast<qint64>(tkey)) {
+                natural = QSizeF((*it)->size) / k;
+                imageKey = static_cast<qint64>(tkey);
+            } else {
+                img = rasterizeText(*l.clip, pxScale);
+                natural = QSizeF(img.size()) / k;
+                imageKey = static_cast<qint64>(tkey);
+            }
+        } else {
+            img = source.frameFor(l);
+            if (img.isNull())
+                continue;
+            key = l.clip->id;
+            imageKey = img.cacheKey();
+            natural = (l.asset && l.asset->width > 0) ? QSizeF(l.asset->width, l.asset->height) : QSizeF(img.size());
+            fit = std::min(p.width / natural.width(), p.height / natural.height());
+        }
+
+        const QSize texSize = img.isNull() ? m_slots[key]->size : img.size();
+        Slot &slot = slotFor(key, texSize, filterLut, userLut, false);
+        if (!img.isNull() && slot.imageKey != imageKey) {
+            u->uploadTexture(slot.tex.get(), img);
+            slot.imageKey = imageKey;
+        }
+
+        // Geometria: retângulo (com crop) centrado, girado e posicionado.
+        const double s = fit * l.scale;
+        const double w = natural.width() * s;
+        const double h = natural.height() * s;
+        Crop crop = l.clip->isText() ? Crop{} : l.clip->crop;
+        const double u0 = crop.left, v0 = crop.top, u1 = 1 - crop.right, v1 = 1 - crop.bottom;
+        const double cx = p.width / 2.0 + l.x * p.width / 2.0;
+        const double cy = p.height / 2.0 + l.y * p.height / 2.0;
+        const double rad = qDegreesToRadians(l.rotation);
+        const double cs = std::cos(rad), sn = std::sin(rad);
+        const std::array<std::array<double, 2>, 4> corners{{{u0, v0}, {u1, v0}, {u0, v1}, {u1, v1}}};
+        for (const auto &c : corners) {
+            const double lx = (c[0] - 0.5) * w;
+            const double ly = (c[1] - 0.5) * h;
+            const double px = (cx + lx * cs - ly * sn) * k;
+            const double py = (cy + lx * sn + ly * cs) * k;
+            const double tu = l.flipH ? 1 - c[0] : c[0];
+            const double tv = l.flipV ? 1 - c[1] : c[1];
+            verts.insert(verts.end(), {static_cast<float>(px), static_cast<float>(py), static_cast<float>(tu),
+                                       static_cast<float>(tv)});
+        }
+
+        LayerUbo ubo;
+        fillUbo(ubo, l, p, natural.width() / std::max(1.0, natural.height()));
+        const int index = static_cast<int>(draws.size());
+        u->updateDynamicBuffer(m_ubo.get(), index * m_uboStride, sizeof ubo, &ubo);
+        draws.push_back({&slot, l.blend == BlendMode::Normal, index});
+    }
+    if (!verts.empty())
+        u->updateDynamicBuffer(m_vbo.get(), 0, static_cast<quint32>(verts.size() * sizeof(float)), verts.data());
+
+    const QColor bg(p.background);
+    cb->beginPass(m_rtClear.get(), bg, {1.0f, 0}, u);
+    const QRhiViewport vp(0, 0, m_size.width(), m_size.height());
+    for (const Draw &d : draws) {
+        if (!d.normal) {
+            // Modo avançado: congela o fundo atual numa cópia e desenha substituindo.
+            cb->endPass();
+            QRhiResourceUpdateBatch *copy = m_rhi->nextResourceUpdateBatch();
+            copy->copyTexture(m_backdrop.get(), m_accum.get());
+            cb->beginPass(m_rtLoad.get(), bg, {1.0f, 0}, copy);
+        }
+        cb->setGraphicsPipeline(d.normal ? m_pipeNormal.get() : m_pipeReplace.get());
+        cb->setViewport(vp);
+        const QRhiCommandBuffer::DynamicOffset off(0, d.index * m_uboStride);
+        cb->setShaderResources(d.slot->srb.get(), 1, &off);
+        const QRhiCommandBuffer::VertexInput vin(m_vbo.get(), d.index * 4 * kFloatsPerVertex * sizeof(float));
+        cb->setVertexInput(0, 1, &vin);
+        cb->draw(4);
+    }
+    cb->endPass();
+
+    // Libera texturas de clipes que não aparecem há um tempo.
+    if (m_frameCounter % 120 == 0) {
+        for (auto it = m_slots.begin(); it != m_slots.end();) {
+            if (m_frameCounter - (*it)->lastFrame > 240)
+                it = m_slots.erase(it);
+            else
+                ++it;
+        }
+    }
+}
+
+void Compositor::blitTo(QRhiCommandBuffer *cb, QRhiRenderTarget *rt, const QRectF &viewport, const QColor &clear)
+{
+    QRhiResourceUpdateBatch *u = m_rhi->nextResourceUpdateBatch();
+    ensureResources(u);
+    QRhiRenderPassDescriptor *rp = rt->renderPassDescriptor();
+    const QVector<quint32> fmt = rp->serializedFormat();
+    if (!m_blitUbo) {
+        m_blitUbo.reset(m_rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 16));
+        m_blitUbo->create();
+    }
+    // A SRB referencia o acumulador, que muda com o tamanho; a pipeline depende do alvo.
+    const bool srbStale = !m_blitSrb || m_blitSrbTex != m_accum.get();
+    if (srbStale) {
+        m_blitSrb.reset(m_rhi->newShaderResourceBindings());
+        m_blitSrb->setBindings({
+            QRhiShaderResourceBinding::uniformBuffer(0, QRhiShaderResourceBinding::VertexStage, m_blitUbo.get()),
+            QRhiShaderResourceBinding::sampledTexture(1, QRhiShaderResourceBinding::FragmentStage, m_accum.get(),
+                                                      m_sampler.get()),
+        });
+        m_blitSrb->create();
+        m_blitSrbTex = m_accum.get();
+    }
+    if (srbStale || !m_blitPipe || fmt != m_blitRpFormat) {
+        m_blitPipe.reset(m_rhi->newGraphicsPipeline());
+        m_blitPipe->setShaderStages({{QRhiShaderStage::Vertex, loadShader(QStringLiteral("blit.vert"))},
+                                     {QRhiShaderStage::Fragment, loadShader(QStringLiteral("blit.frag"))}});
+        m_blitPipe->setVertexInputLayout({});
+        m_blitPipe->setShaderResourceBindings(m_blitSrb.get());
+        m_blitPipe->setRenderPassDescriptor(rp);
+        m_blitPipe->create();
+        m_blitRpFormat = fmt;
+    }
+
+    const float flip[4] = {m_rhi->isYUpInNDC() != m_rhi->isYUpInFramebuffer() ? 1.f : 0.f, 0, 0, 0};
+    u->updateDynamicBuffer(m_blitUbo.get(), 0, sizeof flip, flip);
+    cb->beginPass(rt, clear, {1.0f, 0}, u);
+    cb->setGraphicsPipeline(m_blitPipe.get());
+    // Viewport do RHI tem origem embaixo à esquerda.
+    const QSize outSize = rt->pixelSize();
+    cb->setViewport(QRhiViewport(viewport.x(), outSize.height() - viewport.y() - viewport.height(), viewport.width(),
+                                 viewport.height()));
+    cb->setShaderResources(m_blitSrb.get());
+    cb->draw(3);
+    cb->endPass();
+}
+
+void Compositor::readback(QRhiCommandBuffer *cb, QRhiReadbackResult *result)
+{
+    QRhiResourceUpdateBatch *u = m_rhi->nextResourceUpdateBatch();
+    u->readBackTexture({m_accum.get()}, result);
+    cb->resourceUpdate(u);
+}
+
+QImage Compositor::imageFromReadback(const QRhiReadbackResult &r) const
+{
+    QImage img(reinterpret_cast<const uchar *>(r.data.constData()), r.pixelSize.width(), r.pixelSize.height(),
+               QImage::Format_RGBA8888_Premultiplied);
+    img = img.copy();
+    if (m_rhi->isYUpInFramebuffer()) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+        img.flip(Qt::Vertical);
+#else
+        img = img.mirrored(false, true);
+#endif
+    }
+    return img;
+}
+
+} // namespace clv::render

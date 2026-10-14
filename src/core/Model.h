@@ -1,0 +1,250 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+
+#include <QString>
+
+#include <array>
+#include <cstdint>
+#include <map>
+#include <optional>
+#include <vector>
+
+/**
+ * Modelo de projeto do clivcut.
+ *
+ * Todos os tempos são inteiros em microssegundos (µs), a mesma unidade dos
+ * drafts JSON importados: a importação fica direta e dividir/aparar clipes não
+ * acumula erro de ponto flutuante.
+ */
+namespace clv {
+
+using Micros = std::int64_t;
+constexpr Micros kSecond = 1'000'000;
+constexpr int kProjectFormatVersion = 1;
+
+enum class MediaKind { Video, Audio, Image };
+
+struct MediaAsset {
+    QString id;
+    MediaKind kind = MediaKind::Video;
+    QString path;
+    QString name;
+    Micros duration = 0; ///< 0 para imagens (duração livre)
+    int width = 0;
+    int height = 0;
+    double fps = 0;
+    bool hasAudio = false;
+    bool hasVideo = false;
+};
+
+enum class Easing { Linear, EaseIn, EaseOut, EaseInOut, Hold, Bezier };
+
+struct Keyframe {
+    Micros t = 0; ///< relativo ao início do clipe na timeline
+    double v = 0;
+    Easing ease = Easing::Linear; ///< curva do keyframe atual até o próximo
+    /// Pontos de controle da Bézier cúbica (como cubic-bezier do CSS), usados com Easing::Bezier.
+    double bx1 = 0.33, by1 = 0, bx2 = 0.67, by2 = 1;
+};
+
+/** Propriedades numéricas animáveis por keyframe. */
+enum class Prop { X, Y, Scale, Rotation, Opacity, Volume, Brightness, Contrast, Saturation, Count };
+constexpr int kPropCount = static_cast<int>(Prop::Count);
+
+using KeyframeTable = std::array<std::vector<Keyframe>, kPropCount>;
+
+struct Transform {
+    double x = 0;     ///< centro normalizado: 0 = centro do canvas, ±1 = borda
+    double y = 0;     ///< +y para baixo
+    double scale = 1; ///< 1 = mídia encaixada (fit) no canvas
+    double rotation = 0; ///< graus, sentido horário
+    double opacity = 1;
+    bool flipH = false;
+    bool flipV = false;
+};
+
+struct Crop {
+    double left = 0, top = 0, right = 0, bottom = 0; ///< frações 0..1 removidas de cada borda
+    bool isIdentity() const { return left == 0 && top == 0 && right == 0 && bottom == 0; }
+};
+
+struct ColorAdjust {
+    double brightness = 0;  ///< -1..1
+    double contrast = 0;    ///< -1..1
+    double saturation = 0;  ///< -1..1
+    double temperature = 0; ///< -1..1 (frio..quente)
+    double exposure = 0;    ///< -1..1 (±2 stops)
+    double tint = 0;        ///< -1..1 (verde..magenta)
+    double highlights = 0;  ///< -1..1
+    double shadows = 0;     ///< -1..1
+    double vignette = 0;    ///< 0..1
+    double sharpen = 0;     ///< 0..1
+    QString filter;         ///< id de filtro embutido (core/Lut.h)
+    double filterIntensity = 0.8;
+    QString lutPath;        ///< LUT .cube do usuário
+    double lutIntensity = 1;
+
+    bool hasFilter() const { return !filter.isEmpty() && filterIntensity > 0; }
+    bool hasLut() const { return !lutPath.isEmpty() && lutIntensity > 0; }
+};
+
+enum class BlendMode { Normal, Multiply, Screen, Overlay, Darken, Lighten, ColorDodge, ColorBurn, SoftLight, Difference };
+
+struct ChromaKey {
+    bool enabled = false;
+    QString color = QStringLiteral("#00ff00");
+    double similarity = 0.3;
+    double smoothness = 0.1;
+};
+
+/** Ponto da curva de velocidade: u = posição no clipe (0..1), v = velocidade (0,1×–10×). */
+struct SpeedPoint {
+    double u = 0;
+    double v = 1;
+    bool operator==(const SpeedPoint &) const = default;
+};
+
+enum class MaskShape { None, Linear, Mirror, Circle, Rectangle };
+
+/**
+ * Máscara de forma no quadro do clipe. Coordenadas em frações do quadro
+ * (0..1, origem no topo esquerdo); tamanhos relativos à largura/altura.
+ */
+struct Mask {
+    MaskShape shape = MaskShape::None;
+    double x = 0.5, y = 0.5;          ///< centro
+    double width = 0.5, height = 0.5; ///< círculo/retângulo; espelho usa a altura como espessura
+    double rotation = 0;              ///< graus
+    double feather = 0.05;            ///< suavização da borda (0..1)
+    double roundness = 0;             ///< cantos do retângulo (0..1)
+    bool invert = false;
+
+    bool active() const { return shape != MaskShape::None; }
+};
+
+enum class TransitionKind { Dissolve, FadeBlack, WipeLeft, WipeRight, SlideLeft, SlideRight, CircleOpen, ZoomIn };
+
+struct Transition {
+    TransitionKind kind = TransitionKind::Dissolve;
+    Micros duration = 500'000; ///< centrada no corte com o clipe anterior
+};
+
+enum class AnimationKind { None, Fade, Zoom, SlideUp, SlideDown, SlideLeft, SlideRight };
+
+struct ClipAnimation {
+    AnimationKind kind = AnimationKind::None;
+    Micros duration = 500'000;
+};
+
+struct TextStyle {
+    QString fontFamily = QStringLiteral("Sans Serif");
+    double fontSize = 72; ///< em pixels de um canvas 1080p
+    bool bold = true;
+    bool italic = false;
+    QString color = QStringLiteral("#ffffff");
+    QString strokeColor = QStringLiteral("#000000");
+    double strokeWidth = 4;
+    QString background; ///< vazio = sem caixa de fundo
+    int align = 1; ///< 0 esquerda, 1 centro, 2 direita
+    bool shadow = true;
+};
+
+/// Adjust: clipe de filtro/ajuste que altera tudo o que está abaixo dele na composição.
+enum class ClipType { Media, Text, Adjust };
+
+struct Clip {
+    QString id;
+    QString groupId; ///< clipes com o mesmo id de grupo são selecionados/movidos juntos
+    ClipType type = ClipType::Media;
+    Micros start = 0;    ///< início na timeline
+    Micros duration = 0; ///< duração na timeline
+    Transform transform;
+    KeyframeTable keyframes;
+    ClipAnimation animIn;
+    ClipAnimation animOut;
+
+    // --- mídia ---
+    QString assetId;
+    Micros sourceIn = 0; ///< ponto de entrada na mídia
+    double speed = 1;    ///< duração de origem = duration * speed (média, se houver curva); 0 = quadro congelado
+    /// Curva de velocidade (vazia = constante). Linear por partes, u crescente de 0 a 1.
+    std::vector<SpeedPoint> speedCurve;
+    bool reverse = false;
+    double volume = 1;   ///< 1 = 100%
+    bool audioMuted = false; ///< silencia o áudio deste clipe (ex.: depois de separar o áudio)
+    bool audioOnly = false;  ///< usa só o áudio da mídia (clipe de áudio separado de um vídeo)
+    Micros fadeIn = 0;
+    Micros fadeOut = 0;
+    Crop crop;
+    ColorAdjust color;
+    BlendMode blend = BlendMode::Normal;
+    ChromaKey chroma;
+    Mask mask;
+    std::optional<Transition> transitionIn;
+
+    // --- texto ---
+    QString text;
+    TextStyle style;
+
+    Micros end() const { return start + duration; }
+    Micros sourceDuration() const { return static_cast<Micros>(duration * speed); }
+    Micros sourceOut() const { return sourceIn + sourceDuration(); }
+    bool isText() const { return type == ClipType::Text; }
+    bool isAdjust() const { return type == ClipType::Adjust; }
+    bool hasMedia() const { return type == ClipType::Media; }
+};
+
+enum class TrackKind { Video, Audio, Text, Adjust };
+
+struct Track {
+    QString id;
+    TrackKind kind = TrackKind::Video;
+    QString name;
+    bool muted = false;
+    bool hidden = false;
+    bool locked = false;
+    bool captions = false; ///< faixa de legendas (texto gerado/importado)
+    std::vector<Clip> clips; ///< sempre ordenados por start, sem sobreposição
+
+    bool isVisual() const { return kind != TrackKind::Audio; }
+};
+
+struct Marker {
+    QString id;
+    Micros t = 0;
+    QString label;
+    QString color = QStringLiteral("#f5c242");
+};
+
+struct Project {
+    QString id;
+    QString name = QStringLiteral("Novo projeto");
+    int width = 1920;
+    int height = 1080;
+    double fps = 30;
+    QString background = QStringLiteral("#000000");
+    /// Faixa principal magnética: clipes sempre encostados, sem buracos.
+    bool mainTrackMagnet = true;
+    /// tracks[0] é a faixa principal de vídeo. Faixas visuais seguintes ficam por cima.
+    std::vector<Track> tracks;
+    std::map<QString, MediaAsset> assets;
+    std::vector<Marker> markers;
+
+    Micros duration() const;
+    const MediaAsset *asset(const QString &id) const;
+    Micros frameDuration() const { return static_cast<Micros>(kSecond / fps + 0.5); }
+    Micros snapToFrame(Micros t) const;
+};
+
+QString newId(const char *prefix);
+
+Project createProject(const QString &name = QStringLiteral("Novo projeto"), int width = 1920, int height = 1080,
+                      double fps = 30);
+Track createTrack(TrackKind kind, const QString &name = {});
+Clip createMediaClip(const MediaAsset &asset, Micros start);
+Clip createTextClip(const QString &text, Micros start, Micros duration = 3 * kSecond);
+Clip createAdjustClip(Micros start, Micros duration = 3 * kSecond, const QString &filter = {});
+
+constexpr Micros kImageDefaultDuration = 5 * kSecond;
+
+} // namespace clv

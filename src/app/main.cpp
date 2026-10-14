@@ -1,0 +1,96 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "ImageProviders.h"
+#include "ProjectController.h"
+#include "media/FFmpegUtil.h"
+
+#include <QCommandLineParser>
+#include <QDir>
+#include <QFileInfo>
+#include <QGuiApplication>
+#include <QIcon>
+#include <QQmlApplicationEngine>
+#include <QQuickStyle>
+#include <QQuickWindow>
+#include <QSurfaceFormat>
+#include <QTimer>
+#include <QUrl>
+
+int main(int argc, char **argv)
+{
+    // Se o Qt Quick usar OpenGL, precisa de 3.3 Core (shaders GLSL 330 com texturas 3D).
+    QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
+    if (fmt.renderableType() != QSurfaceFormat::OpenGLES) {
+        fmt.setVersion(3, 3);
+        fmt.setProfile(QSurfaceFormat::CoreProfile);
+        QSurfaceFormat::setDefaultFormat(fmt);
+    }
+    QGuiApplication app(argc, argv);
+    clv::media::quietFFmpegLogs();
+    QGuiApplication::setApplicationName(QStringLiteral("clivcut"));
+    QGuiApplication::setOrganizationName(QStringLiteral("clivcut"));
+    QGuiApplication::setApplicationVersion(QStringLiteral(CLIVCUT_VERSION));
+    QGuiApplication::setDesktopFileName(QStringLiteral("io.github.clivcut"));
+    QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/qt/qml/Clivcut/icons/clivcut.svg")));
+    QQuickStyle::setStyle(QStringLiteral("Basic"));
+
+    QCommandLineParser cli;
+    cli.addHelpOption();
+    cli.addVersionOption();
+    cli.addPositionalArgument(QStringLiteral("projeto"), QStringLiteral("Projeto .clivcut, pasta de draft JSON ou mídias"));
+    cli.process(app);
+
+    ProjectController controller(nullptr);
+    QObject::connect(&controller, &ProjectController::errorOccurred, [](const QString &m) { qWarning("%s", qPrintable(m)); });
+    QObject::connect(&controller, &ProjectController::statusMessageChanged, &controller,
+                     [&controller] { qInfo("%s", qPrintable(controller.statusMessage())); });
+
+    QQmlApplicationEngine engine;
+    engine.addImageProvider(QStringLiteral("thumb"), new ThumbnailProvider);
+    engine.addImageProvider(QStringLiteral("wave"), new WaveformProvider);
+    engine.addImageProvider(QStringLiteral("filter"), new FilterPreviewProvider);
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
+                     Qt::QueuedConnection);
+    engine.loadFromModule("Clivcut", "Main");
+
+    // Argumentos: projeto/draft abre; mídias são importadas.
+    QList<QUrl> media;
+    for (const QString &arg : cli.positionalArguments()) {
+        const QFileInfo fi(arg);
+        const QUrl url = QUrl::fromLocalFile(fi.absoluteFilePath());
+        if (fi.suffix() == QLatin1String("clivcut") || fi.isDir() || fi.fileName().startsWith(QLatin1String("draft_")))
+            controller.openProject(url);
+        else
+            media << url;
+    }
+    if (!media.isEmpty())
+        controller.importMedia(media);
+
+    // Captura automática da janela (testes visuais/CI): CLIVCUT_SCREENSHOT=arquivo.png
+    // CLIVCUT_SCREENSHOT_DELAY=ms, CLIVCUT_SCREENSHOT_SEEK=µs, CLIVCUT_SCREENSHOT_SELECT=1 (seleciona 1º clipe).
+    const QString shot = qEnvironmentVariable("CLIVCUT_SCREENSHOT");
+    if (!shot.isEmpty() && !engine.rootObjects().isEmpty()) {
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
+        bool customDelay = false;
+        int delay = qEnvironmentVariableIntValue("CLIVCUT_SCREENSHOT_DELAY", &customDelay);
+        if (!customDelay)
+            delay = 2500;
+        if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_SEEK"))
+            controller.seek(qEnvironmentVariable("CLIVCUT_SCREENSHOT_SEEK").toDouble());
+        if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_SELECT")) {
+            const auto tracks = controller.tracks();
+            for (const auto &t : tracks) {
+                const auto clips = t.toMap().value(QStringLiteral("clips")).toList();
+                if (!clips.isEmpty()) {
+                    controller.select(clips.first().toMap().value(QStringLiteral("id")).toString());
+                    break;
+                }
+            }
+        }
+        QTimer::singleShot(delay, window, [window, shot] {
+            window->grabWindow().save(shot);
+            QCoreApplication::quit();
+        });
+    }
+
+    return QGuiApplication::exec();
+}

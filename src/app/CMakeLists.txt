@@ -1,0 +1,89 @@
+# Ícones de plataforma: .ico (Windows, versionado) e .icns (macOS, gerado no CI com iconutil).
+set(CLIVCUT_PLATFORM_ICON)
+if(WIN32)
+    set(CLIVCUT_PLATFORM_ICON ${CMAKE_CURRENT_BINARY_DIR}/clivcut.rc)
+    file(WRITE ${CLIVCUT_PLATFORM_ICON} "IDI_ICON1 ICON \"${CMAKE_SOURCE_DIR}/packaging/windows/clivcut.ico\"\n")
+elseif(APPLE AND EXISTS ${CMAKE_SOURCE_DIR}/packaging/macos/clivcut.icns)
+    set(CLIVCUT_PLATFORM_ICON ${CMAKE_SOURCE_DIR}/packaging/macos/clivcut.icns)
+    set_source_files_properties(${CLIVCUT_PLATFORM_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+endif()
+
+qt_add_executable(clivcut
+    ${CLIVCUT_PLATFORM_ICON}
+    main.cpp
+    ProjectController.h ProjectController.cpp
+    PreviewItem.h PreviewItem.cpp
+    ImageProviders.h ImageProviders.cpp
+    AudioOutput.h AudioOutput.cpp
+)
+
+set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+
+qt_add_qml_module(clivcut
+    URI Clivcut
+    VERSION 1.0
+    QML_FILES
+        qml/Main.qml
+        qml/Theme.qml
+        qml/TopBar.qml
+        qml/MediaPanel.qml
+        qml/CaptionsPanel.qml
+        qml/FiltersPanel.qml
+        qml/PreviewPanel.qml
+        qml/Inspector.qml
+        qml/Timeline.qml
+        qml/TimelineClip.qml
+        qml/ExportDialog.qml
+        qml/NewProjectDialog.qml
+        qml/RecoveryDialog.qml
+        qml/UnsavedDialog.qml
+        qml/components/IconButton.qml
+        qml/components/PropSlider.qml
+        qml/components/SectionLabel.qml
+        qml/components/ColorField.qml
+        qml/components/TileButton.qml
+        qml/components/CurveEditor.qml
+        qml/components/KeyframeGraph.qml
+    RESOURCES
+        icons/clivcut.svg
+)
+
+target_compile_definitions(clivcut PRIVATE CLIVCUT_VERSION="${PROJECT_VERSION}")
+set_target_properties(clivcut PROPERTIES
+    WIN32_EXECUTABLE ON
+    MACOSX_BUNDLE ON
+    MACOSX_BUNDLE_GUI_IDENTIFIER io.github.clivcut
+    MACOSX_BUNDLE_BUNDLE_NAME clivcut
+    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+    MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+    MACOSX_BUNDLE_ICON_FILE clivcut.icns)
+target_link_libraries(clivcut PRIVATE
+    clivcut_engine
+    Qt6::Quick Qt6::QuickControls2 Qt6::Concurrent Qt6::Network
+    clivcut::sdl2
+)
+
+install(TARGETS clivcut BUNDLE DESTINATION . RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+if(UNIX AND NOT APPLE)
+    install(FILES ${CMAKE_SOURCE_DIR}/packaging/io.github.clivcut.desktop DESTINATION share/applications)
+    install(FILES icons/clivcut.svg DESTINATION share/icons/hicolor/scalable/apps RENAME io.github.clivcut.svg)
+    install(FILES ${CMAKE_SOURCE_DIR}/packaging/io.github.clivcut.metainfo.xml DESTINATION share/metainfo)
+endif()
+
+# Windows/macOS: copia Qt, plugins e módulos QML para o pacote (windeployqt/macdeployqt).
+if(WIN32 OR APPLE)
+    option(CLIVCUT_DEPLOY "Incluir Qt e dependências na instalação" ON)
+    if(CLIVCUT_DEPLOY)
+        qt_generate_deploy_qml_app_script(TARGET clivcut OUTPUT_SCRIPT clivcut_deploy NO_UNSUPPORTED_PLATFORM_ERROR)
+        install(SCRIPT ${clivcut_deploy})
+        if(WIN32)
+            # DLLs de terceiros (FFmpeg, SDL2, x264...) ao lado do executável.
+            install(TARGETS clivcut RUNTIME_DEPENDENCIES
+                PRE_EXCLUDE_REGEXES "api-ms-.*" "ext-ms-.*" "Qt6.*"
+                POST_EXCLUDE_REGEXES ".*[Ss]ystem32/.*\\.dll"
+                DIRECTORIES $<TARGET_FILE_DIR:clivcut> ${CMAKE_PREFIX_PATH}
+                RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+        endif()
+    endif()
+endif()

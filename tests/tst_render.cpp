@@ -1,0 +1,288 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "core/Edit.h"
+#include "core/Evaluate.h"
+#include "core/Lut.h"
+#include "render/Compositor.h"
+#include "render/OffscreenRhi.h"
+
+#include <QFile>
+#include <QTemporaryDir>
+#include <QTest>
+
+using namespace clv;
+
+namespace {
+
+class SolidSource : public render::FrameSource {
+public:
+    QHash<QString, QImage> images; // por assetId
+    QImage frameFor(const VisualLayer &l) override { return images.value(l.clip->assetId); }
+};
+
+QImage solid(QColor c, QSize s = {160, 90})
+{
+    QImage img(s, QImage::Format_RGBA8888);
+    img.fill(c);
+    return img;
+}
+
+MediaAsset imageAsset(Project &p, QSize s = {160, 90})
+{
+    MediaAsset a;
+    a.id = newId("ast");
+    a.kind = MediaKind::Image;
+    a.width = s.width();
+    a.height = s.height();
+    a.hasVideo = true;
+    p.assets.emplace(a.id, a);
+    return a;
+}
+
+} // namespace
+
+class RenderTest : public QObject {
+    Q_OBJECT
+
+    render::OffscreenRhi m_ctx;
+    std::unique_ptr<render::Compositor> m_comp;
+
+    QImage renderAt(const Project &p, Micros t, render::FrameSource &src)
+    {
+        m_comp->setRenderSize(QSize(p.width, p.height));
+        QRhi *rhi = m_ctx.rhi();
+        QRhiCommandBuffer *cb = nullptr;
+        if (rhi->beginOffscreenFrame(&cb) != QRhi::FrameOpSuccess)
+            return {};
+        m_comp->composite(cb, p, evaluate(p, t), src);
+        QRhiReadbackResult rb;
+        m_comp->readback(cb, &rb);
+        rhi->endOffscreenFrame();
+        return m_comp->imageFromReadback(rb);
+    }
+
+    static QColor px(const QImage &img, int x, int y) { return img.pixelColor(x, y); }
+    static bool near(QColor a, QColor b, int tol = 6)
+    {
+        return std::abs(a.red() - b.red()) <= tol && std::abs(a.green() - b.green()) <= tol &&
+               std::abs(a.blue() - b.blue()) <= tol;
+    }
+
+private slots:
+    void initTestCase()
+    {
+        QString err;
+        if (!m_ctx.create(&err))
+            QSKIP(qPrintable(err));
+        qInfo() << "backend:" << m_ctx.backendName();
+        m_comp = std::make_unique<render::Compositor>(m_ctx.rhi());
+    }
+
+    void orientationAndScale()
+    {
+        Project p = createProject(QStringLiteral("t"), 320, 180, 30);
+        auto a = imageAsset(p);
+        auto c = createMediaClip(a, 0);
+        c.transform.scale = 0.5;
+        c.transform.x = -0.5;
+        c.transform.y = -0.5; // quadrante superior esquerdo
+        edit::insertClip(p, c, 0);
+        SolidSource src;
+        src.images[a.id] = solid(Qt::red);
+        const QImage img = renderAt(p, 0, src);
+        QCOMPARE(img.size(), QSize(320, 180));
+        QVERIFY2(near(px(img, 20, 20), Qt::red), qPrintable(px(img, 20, 20).name()));
+        QVERIFY(near(px(img, 300, 170), Qt::black));
+        QVERIFY(near(px(img, 300, 20), Qt::black));
+        QVERIFY(near(px(img, 20, 170), Qt::black));
+    }
+
+    void opacityAndMultiply()
+    {
+        Project p = createProject(QStringLiteral("t"), 320, 180, 30);
+        p.background = QStringLiteral("#ffffff");
+        auto a = imageAsset(p);
+        auto b = imageAsset(p);
+        auto base = createMediaClip(a, 0);
+        edit::insertClip(p, base, 0); // amarelo em tela cheia
+        auto top = createMediaClip(b, 0);
+        top.blend = BlendMode::Multiply; // magenta * amarelo = vermelho
+        edit::insertClip(p, top, -1);
+        SolidSource src;
+        src.images[a.id] = solid(Qt::yellow);
+        src.images[b.id] = solid(Qt::magenta);
+        QImage img = renderAt(p, 0, src);
+        QVERIFY2(near(px(img, 160, 90), Qt::red), qPrintable(px(img, 160, 90).name()));
+
+        // Opacidade 50% em modo normal sobre fundo branco.
+        p.tracks[1].clips[0].blend = BlendMode::Normal;
+        p.tracks[1].clips[0].transform.opacity = 0.5;
+        img = renderAt(p, 0, src);
+        QVERIFY2(near(px(img, 160, 90), QColor(255, 128, 128)), qPrintable(px(img, 160, 90).name()));
+    }
+
+    void textRenders()
+    {
+        Project p = createProject(QStringLiteral("t"), 320, 180, 30);
+        auto t = createTextClip(QStringLiteral("CLIVCUT"), 0);
+        t.transform.y = 0;
+        t.style.fontSize = 300;
+        t.style.color = QStringLiteral("#00ff00");
+        t.style.strokeWidth = 0;
+        t.style.shadow = false;
+        edit::insertClip(p, t, -1);
+        SolidSource src;
+        const QImage img = renderAt(p, 0, src);
+        int green = 0;
+        for (int y = 0; y < img.height(); ++y)
+            for (int x = 0; x < img.width(); ++x)
+                if (img.pixelColor(x, y).green() > 200 && img.pixelColor(x, y).red() < 60)
+                    ++green;
+        QVERIFY2(green > 500, qPrintable(QString::number(green)));
+    }
+
+    void filtersAndLuts()
+    {
+        Project p = createProject(QStringLiteral("t"), 320, 180, 30);
+        auto a = imageAsset(p);
+        auto c = createMediaClip(a, 0);
+        edit::insertClip(p, c, 0);
+        SolidSource src;
+        src.images[a.id] = solid(QColor(200, 40, 40));
+        Clip &clip = p.tracks[0].clips[0];
+
+        // P&B embutido: pixel fica cinza.
+        clip.color.filter = QStringLiteral("bw");
+        clip.color.filterIntensity = 1;
+        QImage img = renderAt(p, 0, src);
+        QColor c0 = px(img, 160, 90);
+        QVERIFY2(std::abs(c0.red() - c0.green()) <= 3 && std::abs(c0.green() - c0.blue()) <= 3, qPrintable(c0.name()));
+
+        // Intensidade 0: inalterado.
+        clip.color.filterIntensity = 0;
+        img = renderAt(p, 0, src);
+        QVERIFY2(near(px(img, 160, 90), QColor(200, 40, 40), 3), qPrintable(px(img, 160, 90).name()));
+
+        // LUT .cube do usuário que inverte as cores.
+        QTemporaryDir dir;
+        const QString cube = dir.filePath(QStringLiteral("inv.cube"));
+        QFile f(cube);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("LUT_3D_SIZE 2\n1 1 1\n0 1 1\n1 0 1\n0 0 1\n1 1 0\n0 1 0\n1 0 0\n0 0 0\n");
+        f.close();
+        clip.color.lutPath = cube;
+        clip.color.lutIntensity = 1;
+        img = renderAt(p, 0, src);
+        QVERIFY2(near(px(img, 160, 90), QColor(55, 215, 215), 4), qPrintable(px(img, 160, 90).name()));
+    }
+
+    void adjustLayerAffectsOnlyBelow()
+    {
+        Project p = createProject(QStringLiteral("t"), 320, 180, 30);
+        auto a = imageAsset(p);
+        auto b = imageAsset(p);
+        edit::insertClip(p, createMediaClip(a, 0), 0); // vermelho em tela cheia
+        Clip adj = createAdjustClip(0, kSecond, QStringLiteral("bw"));
+        adj.color.filterIntensity = 1;
+        edit::insertClip(p, adj, -1);                  // P&B sobre o vermelho
+        auto top = createMediaClip(b, 0);
+        top.transform.scale = 0.5;
+        top.transform.x = 0.5;                         // azul à direita, acima do ajuste
+        edit::insertClip(p, top, -1);
+        QCOMPARE(p.tracks.size(), size_t(3));
+
+        SolidSource src;
+        src.images[a.id] = solid(QColor(220, 30, 30));
+        src.images[b.id] = solid(QColor(30, 60, 220));
+        QImage img = renderAt(p, kSecond / 2, src);
+        const QColor left = px(img, 40, 90);
+        QVERIFY2(std::abs(left.red() - left.blue()) <= 3, qPrintable(left.name())); // vermelho ficou cinza
+        QVERIFY2(near(px(img, 280, 90), QColor(30, 60, 220), 4), qPrintable(px(img, 280, 90).name())); // azul intacto
+
+        // Opacidade do ajuste = mistura parcial.
+        p.tracks[1].clips[0].transform.opacity = 0.5;
+        img = renderAt(p, kSecond / 2, src);
+        const QColor half = px(img, 40, 90);
+        QVERIFY2(half.red() > half.blue() + 40 && half.red() < 210, qPrintable(half.name()));
+    }
+
+    void shapeMasks()
+    {
+        Project p = createProject(QStringLiteral("t"), 320, 180, 30);
+        auto a = imageAsset(p);
+        edit::insertClip(p, createMediaClip(a, 0), 0); // vermelho em tela cheia sobre preto
+        SolidSource src;
+        src.images[a.id] = solid(Qt::red);
+        Mask &m = p.tracks[0].clips[0].mask;
+
+        // Círculo central: centro vermelho, cantos pretos.
+        m.shape = MaskShape::Circle;
+        m.width = 0.4;
+        m.height = 0.6;
+        m.feather = 0;
+        QImage img = renderAt(p, 0, src);
+        QVERIFY(near(px(img, 160, 90), Qt::red));
+        QVERIFY(near(px(img, 5, 5), Qt::black));
+        QVERIFY(near(px(img, 160 + 70, 90), Qt::black)); // fora do raio horizontal (0,2 × 320 = 64 px)
+        QVERIFY(near(px(img, 160 + 55, 90), Qt::red));
+
+        // Invertido.
+        m.invert = true;
+        img = renderAt(p, 0, src);
+        QVERIFY(near(px(img, 160, 90), Qt::black));
+        QVERIFY(near(px(img, 5, 5), Qt::red));
+        m.invert = false;
+
+        // Linear: mantém a metade de cima; girado 180° mantém a de baixo.
+        m.shape = MaskShape::Linear;
+        img = renderAt(p, 0, src);
+        QVERIFY(near(px(img, 160, 30), Qt::red));
+        QVERIFY(near(px(img, 160, 150), Qt::black));
+        m.rotation = 180;
+        img = renderAt(p, 0, src);
+        QVERIFY(near(px(img, 160, 30), Qt::black));
+        QVERIFY(near(px(img, 160, 150), Qt::red));
+        m.rotation = 0;
+
+        // Retângulo deslocado para a direita.
+        m.shape = MaskShape::Rectangle;
+        m.x = 0.75;
+        m.width = 0.3;
+        m.height = 0.5;
+        img = renderAt(p, 0, src);
+        QVERIFY(near(px(img, 240, 90), Qt::red));
+        QVERIFY(near(px(img, 80, 90), Qt::black));
+        QVERIFY(near(px(img, 240, 10), Qt::black));
+
+        // Suavização gera valores intermediários na borda.
+        m.feather = 0.5;
+        img = renderAt(p, 0, src);
+        const int edge = px(img, 240 + 48, 90).red(); // perto da borda direita do retângulo
+        QVERIFY2(edge > 20 && edge < 235, qPrintable(QString::number(edge)));
+    }
+
+    void maskedAdjustLayer()
+    {
+        // Ajuste P&B só no círculo central: cor fora, cinza dentro.
+        Project p = createProject(QStringLiteral("t"), 320, 180, 30);
+        auto a = imageAsset(p);
+        edit::insertClip(p, createMediaClip(a, 0), 0);
+        Clip adj = createAdjustClip(0, kSecond, QStringLiteral("bw"));
+        adj.color.filterIntensity = 1;
+        adj.mask.shape = MaskShape::Circle;
+        adj.mask.width = 0.3;
+        adj.mask.height = 0.5;
+        adj.mask.feather = 0;
+        edit::insertClip(p, adj, -1);
+        SolidSource src;
+        src.images[a.id] = solid(QColor(220, 30, 30));
+        const QImage img = renderAt(p, kSecond / 2, src);
+        const QColor in = px(img, 160, 90), out = px(img, 10, 10);
+        QVERIFY2(std::abs(in.red() - in.blue()) <= 3, qPrintable(in.name()));
+        QVERIFY2(near(out, QColor(220, 30, 30), 4), qPrintable(out.name()));
+    }
+
+    void cleanupTestCase() { m_comp.reset(); }
+};
+
+QTEST_MAIN(RenderTest)
+#include "tst_render.moc"

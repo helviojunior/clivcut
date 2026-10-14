@@ -1,0 +1,471 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "ProjectController.h"
+#include "engine/AudioMixer.h"
+#include "engine/WhisperModels.h"
+#include "media/MediaProbe.h"
+
+#include <QDir>
+#include <QFile>
+#include <QProcess>
+#include <QSignalSpy>
+#include <QStandardPaths>
+#include <QTemporaryDir>
+#include <QTest>
+
+class ControllerTest : public QObject {
+    Q_OBJECT
+
+    QTemporaryDir m_dir;
+    QString m_video;
+    std::unique_ptr<ProjectController> m_ctrl;
+
+    QVariantList clipsOf(int track) const
+    {
+        for (const auto &t : m_ctrl->tracks())
+            if (t.toMap().value("index").toInt() == track)
+                return t.toMap().value("clips").toList();
+        return {};
+    }
+
+private slots:
+    void initTestCase()
+    {
+        if (QStandardPaths::findExecutable(QStringLiteral("ffmpeg")).isEmpty())
+            QSKIP("ffmpeg não encontrado");
+        m_video = m_dir.filePath(QStringLiteral("v.mp4"));
+        QProcess p;
+        p.start(QStringLiteral("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                                           "testsrc2=size=320x180:rate=30:duration=3", "-f", "lavfi", "-i",
+                                           "sine=duration=3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-shortest", m_video});
+        QVERIFY(p.waitForFinished(60000) && p.exitCode() == 0);
+        qputenv("CLIVCUT_CACHE_DIR", m_dir.filePath(QStringLiteral("cache")).toUtf8());
+        // Modelos de transcrição continuam vindo da pasta real; o resto vai para ~/.qttest.
+        qputenv("CLIVCUT_MODELS_DIR", clv::engine::whisperModelsDir().toUtf8());
+        QStandardPaths::setTestModeEnabled(true); // recuperação em ~/.qttest, não nos dados reais
+        QDir(ProjectController::recoveryDir()).removeRecursively();
+        m_ctrl = std::make_unique<ProjectController>(nullptr);
+    }
+
+    void importAndPlace()
+    {
+        m_ctrl->newProject(640, 360, 30);
+        m_ctrl->importMedia({QUrl::fromLocalFile(m_video)});
+        QCOMPARE(m_ctrl->assets().size(), 1);
+        const QString assetId = m_ctrl->assets().first().toMap().value("id").toString();
+        m_ctrl->addAssetToTimeline(assetId);
+        m_ctrl->addAssetToTimeline(assetId);
+        QCOMPARE(clipsOf(0).size(), 2);
+        QCOMPARE(m_ctrl->duration(), 6e6);
+        // Importar o mesmo arquivo de novo não duplica.
+        m_ctrl->importMedia({QUrl::fromLocalFile(m_video)});
+        QCOMPARE(m_ctrl->assets().size(), 1);
+    }
+
+    void splitUndoRedo()
+    {
+        m_ctrl->clearSelection();
+        m_ctrl->seek(1.5e6);
+        m_ctrl->splitAtPlayhead();
+        QCOMPARE(clipsOf(0).size(), 3);
+        m_ctrl->undo();
+        QCOMPARE(clipsOf(0).size(), 2);
+        m_ctrl->redo();
+        QCOMPARE(clipsOf(0).size(), 3);
+    }
+
+    void propertyEditsCoalesce()
+    {
+        const QString id = clipsOf(0).first().toMap().value("id").toString();
+        m_ctrl->select(id);
+        const QString before = m_ctrl->undoText();
+        for (int i = 1; i <= 10; ++i)
+            m_ctrl->setClipProperties(id, {{"x", i * 0.01}, {"y", i * 0.02}});
+        QCOMPARE(m_ctrl->selectedClip().value("x").toDouble(), 0.1);
+        // Dez movimentos contínuos = um passo de desfazer.
+        m_ctrl->undo();
+        QCOMPARE(m_ctrl->selectedClip().value("x").toDouble(), 0.0);
+        m_ctrl->redo();
+        QCOMPARE(m_ctrl->selectedClip().value("y").toDouble(), 0.2);
+        Q_UNUSED(before);
+    }
+
+    void keyframesViaInspector()
+    {
+        const QString id = clipsOf(0).first().toMap().value("id").toString();
+        m_ctrl->select(id);
+        m_ctrl->seek(0);
+        m_ctrl->toggleKeyframe(id, "scale");
+        QVERIFY(m_ctrl->selectedClip().value("kfAt_scale").toBool());
+        m_ctrl->seek(1e6);
+        m_ctrl->setClipProperty(id, "scale", 2.0); // com keyframes: cria keyframe em 1 s
+        QVERIFY(m_ctrl->selectedClip().value("kfAt_scale").toBool());
+        m_ctrl->seek(0.5e6);
+        QCOMPARE(m_ctrl->selectedClip().value("scale").toDouble(), 1.5);
+    }
+
+    void keyframeEditor()
+    {
+        const QString id = clipsOf(0).first().toMap().value("id").toString();
+        m_ctrl->select(id);
+        // Já há keyframes de escala em 0 s (1,0) e 1 s (2,0) do teste anterior.
+        QVariantList kfs = m_ctrl->keyframes(id, "scale");
+        QCOMPARE(kfs.size(), 2);
+        QCOMPARE(m_ctrl->sampleKeyframes(id, "scale", 3).size(), 3);
+        // Curva personalizada no primeiro trecho.
+        m_ctrl->setKeyframeBezier(id, "scale", 0, 0.9, 0, 1, 1); // começa muito devagar
+        QCOMPARE(m_ctrl->keyframes(id, "scale").first().toMap().value("ease").toString(), QStringLiteral("bezier"));
+        m_ctrl->seek(0.5e6);
+        QVERIFY(m_ctrl->selectedClip().value("scale").toDouble() < 1.3);
+        // Mover o segundo keyframe para 1,5 s e valor 3.
+        m_ctrl->moveKeyframe(id, "scale", 1e6, 1.5e6, 3.0);
+        kfs = m_ctrl->keyframes(id, "scale");
+        QCOMPARE(kfs.last().toMap().value("t").toDouble(), 1.5e6);
+        QCOMPARE(kfs.last().toMap().value("v").toDouble(), 3.0);
+        // Todos suaves.
+        m_ctrl->setEasingForAll(id, "scale", "easeInOut");
+        for (const auto &k : m_ctrl->keyframes(id, "scale"))
+            QCOMPARE(k.toMap().value("ease").toString(), QStringLiteral("easeInOut"));
+        m_ctrl->setKeyframeEasing(id, "scale", 0, "hold");
+        m_ctrl->seek(1.2e6);
+        QCOMPARE(m_ctrl->selectedClip().value("scale").toDouble(), 1.0); // "manter" segura o valor
+    }
+
+    void textAndTransition()
+    {
+        m_ctrl->seek(0);
+        m_ctrl->addText(QStringLiteral("Olá"), QStringLiteral("title"));
+        QCOMPARE(m_ctrl->selectedClip().value("type").toString(), QStringLiteral("text"));
+        QCOMPARE(m_ctrl->selectedClip().value("text").toString(), QStringLiteral("Olá"));
+        const QString second = clipsOf(0).at(1).toMap().value("id").toString();
+        m_ctrl->setTransition(second, QStringLiteral("dissolve"), 400000);
+        QCOMPARE(clipsOf(0).at(1).toMap().value("transition").toString(), QStringLiteral("dissolve"));
+    }
+
+    void freezeAndDeleteLeft()
+    {
+        m_ctrl->clearSelection();
+        const int before = clipsOf(0).size();
+        m_ctrl->seek(0.5e6);
+        m_ctrl->freezeFrame();
+        QCOMPARE(clipsOf(0).size(), before + 2); // divide + quadro congelado
+        QCOMPARE(m_ctrl->duration(), 9e6);
+        m_ctrl->undo();
+        QCOMPARE(m_ctrl->duration(), 6e6);
+        m_ctrl->deleteLeft();
+        QCOMPARE(m_ctrl->duration(), 5.5e6);
+    }
+
+    void saveReopenExport()
+    {
+        const QString proj = m_dir.filePath(QStringLiteral("p.clivcut"));
+        QVERIFY(m_ctrl->saveProjectAs(QUrl::fromLocalFile(proj)));
+        QVERIFY(!m_ctrl->modified());
+        QVERIFY(m_ctrl->openProject(QUrl::fromLocalFile(proj)));
+        QCOMPARE(m_ctrl->duration(), 5.5e6);
+
+        QSignalSpy done(m_ctrl.get(), &ProjectController::exportFinished);
+        const QString out = m_dir.filePath(QStringLiteral("out.mp4"));
+        m_ctrl->exportVideo(QUrl::fromLocalFile(out), 360, 0, QStringLiteral("h264"), 23);
+        QVERIFY(done.wait(60000));
+        QVERIFY2(done.first().at(0).toBool(), qPrintable(done.first().at(1).toString()));
+        clv::MediaAsset a;
+        QVERIFY(clv::media::probe(out, a));
+        QCOMPARE(a.width, 640);
+        QCOMPARE(a.height, 360);
+        QVERIFY(std::abs(a.duration - 5'500'000) < 100'000);
+        QVERIFY(a.hasAudio);
+    }
+
+    void filtersWorkflow()
+    {
+        m_ctrl->newProject(640, 360, 30);
+        m_ctrl->importMedia({QUrl::fromLocalFile(m_video)});
+        m_ctrl->addAssetToTimeline(m_ctrl->assets().first().toMap().value("id").toString());
+        const QString clip = clipsOf(0).first().toMap().value("id").toString();
+        QVERIFY(m_ctrl->filters().size() >= 12);
+        QVERIFY(m_ctrl->previewFrameRef().contains(QLatin1Char('/')));
+
+        // Filtro no clipe.
+        m_ctrl->applyFilter(clip, QStringLiteral("tealorange"));
+        m_ctrl->select(clip);
+        QCOMPARE(m_ctrl->selectedClip().value("filter").toString(), QStringLiteral("tealorange"));
+        QCOMPARE(m_ctrl->selectedClip().value("filterName").toString(), QStringLiteral("Teal & Orange"));
+        m_ctrl->applyFilter(clip, QStringLiteral("inexistente")); // ignorado
+        QCOMPARE(m_ctrl->selectedClip().value("filter").toString(), QStringLiteral("tealorange"));
+        m_ctrl->setClipProperties(clip, {{"exposure", 0.3}, {"vignette", 0.5}});
+        QCOMPARE(m_ctrl->selectedClip().value("vignette").toDouble(), 0.5);
+        m_ctrl->resetClipProperties(clip, "color"); // mantém o filtro
+        QCOMPARE(m_ctrl->selectedClip().value("exposure").toDouble(), 0.0);
+        QCOMPARE(m_ctrl->selectedClip().value("filter").toString(), QStringLiteral("tealorange"));
+
+        // Máscara via propriedades.
+        m_ctrl->setClipProperties(clip, {{"maskShape", "circle"}, {"maskWidth", 0.3}, {"maskInvert", true}});
+        QCOMPARE(m_ctrl->selectedClip().value("maskShape").toString(), QStringLiteral("circle"));
+        QVERIFY(m_ctrl->selectedClip().value("maskInvert").toBool());
+        m_ctrl->resetClipProperties(clip, "mask");
+        QCOMPARE(m_ctrl->selectedClip().value("maskShape").toString(), QStringLiteral("none"));
+
+        // Clipe de filtro (camada de ajuste) no cursor.
+        m_ctrl->seek(1e6);
+        m_ctrl->addFilterClip(QStringLiteral("bw"));
+        QCOMPARE(m_ctrl->selectedClip().value("type").toString(), QStringLiteral("adjust"));
+        QCOMPARE(m_ctrl->selectedClip().value("start").toDouble(), 1e6);
+        QCOMPARE(m_ctrl->selectedClip().value("duration").toDouble(), 2e6); // até o fim do clipe principal
+        bool found = false;
+        for (const auto &t : m_ctrl->tracks())
+            found = found || t.toMap().value("kind") == QStringLiteral("adjust");
+        QVERIFY(found);
+
+        // LUT inválido é recusado com erro; válido é aceito.
+        QSignalSpy errors(m_ctrl.get(), &ProjectController::errorOccurred);
+        const QString bad = m_dir.filePath(QStringLiteral("bad.cube"));
+        QFile bf(bad);
+        QVERIFY(bf.open(QIODevice::WriteOnly));
+        bf.write("LUT_3D_SIZE 2\n0 0 0\n");
+        bf.close();
+        QVERIFY(!m_ctrl->loadLut(clip, QUrl::fromLocalFile(bad)));
+        QCOMPARE(errors.size(), 1);
+        const QString good = m_dir.filePath(QStringLiteral("good.cube"));
+        QFile gf(good);
+        QVERIFY(gf.open(QIODevice::WriteOnly));
+        gf.write("LUT_3D_SIZE 2\n0 0 0\n1 0 0\n0 1 0\n1 1 0\n0 0 1\n1 0 1\n0 1 1\n1 1 1\n");
+        gf.close();
+        QVERIFY(m_ctrl->loadLut(clip, QUrl::fromLocalFile(good)));
+        m_ctrl->select(clip);
+        QCOMPARE(m_ctrl->selectedClip().value("lutName").toString(), QStringLiteral("good.cube"));
+
+        // Exporta com filtro + ajuste + LUT.
+        QSignalSpy done(m_ctrl.get(), &ProjectController::exportFinished);
+        m_ctrl->exportVideo(QUrl::fromLocalFile(m_dir.filePath(QStringLiteral("filtros.mp4"))), 360, 0,
+                            QStringLiteral("h264"), 28);
+        QVERIFY(done.wait(60000));
+        QVERIFY2(done.first().at(0).toBool(), qPrintable(done.first().at(1).toString()));
+    }
+
+    void clipboardAndGroups()
+    {
+        m_ctrl->newProject(640, 360, 30);
+        m_ctrl->importMedia({QUrl::fromLocalFile(m_video)});
+        const QString asset = m_ctrl->assets().first().toMap().value("id").toString();
+        m_ctrl->addAssetToTimeline(asset);
+        m_ctrl->seek(0.5e6);
+        m_ctrl->addText(QStringLiteral("A"), "");
+        const QString text = m_ctrl->selectedClip().value("id").toString();
+        const QString video = clipsOf(0).first().toMap().value("id").toString();
+
+        // Seleção por intervalo nas faixas 0 e 1 pega os dois.
+        int textTrack = -1;
+        for (const auto &t : m_ctrl->tracks())
+            if (t.toMap().value("kind") == QStringLiteral("text"))
+                textTrack = t.toMap().value("index").toInt();
+        m_ctrl->selectInRange(0, 1e6, {0, textTrack}, false);
+        QCOMPARE(m_ctrl->selection().size(), 2);
+
+        // Agrupar: clicar em um seleciona os dois.
+        m_ctrl->groupSelection();
+        m_ctrl->select(text);
+        QCOMPARE(m_ctrl->selection().size(), 2);
+
+        // Copiar e colar no fim: os dois vêm juntos, com grupo novo.
+        m_ctrl->copySelection();
+        QVERIFY(m_ctrl->canPaste());
+        m_ctrl->seek(3e6);
+        m_ctrl->paste();
+        QCOMPARE(m_ctrl->selection().size(), 2);
+        QCOMPARE(clipsOf(0).size(), 2);
+        QCOMPARE(m_ctrl->duration(), 6.5e6); // texto colado mantém o deslocamento de 0,5 s
+        const auto pasted = m_ctrl->selection();
+        QVERIFY(!pasted.contains(text) && !pasted.contains(video));
+
+        // Mover o grupo colado pelo texto: o vídeo da faixa principal vai junto.
+        const QString pastedText = clipsOf(textTrack).last().toMap().value("id").toString();
+        m_ctrl->select(pastedText);
+        QCOMPARE(m_ctrl->selection().size(), 2);
+        m_ctrl->ungroupSelection();
+        m_ctrl->select(pastedText);
+        QCOMPARE(m_ctrl->selection().size(), 1);
+
+        // Recortar remove; colar devolve.
+        m_ctrl->cutSelection();
+        QCOMPARE(clipsOf(textTrack).size(), 1);
+        m_ctrl->seek(4e6); // ponto livre na faixa de texto (sobreposição iria para outra faixa)
+        m_ctrl->paste();
+        QCOMPARE(clipsOf(textTrack).size(), 2);
+
+        // Atributos: estilo de um texto para o outro.
+        m_ctrl->select(text);
+        m_ctrl->setClipProperty(text, "color", QStringLiteral("#00ff00"));
+        m_ctrl->copyAttributes();
+        QVERIFY(m_ctrl->canPasteAttributes());
+        const QString other = clipsOf(textTrack).last().toMap().value("id").toString();
+        m_ctrl->select(other);
+        m_ctrl->pasteAttributesToSelection();
+        QCOMPARE(m_ctrl->selectedClip().value("color").toString(), QStringLiteral("#00ff00"));
+    }
+
+    void autosaveAndRecovery()
+    {
+        m_ctrl.reset(); // uma "sessão" de cada vez
+        QString recovered;
+        {
+            ProjectController a(nullptr);
+            a.importMedia({QUrl::fromLocalFile(m_video)});
+            a.addAssetToTimeline(a.assets().first().toMap().value("id").toString());
+            a.addText(QStringLiteral("não salvo"), "");
+            QVERIFY(a.modified());
+            a.autosaveNow();
+            QVERIFY(a.recoverableProjects().isEmpty()); // a própria sessão não aparece
+            // Outra janela aberta ao mesmo tempo não vê a cópia em uso.
+            ProjectController b(nullptr);
+            QVERIFY(b.recoverableProjects().isEmpty());
+        } // fim "inesperado": havia alterações, a cópia fica no disco
+
+        auto c = std::make_unique<ProjectController>(nullptr);
+        const QVariantList list = c->recoverableProjects();
+        QCOMPARE(list.size(), 1);
+        QVERIFY(list.first().toMap().value("originalPath").toString().isEmpty()); // nunca salvo
+        QVERIFY(c->recoverProject(list.first().toMap().value("file").toString()));
+        QVERIFY(c->modified());
+        QCOMPARE(c->tracks().size(), 2); // principal + texto
+        QVERIFY(c->recoverableProjects().isEmpty());
+
+        // Salvar apaga a cópia de recuperação.
+        QVERIFY(c->saveProjectAs(QUrl::fromLocalFile(m_dir.filePath(QStringLiteral("recuperado.clivcut")))));
+        QVERIFY(QDir(ProjectController::recoveryDir()).entryList({QStringLiteral("*.clivcut")}, QDir::Files).isEmpty());
+
+        // Descartar alterações também.
+        c->addText(QStringLiteral("x"), "");
+        c->autosaveNow();
+        QCOMPARE(QDir(ProjectController::recoveryDir()).entryList({QStringLiteral("*.clivcut")}, QDir::Files).size(), 1);
+        c->discardChanges();
+        QVERIFY(!c->modified());
+        QVERIFY(QDir(ProjectController::recoveryDir()).entryList({QStringLiteral("*.clivcut")}, QDir::Files).isEmpty());
+        m_ctrl = std::move(c);
+    }
+
+    void detachAudioWorkflow()
+    {
+        m_ctrl->newProject(640, 360, 30);
+        m_ctrl->importMedia({QUrl::fromLocalFile(m_video)});
+        m_ctrl->addAssetToTimeline(m_ctrl->assets().first().toMap().value("id").toString());
+        const QString video = clipsOf(0).first().toMap().value("id").toString();
+        m_ctrl->select(video);
+        m_ctrl->detachAudio();
+        QVERIFY(clipsOf(0).first().toMap().value("audioMuted").toBool());
+        int audioTrack = -1;
+        for (const auto &t : m_ctrl->tracks())
+            if (t.toMap().value("kind") == QStringLiteral("audio"))
+                audioTrack = t.toMap().value("index").toInt();
+        QVERIFY(audioTrack > 0);
+        QVERIFY(clipsOf(audioTrack).first().toMap().value("audioOnly").toBool());
+        // Mixagem: mesmo áudio de antes (o do clipe separado), vídeo mudo.
+        clv::engine::AudioMixer mixer;
+        std::vector<float> buf(4800 * 2);
+        mixer.mix(*m_ctrl->snapshot(), 1'000'000, buf.data(), 4800);
+        float peak = 0;
+        for (float x : buf)
+            peak = std::max(peak, std::abs(x));
+        QVERIFY(peak > 0.05f);
+        // Desfazer volta ao estado original.
+        m_ctrl->undo();
+        QVERIFY(!clipsOf(0).first().toMap().value("audioMuted").toBool());
+        QCOMPARE(m_ctrl->tracks().size(), 1);
+    }
+
+    void proxiesAutomatic()
+    {
+        const QString big = m_dir.filePath(QStringLiteral("grande.mp4"));
+        QProcess p;
+        p.start(QStringLiteral("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                                           "testsrc2=size=2560x1440:rate=30:duration=2", "-c:v", "libx264", "-preset",
+                                           "ultrafast", "-pix_fmt", "yuv420p", big});
+        QVERIFY(p.waitForFinished(120000) && p.exitCode() == 0);
+        m_ctrl->newProject(1920, 1080, 30);
+        m_ctrl->importMedia({QUrl::fromLocalFile(big), QUrl::fromLocalFile(m_video)});
+        // Só o vídeo > 1080p entra na fila automaticamente.
+        QCOMPARE(m_ctrl->proxiesPending(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(m_ctrl->proxiesPending(), 0, 60000);
+        QString bigState, smallState;
+        for (const auto &a : m_ctrl->assets()) {
+            const auto m = a.toMap();
+            (m.value("path") == big ? bigState : smallState) = m.value("proxyState").toString();
+        }
+        QCOMPARE(bigState, QStringLiteral("ready"));
+        QCOMPARE(smallState, QStringLiteral("none"));
+        // Pedido manual para o pequeno.
+        for (const auto &a : m_ctrl->assets())
+            if (a.toMap().value("path") == m_video)
+                m_ctrl->generateProxy(a.toMap().value("id").toString());
+        QTRY_COMPARE_WITH_TIMEOUT(m_ctrl->proxiesPending(), 0, 60000);
+        // Reabrir o projeto reencontra os proxies no cache sem gerar de novo.
+        const QString proj = m_dir.filePath(QStringLiteral("proxy.clivcut"));
+        QVERIFY(m_ctrl->saveProjectAs(QUrl::fromLocalFile(proj)));
+        QVERIFY(m_ctrl->openProject(QUrl::fromLocalFile(proj)));
+        QCOMPARE(m_ctrl->proxiesPending(), 0);
+        for (const auto &a : m_ctrl->assets())
+            QCOMPARE(a.toMap().value("proxyState").toString(), QStringLiteral("ready"));
+    }
+
+    void captionsWorkflow()
+    {
+#ifndef CLIVCUT_WHISPER_SAMPLES
+        QSKIP("build sem whisper.cpp");
+#else
+        if (!clv::engine::whisperModelInstalled(QStringLiteral("tiny")))
+            QSKIP("modelo tiny ausente");
+        m_ctrl->newProject(1280, 720, 30);
+        m_ctrl->importMedia({QUrl::fromLocalFile(m_video), QUrl::fromLocalFile(QStringLiteral(CLIVCUT_WHISPER_SAMPLES "/jfk.wav"))});
+        for (const auto &a : m_ctrl->assets()) {
+            const auto m = a.toMap();
+            m_ctrl->addAssetToTimeline(m.value("id").toString(), -1, m.value("kind") == "audio" ? 0.0 : -1.0);
+        }
+        QSignalSpy changed(m_ctrl.get(), &ProjectController::transcribeChanged);
+        m_ctrl->generateCaptions(QStringLiteral("tiny"), QStringLiteral("en"), -1, true);
+        QVERIFY(m_ctrl->transcribing());
+        QTRY_VERIFY_WITH_TIMEOUT(!m_ctrl->transcribing(), 60000);
+
+        int captionTrack = -1;
+        for (const auto &t : m_ctrl->tracks())
+            if (t.toMap().value("name") == QStringLiteral("Legendas"))
+                captionTrack = t.toMap().value("index").toInt();
+        QVERIFY(captionTrack > 0);
+        const auto caps = clipsOf(captionTrack);
+        QVERIFY(caps.size() >= 2);
+
+        // Gerar de novo com "substituir" não duplica a faixa; um undo remove tudo.
+        m_ctrl->undo();
+        for (const auto &t : m_ctrl->tracks())
+            QVERIFY(t.toMap().value("name") != QStringLiteral("Legendas"));
+        m_ctrl->redo();
+
+        // Estilo aplicado a todas.
+        const QString first = caps.first().toMap().value("id").toString();
+        m_ctrl->select(first);
+        QVERIFY(m_ctrl->selectedClip().value("inCaptionTrack").toBool());
+        m_ctrl->setClipProperty(first, "color", QStringLiteral("#ffe14d"));
+        m_ctrl->applyStyleToTrack(first);
+        m_ctrl->select(caps.last().toMap().value("id").toString());
+        QCOMPARE(m_ctrl->selectedClip().value("color").toString(), QStringLiteral("#ffe14d"));
+
+        // Exporta SRT e reimporta.
+        const QString srt = m_dir.filePath(QStringLiteral("legendas.srt"));
+        QVERIFY(m_ctrl->exportSubtitles(QUrl::fromLocalFile(srt)));
+        QFile f(srt);
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        const QString content = QString::fromUtf8(f.readAll());
+        QVERIFY2(content.contains(QStringLiteral("country"), Qt::CaseInsensitive), qPrintable(content));
+        const int tracksBefore = m_ctrl->tracks().size();
+        QVERIFY(m_ctrl->importSubtitles(QUrl::fromLocalFile(srt)));
+        QCOMPARE(m_ctrl->tracks().size(), tracksBefore + 1);
+
+        const QString keep = qEnvironmentVariable("CLIVCUT_TEST_KEEP");
+        if (!keep.isEmpty()) {
+            m_ctrl->undo();
+            m_ctrl->saveProjectAs(QUrl::fromLocalFile(keep));
+        }
+#endif
+    }
+};
+
+QTEST_MAIN(ControllerTest)
+#include "tst_controller.moc"

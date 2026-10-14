@@ -1,0 +1,131 @@
+name: build
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  QT_VERSION: '6.8.3'
+
+jobs:
+  linux:
+    name: Linux (AppImage)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependências
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config ffmpeg libfuse2 \
+            libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev \
+            libsdl2-dev libva-dev libvulkan-dev libgl1-mesa-dev libegl1-mesa-dev libxkbcommon-dev \
+            libxcb-cursor0 librsvg2-bin
+
+      - name: Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: qtshadertools qtwaylandcompositor
+          cache: true
+
+      - name: Compilar e testar
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF
+          cmake --build build
+          QT_QPA_PLATFORM=offscreen SDL_AUDIODRIVER=dummy ctest --test-dir build --output-on-failure
+
+      - name: AppImage
+        run: QMAKE="$QT_ROOT_DIR/bin/qmake" packaging/appimage/build-appimage.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clivcut-linux-appimage
+          path: dist/*.AppImage
+
+  windows:
+    name: Windows (MSVC)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: FFmpeg e SDL2 (vcpkg)
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg" install --triplet x64-windows `
+            "ffmpeg[core,avcodec,avformat,avfilter,swscale,swresample,gpl,x264,dav1d,opus]" sdl2
+
+      - name: Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: win64_msvc2022_64
+          modules: qtshadertools
+          cache: true
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Compilar
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows
+          cmake --build build
+
+      - name: Testes (sem GPU)
+        shell: pwsh
+        run: |
+          $env:QT_QPA_PLATFORM = "offscreen"; $env:SDL_AUDIODRIVER = "dummy"
+          ctest --test-dir build --output-on-failure -E "render|controller"
+
+      - name: Instalador
+        shell: pwsh
+        run: |
+          cd build
+          cpack -G "NSIS;ZIP"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clivcut-windows
+          path: |
+            build/clivcut-*.exe
+            build/clivcut-*.zip
+
+  macos:
+    name: macOS (Apple Silicon)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependências
+        run: brew install ninja pkg-config ffmpeg sdl2 qt
+
+      - name: Ícone (.icns)
+        run: |
+          mkdir -p clivcut.iconset
+          for s in 16 32 128 256 512; do
+            sips -z $s $s packaging/macos/clivcut-1024.png --out clivcut.iconset/icon_${s}x${s}.png >/dev/null
+            sips -z $((s*2)) $((s*2)) packaging/macos/clivcut-1024.png --out clivcut.iconset/icon_${s}x${s}@2x.png >/dev/null
+          done
+          iconutil -c icns clivcut.iconset -o packaging/macos/clivcut.icns
+
+      - name: Compilar e testar
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
+          cmake --build build
+          QT_QPA_PLATFORM=offscreen SDL_AUDIODRIVER=dummy ctest --test-dir build --output-on-failure -E "render|controller"
+
+      - name: DMG
+        run: |
+          cd build
+          cpack -G DragNDrop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clivcut-macos
+          path: build/clivcut-*.dmg

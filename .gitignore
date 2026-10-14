@@ -1,0 +1,11 @@
+build/
+build-*/
+dist/
+*.user
+.cache/
+compile_commands.json
+
+# ferramentas internas
+.claude/
+_bmad/
+_bmad-output/

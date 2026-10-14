@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=clivcut
+GenericName=Editor de vídeo
+GenericName[en]=Video Editor
+Comment=Editor de vídeo multiplataforma e open-source
+Comment[en]=Open-source cross-platform video editor
+Exec=clivcut %F
+Icon=io.github.clivcut
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;
+MimeType=video/mp4;video/quicktime;video/x-matroska;video/webm;
+Keywords=video;editor;timeline;captions;
