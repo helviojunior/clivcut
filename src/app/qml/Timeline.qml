@@ -103,6 +103,14 @@ Rectangle {
                 IconButton { iconName: "copy"; tip: qsTr("Duplicate"); shortcut: Keymap.label("duplicate"); enabled: Project.selection.length > 0; onClicked: Project.duplicateSelection() }
                 IconButton { iconName: "snowflake"; tip: qsTr("Freeze frame"); shortcut: Keymap.label("freeze"); onClicked: Project.freezeFrame() }
                 IconButton { iconName: "bookmark"; tip: qsTr("Add marker"); shortcut: Keymap.label("marker"); onClicked: Project.addMarker() }
+                IconButton {
+                    iconName: "zap"
+                    active: Project.renderingPreview
+                    tip: Project.renderingPreview ? qsTr("Rendering preview… %1% (click to cancel)").arg(Math.round(Project.renderProgress * 100))
+                                                  : qsTr("Render preview: the in/out range or the whole timeline plays smoothly; edits invalidate only the affected parts")
+                    shortcut: Keymap.label("renderPreview")
+                    onClicked: Project.renderingPreview ? Project.cancelRenderPreview() : Project.renderPreview()
+                }
                 Item { Layout.fillWidth: true }
                 IconButton { iconName: "magnet"; tip: qsTr("Main track magnet (no gaps)"); shortcut: Keymap.label("magnet"); active: Project.magnet; onClicked: Project.magnet = !Project.magnet }
                 IconButton { iconName: "crosshair"; tip: qsTr("Auto snapping"); shortcut: Keymap.label("snapping"); active: Project.snapping; onClicked: Project.snapping = !Project.snapping }
@@ -149,6 +157,8 @@ Rectangle {
                     property var markers: Project.markers
                     property real inPoint: Project.inPoint
                     property real outPoint: Project.outPoint
+                    property var cached: Project.cachedRanges
+                    onCachedChanged: requestPaint()
                     onInPointChanged: requestPaint()
                     onOutPointChanged: requestPaint()
                     onOffsetChanged: requestPaint()
@@ -160,6 +170,13 @@ Rectangle {
                         ctx.reset();
                         ctx.fillStyle = Theme.panel;
                         ctx.fillRect(0, 0, width, height);
+                        // Trechos já renderizados (cache de pré-visualização): faixa verde no topo.
+                        ctx.fillStyle = Theme.success;
+                        for (const r of cached) {
+                            const xa = r.start / 1e6 * scale - offset;
+                            const xb = r.end / 1e6 * scale - offset;
+                            ctx.fillRect(xa, 0, xb - xa, 3);
+                        }
                         // Trecho de entrada/saída (I/O): faixa destacada com colchetes nas pontas.
                         if (inPoint >= 0 || outPoint > 0) {
                             const xin = (inPoint >= 0 ? inPoint : 0) / 1e6 * scale - offset;

@@ -56,7 +56,9 @@ Rectangle {
                 focusPolicy: Qt.NoFocus
                 implicitContentWidthPolicy: ComboBox.WidestText
                 model: [qsTr("Preview 540p"), qsTr("Preview 720p"), qsTr("Preview 1080p")]
-                currentIndex: 1
+                readonly property var sides: [960, 1280, 1920]
+                currentIndex: Math.max(0, sides.indexOf(Project.previewResolution))
+                onActivated: (i) => Project.previewResolution = sides[i]
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Playback resolution (does not affect export)")
             }
@@ -69,7 +71,7 @@ Rectangle {
             PreviewItem {
                 id: preview
                 anchors.fill: parent
-                maxResolution: [960, 1280, 1920][quality.currentIndex]
+                maxResolution: Project.previewResolution
             }
 
             // Moldura do canvas + arrastar para mover o clipe selecionado.

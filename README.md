@@ -18,6 +18,7 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
 - **Media:** imports video, audio and images (anything FFmpeg can read) via drag and drop or the file dialog. Thumbnails, waveforms, missing-media relinking, and correct rotation for phone videos.
 - **Performance:**
   - **Hardware decoding:** VA-API on Linux, D3D11VA on Windows and VideoToolbox on macOS, with GPU downscaling.
+  - **Render preview** (Ctrl+R): pre-renders the in/out range or the whole timeline so heavy sections play smoothly. Rendered parts show as a green bar on the ruler, and an edit only invalidates the parts it touches.
   - **Automatic proxies** for videos above 1080p, generated in the background. The player's "Proxy" button toggles between proxy and original; export always uses the original.
 - **Timeline:**
   - Magnetic main track plus overlay, text and audio tracks, with mute, hide and lock.

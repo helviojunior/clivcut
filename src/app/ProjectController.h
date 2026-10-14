@@ -5,6 +5,7 @@
 #include "core/History.h"
 #include "core/Model.h"
 #include "engine/Exporter.h"
+#include "engine/RenderCache.h"
 
 #include <QElapsedTimer>
 #include <QObject>
@@ -71,6 +72,12 @@ class ProjectController : public QObject {
     /// Codecs com encoder de GPU funcional nesta máquina (sondado na primeira leitura).
     Q_PROPERTY(QStringList hardwareCodecs READ hardwareCodecs CONSTANT)
     Q_PROPERTY(QStringList audioFormats READ audioFormats CONSTANT)
+    /// Lado maior da pré-visualização (960/1280/1920): define também a resolução do cache de renderização.
+    Q_PROPERTY(int previewResolution READ previewResolution WRITE setPreviewResolution NOTIFY renderCacheChanged)
+    /// Trechos já renderizados: [{start, end}] em µs.
+    Q_PROPERTY(QVariantList cachedRanges READ cachedRanges NOTIFY renderCacheChanged)
+    Q_PROPERTY(bool renderingPreview READ renderingPreview NOTIFY renderCacheChanged)
+    Q_PROPERTY(double renderProgress READ renderProgress NOTIFY renderCacheChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     // Legendas automáticas
     Q_PROPERTY(bool transcriptionAvailable READ transcriptionAvailable CONSTANT)
@@ -142,6 +149,13 @@ public:
     bool exporting() const { return m_exporting; }
     QStringList videoCodecs() const;
     QStringList hardwareCodecs() const;
+    int previewResolution() const { return m_previewResolution; }
+    void setPreviewResolution(int side);
+    QVariantList cachedRanges() const;
+    bool renderingPreview() const { return m_rendering; }
+    double renderProgress() const { return m_renderProgress; }
+    /// Estado do cache lido pela pré-visualização (thread de renderização).
+    std::shared_ptr<const clv::engine::RenderCacheView> renderCacheView() const;
     QStringList audioFormats() const;
     QString statusMessage() const { return m_status; }
     bool transcriptionAvailable() const;
@@ -255,6 +269,10 @@ public:
     Q_INVOKABLE void exportAudio(const QUrl &url, bool rangeOnly = false);
     /// O quadro sob o cursor como imagem (PNG/JPG) na resolução do canvas.
     Q_INVOKABLE void exportFrame(const QUrl &url);
+    /// Pré-renderiza o trecho de entrada/saída (ou a timeline inteira) para reprodução fluida.
+    Q_INVOKABLE void renderPreview();
+    Q_INVOKABLE void cancelRenderPreview();
+    Q_INVOKABLE void clearRenderCache();
     Q_INVOKABLE void cancelExport();
 
     // --- legendas ---
@@ -322,6 +340,7 @@ signals:
     void clipboardChanged();
     void audioJobsChanged();
     void languageChanged();
+    void renderCacheChanged();
     void recentProjectsChanged();
 
 private:
@@ -339,6 +358,7 @@ private:
     void refreshMattes();
     void startNextMatte();
     void startExport(const clv::engine::ExportOptions &opts);
+    void refreshRenderCache();
     void enqueueProxy(const QString &mediaPath);
     void startNextProxy();
     QString defaultTextFor(const QString &preset) const;
@@ -385,7 +405,14 @@ private:
     QString m_denoiseBuilding;
     double m_denoiseProgress = 0;
     std::shared_ptr<std::atomic<bool>> m_denoiseCancel = std::make_shared<std::atomic<bool>>(false);
-    QQmlEngine *m_engine = nullptr; ///< para retraduzir a interface ao trocar o idioma
+    QQmlEngine *m_engine = nullptr;
+    int m_previewResolution = 1280;
+    QTimer m_cacheTimer;               ///< agrupa as edições antes de recalcular as chaves do cache
+    std::shared_ptr<const clv::engine::RenderCacheView> m_cacheView = std::make_shared<clv::engine::RenderCacheView>();
+    QVariantList m_cachedRanges;
+    bool m_rendering = false;
+    double m_renderProgress = 0;
+    std::shared_ptr<std::atomic<bool>> m_renderCancel = std::make_shared<std::atomic<bool>>(false); ///< para retraduzir a interface ao trocar o idioma
     QStringList m_matteQueue;       ///< mídias aguardando remoção de fundo
     QString m_matteBuilding;
     double m_matteProgress = 0;

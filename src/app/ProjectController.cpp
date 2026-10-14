@@ -108,6 +108,9 @@ ProjectController::ProjectController(QObject *parent) : QObject(parent)
     m_ticker.setInterval(15);
     m_ticker.setTimerType(Qt::PreciseTimer);
     connect(&m_ticker, &QTimer::timeout, this, &ProjectController::tick);
+    m_cacheTimer.setSingleShot(true);
+    m_cacheTimer.setInterval(300);
+    connect(&m_cacheTimer, &QTimer::timeout, this, &ProjectController::refreshRenderCache);
 }
 
 ProjectController::~ProjectController()
@@ -119,6 +122,7 @@ ProjectController::~ProjectController()
     *m_proxyCancel = true;
     *m_denoiseCancel = true;
     *m_matteCancel = true;
+    *m_renderCancel = true;
     if (g_instance == this)
         g_instance = nullptr;
 }
@@ -181,6 +185,7 @@ void ProjectController::commitChange()
     ++m_revisionCounter;
     refreshDenoise();
     refreshMattes();
+    m_cacheTimer.start();
     emit projectChanged();
     emit selectedClipChanged();
     emit historyChanged();
@@ -2413,6 +2418,138 @@ void ProjectController::startNextDenoise()
             startNextDenoise();
         }, Qt::QueuedConnection);
     }).detach();
+}
+
+// ---------------------------------------------------------------------------
+// Cache de renderização da pré-visualização
+
+void ProjectController::setPreviewResolution(int side)
+{
+    side = std::clamp(side, 320, 4096);
+    if (side == m_previewResolution)
+        return;
+    m_previewResolution = side;
+    refreshRenderCache();
+}
+
+std::shared_ptr<const engine::RenderCacheView> ProjectController::renderCacheView() const
+{
+    std::lock_guard lock(m_snapMutex);
+    return m_cacheView;
+}
+
+QVariantList ProjectController::cachedRanges() const
+{
+    return m_cachedRanges;
+}
+
+void ProjectController::refreshRenderCache()
+{
+    auto view = std::make_shared<engine::RenderCacheView>();
+    view->longSide = m_previewResolution;
+    const std::vector<QString> keys = engine::renderChunkKeys(m_project);
+    view->files.resize(keys.size());
+    QVariantList ranges;
+    const Micros end = m_project.duration();
+    for (size_t i = 0; i < keys.size(); ++i) {
+        const QString file = engine::renderCacheFile(keys[i], m_previewResolution);
+        if (!QFileInfo::exists(file))
+            continue;
+        view->files[i] = file;
+        const double a = static_cast<double>(i * engine::kRenderChunk);
+        const double b = static_cast<double>(std::min<Micros>((i + 1) * engine::kRenderChunk, end));
+        // Junta trechos vizinhos numa faixa só.
+        if (!ranges.isEmpty() && ranges.last().toMap().value("end").toDouble() == a) {
+            QVariantMap last = ranges.last().toMap();
+            last["end"] = b;
+            ranges.last() = last;
+        } else {
+            ranges << QVariantMap{{"start", a}, {"end", b}};
+        }
+    }
+    {
+        std::lock_guard lock(m_snapMutex);
+        m_cacheView = view;
+    }
+    m_cachedRanges = ranges;
+    emit renderCacheChanged();
+}
+
+void ProjectController::renderPreview()
+{
+    if (m_rendering || m_project.duration() <= 0)
+        return;
+    const Micros from = m_project.hasRange() ? m_project.rangeStart() : 0;
+    const Micros to = m_project.hasRange() ? m_project.rangeEnd() : m_project.duration();
+    std::vector<int> chunks;
+    for (int i = static_cast<int>(from / engine::kRenderChunk); i * engine::kRenderChunk < to; ++i)
+        if (i < engine::renderChunkCount(m_project))
+            chunks.push_back(i);
+    if (chunks.empty())
+        return;
+    m_rendering = true;
+    m_renderProgress = 0;
+    m_renderCancel = std::make_shared<std::atomic<bool>>(false);
+    emit renderCacheChanged();
+    setStatus(tr("Rendering preview…"));
+
+    auto *surface = render::OffscreenRhi::createFallbackSurface();
+    auto snap = snapshot();
+    auto cancel = m_renderCancel;
+    const int side = m_previewResolution;
+    std::thread([this, snap, chunks, side, surface, cancel] {
+        QString err;
+        render::OffscreenRhi rhi;
+        bool ok = rhi.create(&err, surface);
+        if (ok)
+            ok = engine::renderChunks(
+                *snap, chunks, side, &rhi,
+                [this, cancel](double f) {
+                    if (!*cancel)
+                        QMetaObject::invokeMethod(this, [this, f] {
+                            m_renderProgress = f;
+                            emit renderCacheChanged();
+                        }, Qt::QueuedConnection);
+                    return !*cancel;
+                },
+                [this, cancel](int) {
+                    if (!*cancel)
+                        QMetaObject::invokeMethod(this, [this] { refreshRenderCache(); }, Qt::QueuedConnection);
+                },
+                &err);
+        if (*cancel) {
+            // Controlador pode estar sendo destruído: só libera a superfície (na thread da GUI).
+            QMetaObject::invokeMethod(this, [surface] { delete surface; }, Qt::QueuedConnection);
+            return;
+        }
+        QMetaObject::invokeMethod(this, [this, ok, err, surface] {
+            delete surface;
+            m_rendering = false;
+            refreshRenderCache();
+            if (ok)
+                setStatus(tr("Preview rendered"));
+            else
+                emit errorOccurred(err);
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+void ProjectController::cancelRenderPreview()
+{
+    if (!m_rendering)
+        return;
+    *m_renderCancel = true;
+    m_rendering = false;
+    refreshRenderCache();
+    setStatus(tr("Render cancelled"));
+}
+
+void ProjectController::clearRenderCache()
+{
+    cancelRenderPreview();
+    const qint64 freed = engine::clearRenderCache();
+    refreshRenderCache();
+    setStatus(tr("Render cache cleared (%1 MB)").arg(static_cast<double>(freed) / 1e6, 0, 'f', 1));
 }
 
 // ---------------------------------------------------------------------------

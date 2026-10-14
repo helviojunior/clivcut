@@ -4,6 +4,8 @@
 #include "ProjectController.h"
 #include "core/Evaluate.h"
 #include "engine/DecoderFrameSource.h"
+#include "engine/RenderCache.h"
+#include "media/VideoDecoder.h"
 #include "render/Compositor.h"
 
 #include <QSet>
@@ -11,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <unordered_map>
 
 namespace {
 
@@ -21,6 +24,13 @@ QRectF fitRect(QSizeF content, QSizeF box)
     const QSizeF s = content.scaled(box, Qt::KeepAspectRatio);
     return {(box.width() - s.width()) / 2, (box.height() - s.height()) / 2, s.width(), s.height()};
 }
+
+// Fonte de um único quadro: o trecho já renderizado do cache.
+class ImageSource : public clv::render::FrameSource {
+public:
+    QImage image;
+    QImage frameFor(const clv::VisualLayer &) override { return image; }
+};
 
 class PreviewRenderer : public QQuickRhiItemRenderer {
 public:
@@ -42,6 +52,29 @@ public:
         m_maxRes = static_cast<PreviewItem *>(item)->maxResolution();
         m_playing = ctrl->playing();
         m_frames.setPreferProxy(ctrl->useProxies());
+        m_cache = ctrl->renderCacheView();
+    }
+
+    // Quadro do cache de renderização no tempo atual, ou nulo se o trecho não estiver renderizado.
+    QImage cachedFrame()
+    {
+        const QString file = m_cache ? m_cache->fileAt(m_time) : QString();
+        if (file.isEmpty())
+            return {};
+        auto &dec = m_cacheDecoders[file];
+        if (!dec) {
+            // Poucos trechos abertos de cada vez (o atual e os vizinhos).
+            if (m_cacheDecoders.size() > 4)
+                for (auto it = m_cacheDecoders.begin(); it != m_cacheDecoders.end();)
+                    it = it->first != file ? m_cacheDecoders.erase(it) : std::next(it);
+            dec = std::make_unique<clv::media::VideoDecoder>();
+            if (!dec->open(file)) {
+                m_cacheDecoders.erase(file);
+                return {};
+            }
+        }
+        const auto chunk = m_time / clv::engine::kRenderChunk;
+        return dec->frameAt(m_time - chunk * clv::engine::kRenderChunk);
     }
 
     void render(QRhiCommandBuffer *cb) override
@@ -60,6 +93,25 @@ public:
         renderSize = renderSize.expandedTo(QSize(16, 16));
         m_compositor->setRenderSize(renderSize);
         m_frames.setMaxSize(renderSize);
+
+        // Trecho pré-renderizado: desenha o quadro pronto em vez de compor as camadas.
+        const QImage cached = cachedFrame();
+        if (!cached.isNull()) {
+            m_cacheAsset.width = m_project->width;
+            m_cacheAsset.height = m_project->height;
+            m_cacheClip.id = QStringLiteral("#render-cache");
+            clv::VisualLayer layer;
+            layer.trackIndex = 1; // não alimenta o desfoque de fundo (o quadro já o contém)
+            layer.clip = &m_cacheClip;
+            layer.asset = &m_cacheAsset;
+            clv::FrameDesc desc;
+            desc.layers.push_back(layer);
+            ImageSource src;
+            src.image = cached;
+            m_compositor->composite(cb, *m_project, desc, src);
+            m_compositor->blitTo(cb, rt, vp, QColor(0x14, 0x14, 0x17));
+            return;
+        }
 
         const clv::FrameDesc frame = clv::evaluate(*m_project, m_time);
         if (++m_pruneCounter % 120 == 0) {
@@ -82,6 +134,10 @@ private:
     int m_maxRes = 1280;
     bool m_playing = false;
     int m_pruneCounter = 0;
+    std::shared_ptr<const clv::engine::RenderCacheView> m_cache;
+    std::unordered_map<QString, std::unique_ptr<clv::media::VideoDecoder>> m_cacheDecoders;
+    clv::Clip m_cacheClip;
+    clv::MediaAsset m_cacheAsset;
 };
 
 } // namespace
@@ -91,6 +147,7 @@ PreviewItem::PreviewItem(QQuickItem *parent) : QQuickRhiItem(parent)
     if (auto *ctrl = ProjectController::instance()) {
         connect(ctrl, &ProjectController::revisionChanged, this, &QQuickItem::update);
         connect(ctrl, &ProjectController::playheadChanged, this, &QQuickItem::update);
+        connect(ctrl, &ProjectController::renderCacheChanged, this, &QQuickItem::update);
         connect(ctrl, &ProjectController::projectChanged, this, &PreviewItem::canvasRectChanged);
     }
 }

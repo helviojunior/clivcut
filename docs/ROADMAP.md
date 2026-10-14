@@ -29,7 +29,7 @@
 | 21 | Masks and chroma key | ✅ | mask keyframes, freeform path masks and on-player edit handles missing |
 | 22 | Blend modes | ✅ | 10 modes |
 | 23 | Export | ✅ | GPU encoding with software fallback, audio-only, current frame and alpha video (ProRes 4444 / VP9 WebM) |
-| 24 | Proxies and render cache | 🟡 | automatic proxies and hardware decoding done; render cache for heavy sections missing |
+| 24 | Proxies and render cache | ✅ | automatic proxies, hardware decoding and a render cache (2 s chunks keyed by content, drawn as a green bar on the ruler) |
 | 25 | Customizable shortcuts | ✅ | editor with search, key capture and conflict handling; tooltips, menus and the command palette show the current keys |
 | 26 | Interface languages | ✅ | English (source), Português (Brasil) and Español; live switching |
 

@@ -248,6 +248,10 @@
             <translation>Falha ao codificar o vídeo no quadro %1</translation>
         </message>
         <message>
+            <source>Render cancelled</source>
+            <translation>Renderização cancelada</translation>
+        </message>
+        <message>
             <source>Failed to encode the audio</source>
             <translation>Falha ao codificar o áudio</translation>
         </message>
@@ -1339,6 +1343,14 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
             <translation>Ajustar timeline à janela</translation>
         </message>
         <message>
+            <source>Render preview</source>
+            <translation>Renderizar prévia</translation>
+        </message>
+        <message>
+            <source>Clear render cache</source>
+            <translation>Limpar cache de renderização</translation>
+        </message>
+        <message>
             <source>Interface</source>
             <translation>Interface</translation>
         </message>
@@ -2267,6 +2279,22 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
             <translation>Falha na redução de ruído: %1</translation>
         </message>
         <message>
+            <source>Rendering preview…</source>
+            <translation>Renderizando a prévia…</translation>
+        </message>
+        <message>
+            <source>Preview rendered</source>
+            <translation>Prévia renderizada</translation>
+        </message>
+        <message>
+            <source>Render cancelled</source>
+            <translation>Renderização cancelada</translation>
+        </message>
+        <message>
+            <source>Render cache cleared (%1 MB)</source>
+            <translation>Cache de renderização limpo (%1 MB)</translation>
+        </message>
+        <message>
             <source>Removing background from %1…</source>
             <translation>Removendo fundo de %1…</translation>
         </message>
@@ -2423,6 +2451,14 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
         <message>
             <source>Add marker</source>
             <translation>Adicionar marcador</translation>
+        </message>
+        <message>
+            <source>Rendering preview… %1% (click to cancel)</source>
+            <translation>Renderizando a prévia… %1% (clique para cancelar)</translation>
+        </message>
+        <message>
+            <source>Render preview: the in/out range or the whole timeline plays smoothly; edits invalidate only the affected parts</source>
+            <translation>Renderizar prévia: o trecho de entrada/saída ou a timeline inteira toca sem travar; edições invalidam só as partes afetadas</translation>
         </message>
         <message>
             <source>Main track magnet (no gaps)</source>

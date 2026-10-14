@@ -3,6 +3,7 @@
 #include "core/Evaluate.h"
 #include "engine/DecoderFrameSource.h"
 #include "engine/Matting.h"
+#include "engine/RenderCache.h"
 #include "engine/Proxy.h"
 #include "media/MediaProbe.h"
 
@@ -116,6 +117,35 @@ private slots:
         proj.tracks[0].clips[0].removeBackground = false;
         const VisualLayer plain = evaluate(proj, kSecond).layers.front();
         QCOMPARE(qAlpha(source.frameFor(plain).pixel(1080, 360)), 255);
+    }
+
+    void renderCacheKeys()
+    {
+        // Clipe A em 0–2 s na faixa principal, B em 6–8 s numa faixa de cima: trechos 0..3.
+        Project proj = createProject(QStringLiteral("t"), 1280, 720, 30);
+        MediaAsset a;
+        QVERIFY(media::probe(m_video, a));
+        a.id = newId("ast");
+        proj.assets.emplace(a.id, a);
+        Clip ca = createMediaClip(a, 0);
+        ca.duration = 2 * kSecond;
+        edit::insertClip(proj, ca, 0);
+        proj.tracks.push_back(createTrack(TrackKind::Video));
+        Clip cb = createMediaClip(a, 6 * kSecond);
+        cb.duration = 2 * kSecond;
+        const QString idB = edit::insertClip(proj, cb, 1);
+        const auto before = engine::renderChunkKeys(proj);
+        QCOMPARE(static_cast<int>(before.size()), 4);
+        QCOMPARE(engine::renderChunkKeys(proj), before); // determinística
+
+        edit::clipById(proj, idB)->transform.scale = 0.5;
+        const auto after = engine::renderChunkKeys(proj);
+        QCOMPARE(after[0], before[0]); // longe de B: continua válido
+        QVERIFY(after[3] != before[3]);
+        proj.background = QStringLiteral("#ffffff");
+        QVERIFY(engine::renderChunkKeys(proj)[0] != after[0]); // canvas afeta tudo
+        QVERIFY(engine::renderCacheFile(after[0], 960) != engine::renderCacheFile(after[0], 1280));
+        QCOMPARE(engine::renderCacheSize(proj, 640), QSize(640, 360));
     }
 
     void cancel()

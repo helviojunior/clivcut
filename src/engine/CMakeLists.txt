@@ -2,6 +2,7 @@ add_library(clivcut_engine STATIC
     DecoderFrameSource.h DecoderFrameSource.cpp
     AudioMixer.h AudioMixer.cpp
     TimeStretch.h TimeStretch.cpp
+    RenderCache.h RenderCache.cpp
     Exporter.h Exporter.cpp
     Transcriber.h Transcriber.cpp
     WhisperModels.h WhisperModels.cpp

@@ -499,6 +499,35 @@ private slots:
             QCOMPARE(a.toMap().value("proxyState").toString(), QStringLiteral("ready"));
     }
 
+    void renderCacheWorkflow()
+    {
+        QVERIFY(m_ctrl->openProject(QUrl::fromLocalFile(m_dir.filePath(QStringLiteral("p.clivcut")))));
+        const double duration = m_ctrl->duration();
+        QVERIFY(duration > 0);
+        m_ctrl->setPreviewResolution(320);
+        m_ctrl->clearRenderCache();
+        QVERIFY(m_ctrl->cachedRanges().isEmpty());
+        m_ctrl->clearInOut();
+        m_ctrl->renderPreview();
+        QVERIFY(m_ctrl->renderingPreview());
+        QTRY_VERIFY_WITH_TIMEOUT(!m_ctrl->renderingPreview(), 120000);
+        // A timeline inteira vira uma faixa renderizada.
+        const QVariantList ranges = m_ctrl->cachedRanges();
+        QCOMPARE(ranges.size(), 1);
+        QCOMPARE(ranges.first().toMap().value("start").toDouble(), 0.0);
+        QCOMPARE(ranges.first().toMap().value("end").toDouble(), duration);
+        QVERIFY(!m_ctrl->renderCacheView()->fileAt(0).isEmpty());
+
+        // Editar um clipe invalida os trechos que ele toca (após o agrupamento das edições).
+        const QString clip = clipsOf(0).first().toMap().value("id").toString();
+        m_ctrl->setClipProperty(clip, QStringLiteral("opacity"), 0.5);
+        QTRY_VERIFY_WITH_TIMEOUT(m_ctrl->renderCacheView()->fileAt(0).isEmpty(), 5000);
+        m_ctrl->undo();
+        QTRY_VERIFY_WITH_TIMEOUT(!m_ctrl->renderCacheView()->fileAt(0).isEmpty(), 5000); // mesmo conteúdo, mesmo arquivo
+        m_ctrl->clearRenderCache();
+        QVERIFY(m_ctrl->cachedRanges().isEmpty());
+    }
+
     void captionsWorkflow()
     {
 #ifndef CLIVCUT_WHISPER_SAMPLES
