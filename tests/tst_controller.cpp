@@ -201,6 +201,35 @@ private slots:
         QVERIFY(std::abs(a.duration - 2'000'000) < 100'000);
         m_ctrl->clearInOut();
         QCOMPARE(m_ctrl->outPoint(), -1.0);
+
+        // Só áudio, quadro atual e GPU (cai para software se não houver encoder de hardware).
+        done.clear();
+        const QString wav = m_dir.filePath(QStringLiteral("mix.wav"));
+        m_ctrl->exportAudio(QUrl::fromLocalFile(wav));
+        QVERIFY(done.wait(60000));
+        QVERIFY2(done.first().at(0).toBool(), qPrintable(done.first().at(1).toString()));
+        clv::MediaAsset audioOnly;
+        QVERIFY(clv::media::probe(wav, audioOnly));
+        QVERIFY(audioOnly.hasAudio && !audioOnly.hasVideo);
+        QVERIFY(std::abs(audioOnly.duration - 5'500'000) < 30'000);
+
+        done.clear();
+        m_ctrl->seek(1e6);
+        const QString png = m_dir.filePath(QStringLiteral("frame"));
+        m_ctrl->exportFrame(QUrl::fromLocalFile(png));
+        QVERIFY(done.wait(60000));
+        QVERIFY2(done.first().at(0).toBool(), qPrintable(done.first().at(1).toString()));
+        const QImage frame(png + QStringLiteral(".png"));
+        QCOMPARE(frame.size(), QSize(m_ctrl->canvasWidth(), m_ctrl->canvasHeight()));
+
+        done.clear();
+        const QString gpu = m_dir.filePath(QStringLiteral("gpu.mp4"));
+        m_ctrl->exportVideo(QUrl::fromLocalFile(gpu), 360, 0, QStringLiteral("h264"), 23, false, true);
+        QVERIFY(done.wait(60000));
+        QVERIFY2(done.first().at(0).toBool(), qPrintable(done.first().at(1).toString()));
+        QVERIFY(clv::media::probe(gpu, a));
+        QCOMPARE(a.height, 360);
+        qInfo() << "GPU codecs:" << m_ctrl->hardwareCodecs() << "status:" << m_ctrl->statusMessage();
     }
 
     void filtersWorkflow()

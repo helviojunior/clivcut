@@ -359,7 +359,7 @@ void Compositor::composite(QRhiCommandBuffer *cb, const Project &p, const FrameD
     verts.reserve(kMaxLayers * 4 * kFloatsPerVertex);
 
     // Fundo desfocado: o clipe da faixa principal cobrindo o canvas, bem borrado, atrás de tudo.
-    if (p.backgroundBlur > 0) {
+    if (p.backgroundBlur > 0 && !m_transparent) {
         const auto main = std::find_if(frame.layers.begin(), frame.layers.end(), [](const VisualLayer &l) {
             return l.trackIndex == 0 && l.clip && l.clip->hasMedia() && l.asset;
         });
@@ -477,7 +477,7 @@ void Compositor::composite(QRhiCommandBuffer *cb, const Project &p, const FrameD
     if (!verts.empty())
         u->updateDynamicBuffer(m_vbo.get(), 0, static_cast<quint32>(verts.size() * sizeof(float)), verts.data());
 
-    const QColor bg(p.background);
+    const QColor bg = m_transparent ? QColor(0, 0, 0, 0) : QColor(p.background);
     cb->beginPass(m_rtClear.get(), bg, {1.0f, 0}, u);
     const QRhiViewport vp(0, 0, m_size.width(), m_size.height());
     for (const Draw &d : draws) {

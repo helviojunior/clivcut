@@ -321,7 +321,7 @@ ApplicationWindow {
         title: qsTr("Relink media")
         onAccepted: Project.relinkAsset(assetId, selectedFile)
     }
-    ExportDialog { id: exportDialog }
+    ExportDialog { id: exportDialog; objectName: "exportDialog" }
 
     CommandPalette {
         id: commandPalette

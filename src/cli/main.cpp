@@ -95,7 +95,7 @@ int main(int argc, char **argv)
     cli.addVersionOption();
     cli.addPositionalArgument(QStringLiteral("input"), QStringLiteral(".clivcut project or draft JSON folder"));
     cli.addPositionalArgument(QStringLiteral("output"), QStringLiteral("Video file (.mp4/.mov/.mkv) or .clivcut"));
-    QCommandLineOption codec({QStringLiteral("c"), QStringLiteral("codec")}, QStringLiteral("h264|hevc|av1|prores"),
+    QCommandLineOption codec({QStringLiteral("c"), QStringLiteral("codec")}, QStringLiteral("h264|hevc|av1|prores|prores4444|vp9alpha"),
                              QStringLiteral("codec"), QStringLiteral("h264"));
     QCommandLineOption crf(QStringLiteral("crf"), QStringLiteral("Quality (lower = better)"), QStringLiteral("n"),
                            QStringLiteral("20"));
@@ -114,9 +114,10 @@ int main(int argc, char **argv)
                                 QStringLiteral("n"), QStringLiteral("42"));
     QCommandLineOption bench(QStringLiteral("bench"), QStringLiteral("Benchmark video decoding (frames/s)"));
     QCommandLineOption noHw(QStringLiteral("no-hw"), QStringLiteral("Disable hardware decoding"));
+    QCommandLineOption gpuEncode(QStringLiteral("gpu"), QStringLiteral("Encode on the GPU when available (VA-API, NVENC, QSV...)"));
     QCommandLineOption removeBg(QStringLiteral("remove-bg"),
                                 QStringLiteral("Generate the matte (alpha) video of a video/image with AI (rvm model)"));
-    cli.addOptions({codec, crf, height, fps, convert, probe, transcribe, model, language, maxChars, bench, noHw, removeBg});
+    cli.addOptions({codec, crf, height, fps, convert, probe, transcribe, model, language, maxChars, bench, noHw, gpuEncode, removeBg});
     cli.process(app);
 
     const QStringList args = cli.positionalArguments();
@@ -243,11 +244,12 @@ int main(int argc, char **argv)
     engine::ExportOptions opts;
     opts.outputPath = args[1];
     const QString c = cli.value(codec).toLower();
-    opts.encode.codec = c == QLatin1String("hevc")     ? media::VideoCodec::HEVC
-                        : c == QLatin1String("av1")    ? media::VideoCodec::AV1
-                        : c == QLatin1String("prores") ? media::VideoCodec::ProRes
-                                                       : media::VideoCodec::H264;
+    opts.encode.codec = media::videoCodecFromName(c);
     opts.encode.crf = cli.value(crf).toInt();
+    opts.encode.hardware = cli.isSet(gpuEncode);
+    // Extensão de áudio (.wav, .flac, .m4a, .opus, .mp3): exporta só o áudio.
+    if (media::availableAudioFormats().contains(QFileInfo(args[1]).suffix().toLower()))
+        opts.encode.video = false;
     if (cli.isSet(height)) {
         const int h = cli.value(height).toInt();
         opts.encode.height = h;
@@ -278,6 +280,6 @@ int main(int argc, char **argv)
         std::fprintf(stderr, "error: %s\n", qPrintable(err));
         return 1;
     }
-    std::printf("Exported %s in %.1f s\n", qPrintable(args[1]), timer.elapsed() / 1000.0);
+    std::printf("Exported %s in %.1f s (%s)\n", qPrintable(args[1]), timer.elapsed() / 1000.0, qPrintable(exporter.encoderName()));
     return 0;
 }

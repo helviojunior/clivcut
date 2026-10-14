@@ -38,6 +38,39 @@ bool Exporter::run(const Project &p, ExportOptions opts, const Progress &progres
     if (end <= start)
         return fail(QCoreApplication::translate("Engine", "Nothing to export: the timeline is empty"));
 
+    bool hasAudio = false;
+    for (const auto &[id, a] : p.assets)
+        hasAudio = hasAudio || a.hasAudio;
+    enc.audio = enc.audio && hasAudio;
+
+    // Só áudio: mixa em blocos de 0,1 s, sem GPU.
+    if (!enc.video) {
+        media::Encoder encoder;
+        QString err;
+        if (!encoder.open(opts.outputPath, enc, &err))
+            return fail(err);
+        m_encoderName = encoder.codecName();
+        AudioMixer mixer;
+        const std::int64_t s0 = std::llround(static_cast<double>(start) * media::kSampleRate / kSecond);
+        const std::int64_t s1 = std::llround(static_cast<double>(end) * media::kSampleRate / kSecond);
+        constexpr int kBlock = media::kSampleRate / 10;
+        std::vector<float> buf(static_cast<size_t>(kBlock) * media::kChannels);
+        for (std::int64_t s = s0; s < s1; s += kBlock) {
+            const int n = static_cast<int>(std::min<std::int64_t>(kBlock, s1 - s));
+            mixer.mix(p, static_cast<Micros>(std::llround(s * static_cast<double>(kSecond) / media::kSampleRate)), buf.data(), n);
+            if (!encoder.writeAudio(buf.data(), n))
+                return fail(QCoreApplication::translate("Engine", "Failed to encode the audio"));
+            if (progress && !progress(static_cast<double>(s + n - s0) / (s1 - s0))) {
+                encoder.finish();
+                QFile::remove(opts.outputPath);
+                return fail(QCoreApplication::translate("Engine", "Export cancelled"));
+            }
+        }
+        if (!encoder.finish(&err))
+            return fail(err);
+        return true;
+    }
+
     std::unique_ptr<render::OffscreenRhi> ownRhi;
     render::OffscreenRhi *rhiCtx = externalRhi;
     if (!rhiCtx) {
@@ -49,20 +82,17 @@ bool Exporter::run(const Project &p, ExportOptions opts, const Progress &progres
     }
     QRhi *rhi = rhiCtx->rhi();
 
-    bool hasAudio = false;
-    for (const auto &[id, a] : p.assets)
-        hasAudio = hasAudio || a.hasAudio;
-    enc.audio = enc.audio && hasAudio;
-
     media::Encoder encoder;
     QString err;
     if (!encoder.open(opts.outputPath, enc, &err))
         return fail(err);
+    m_encoderName = encoder.codecName();
 
     // A composição acontece na resolução de saída: o projeto é escalado inteiro.
     Project scaled = p;
     render::Compositor compositor(rhi);
     compositor.setRenderSize(QSize(enc.width, enc.height));
+    compositor.setTransparentBackground(media::codecHasAlpha(enc.codec));
     DecoderFrameSource frames(QSize(enc.width * 2, enc.height * 2));
     AudioMixer mixer;
     std::vector<float> audioBuf;
@@ -103,6 +133,27 @@ bool Exporter::run(const Project &p, ExportOptions opts, const Progress &progres
     if (!encoder.finish(&err))
         return fail(err);
     return true;
+}
+
+QImage Exporter::renderStill(const Project &p, Micros t, QSize size, render::OffscreenRhi *rhiCtx, QString *error)
+{
+    if (size.isEmpty())
+        size = QSize(p.width, p.height);
+    QRhi *rhi = rhiCtx->rhi();
+    render::Compositor compositor(rhi);
+    compositor.setRenderSize(size);
+    DecoderFrameSource frames(size * 2);
+    QRhiCommandBuffer *cb = nullptr;
+    if (rhi->beginOffscreenFrame(&cb) != QRhi::FrameOpSuccess) {
+        if (error)
+            *error = QCoreApplication::translate("Engine", "GPU failure while rendering frame %1").arg(0);
+        return {};
+    }
+    compositor.composite(cb, p, evaluate(p, t), frames);
+    QRhiReadbackResult rb;
+    compositor.readback(cb, &rb);
+    rhi->endOffscreenFrame();
+    return compositor.imageFromReadback(rb);
 }
 
 } // namespace clv::engine

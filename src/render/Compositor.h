@@ -42,6 +42,8 @@ public:
 
     /** Tamanho em pixels da composição (pode ser menor que o projeto, no preview). */
     void setRenderSize(QSize size);
+    /** Fundo transparente (exportação com alfa): ignora a cor e o desfoque de fundo do projeto. */
+    void setTransparentBackground(bool on) { m_transparent = on; }
     QSize renderSize() const { return m_size; }
 
     /** Compõe o quadro na textura acumuladora. */
@@ -99,6 +101,7 @@ private:
     std::unique_ptr<QRhiTexture> m_identityLut;
     std::unordered_map<QString, std::unique_ptr<QRhiTexture>> m_luts;
     quint64 m_frameCounter = 0;
+    bool m_transparent = false;
     qint64 m_bgSourceKey = 0;
     double m_bgAmount = -1;
     QImage m_bgImage;

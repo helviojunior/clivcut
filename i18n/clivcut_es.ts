@@ -355,8 +355,24 @@
     <context>
         <name>ExportDialog</name>
         <message>
-            <source>Export video</source>
-            <translation>Exportar vídeo</translation>
+            <source>ProRes 4444 with transparency (MOV)</source>
+            <translation>ProRes 4444 con transparencia (MOV)</translation>
+        </message>
+        <message>
+            <source>VP9 with transparency (WebM)</source>
+            <translation>VP9 con transparencia (WebM)</translation>
+        </message>
+        <message>
+            <source>Video</source>
+            <translation>Vídeo</translation>
+        </message>
+        <message>
+            <source>Audio only</source>
+            <translation>Solo audio</translation>
+        </message>
+        <message>
+            <source>Current frame</source>
+            <translation>Fotograma actual</translation>
         </message>
         <message>
             <source>File</source>
@@ -395,12 +411,28 @@
             <translation>Archivo más pequeño</translation>
         </message>
         <message>
+            <source>Format</source>
+            <translation>Formato</translation>
+        </message>
+        <message>
+            <source>Encode on the GPU (faster)</source>
+            <translation>Codificar en la GPU (más rápido)</translation>
+        </message>
+        <message>
             <source>Only the in/out range (%1 – %2)</source>
             <translation>Solo el tramo de entrada/salida (%1 – %2)</translation>
         </message>
         <message>
+            <source>Saves the frame under the playhead (%1) as an image at the canvas resolution (%2×%3).</source>
+            <translation>Guarda el fotograma bajo el cursor (%1) como imagen a la resolución del lienzo (%2×%3).</translation>
+        </message>
+        <message>
             <source>Duration: %1 · Canvas %2×%3</source>
             <translation>Duración: %1 · Lienzo %2×%3</translation>
+        </message>
+        <message>
+            <source>areas without clips stay transparent</source>
+            <translation>las áreas sin clips quedan transparentes</translation>
         </message>
         <message>
             <source>Cancel export</source>
@@ -415,12 +447,20 @@
             <translation>%1%</translation>
         </message>
         <message>
-            <source>Export</source>
-            <translation>Exportar</translation>
+            <source>Audio (*.%1)</source>
+            <translation>Audio (*.%1)</translation>
         </message>
         <message>
-            <source>Video (*.mp4 *.mov *.mkv)</source>
-            <translation>Vídeo (*.mp4 *.mov *.mkv)</translation>
+            <source>Image (*.png *.jpg)</source>
+            <translation>Imagen (*.png *.jpg)</translation>
+        </message>
+        <message>
+            <source>Video (*.%1)</source>
+            <translation>Vídeo (*.%1)</translation>
+        </message>
+        <message>
+            <source>Export</source>
+            <translation>Exportar</translation>
         </message>
     </context>
     <context>
@@ -1394,8 +1434,8 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
             <translation>No hay ningún codificador disponible para el códec elegido en este FFmpeg</translation>
         </message>
         <message>
-            <source>Failed to open encoder %1: %2</source>
-            <translation>Error al abrir el codificador %1: %2</translation>
+            <source>No audio encoder available for this format</source>
+            <translation>No hay ningún codificador de audio disponible para este formato</translation>
         </message>
         <message>
             <source>Failed to open the audio encoder: %1</source>
@@ -1936,8 +1976,16 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
             <translation>Restablecer</translation>
         </message>
         <message>
-            <source>Exported: %1</source>
-            <translation>Exportado: %1</translation>
+            <source>Exported: %1 (%2)</source>
+            <translation>Exportado: %1 (%2)</translation>
+        </message>
+        <message>
+            <source>Could not write %1</source>
+            <translation>No se pudo escribir %1</translation>
+        </message>
+        <message>
+            <source>Frame saved: %1</source>
+            <translation>Fotograma guardado: %1</translation>
         </message>
         <message>
             <source>Main</source>

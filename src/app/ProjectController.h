@@ -4,6 +4,7 @@
 #include "core/Clipboard.h"
 #include "core/History.h"
 #include "core/Model.h"
+#include "engine/Exporter.h"
 
 #include <QElapsedTimer>
 #include <QObject>
@@ -67,6 +68,9 @@ class ProjectController : public QObject {
     Q_PROPERTY(double exportProgress READ exportProgress NOTIFY exportChanged)
     Q_PROPERTY(bool exporting READ exporting NOTIFY exportChanged)
     Q_PROPERTY(QStringList videoCodecs READ videoCodecs CONSTANT)
+    /// Codecs com encoder de GPU funcional nesta máquina (sondado na primeira leitura).
+    Q_PROPERTY(QStringList hardwareCodecs READ hardwareCodecs CONSTANT)
+    Q_PROPERTY(QStringList audioFormats READ audioFormats CONSTANT)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     // Legendas automáticas
     Q_PROPERTY(bool transcriptionAvailable READ transcriptionAvailable CONSTANT)
@@ -137,6 +141,8 @@ public:
     double exportProgress() const { return m_exportProgress; }
     bool exporting() const { return m_exporting; }
     QStringList videoCodecs() const;
+    QStringList hardwareCodecs() const;
+    QStringList audioFormats() const;
     QString statusMessage() const { return m_status; }
     bool transcriptionAvailable() const;
     QVariantList captionModels() const;
@@ -244,7 +250,11 @@ public:
 
     // --- export ---
     Q_INVOKABLE void exportVideo(const QUrl &url, int height, double fps, const QString &codec, int crf,
-                                 bool rangeOnly = false);
+                                 bool rangeOnly = false, bool hardware = false);
+    /// Só o áudio mixado; o formato vem da extensão (wav, flac, m4a, opus, mp3).
+    Q_INVOKABLE void exportAudio(const QUrl &url, bool rangeOnly = false);
+    /// O quadro sob o cursor como imagem (PNG/JPG) na resolução do canvas.
+    Q_INVOKABLE void exportFrame(const QUrl &url);
     Q_INVOKABLE void cancelExport();
 
     // --- legendas ---
@@ -324,6 +334,7 @@ private:
     void startNextDenoise();
     void refreshMattes();
     void startNextMatte();
+    void startExport(const clv::engine::ExportOptions &opts);
     void enqueueProxy(const QString &mediaPath);
     void startNextProxy();
     QString defaultTextFor(const QString &preset) const;

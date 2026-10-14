@@ -112,6 +112,26 @@ private slots:
         QVERIFY(near(px(img, 90, 160), QColor(40, 200, 90))); // o clipe continua por cima
     }
 
+    void transparentBackground()
+    {
+        // Exportação com alfa: fora dos clipes o canvas fica transparente (cor e desfoque ignorados).
+        Project p = createProject(QStringLiteral("t"), 320, 180, 30);
+        p.background = QStringLiteral("#ff0000");
+        p.backgroundBlur = 0.5;
+        auto a = imageAsset(p);
+        auto c = createMediaClip(a, 0);
+        c.transform.scale = 0.5;
+        edit::insertClip(p, c, 0);
+        SolidSource src;
+        src.images[a.id] = solid(Qt::blue);
+        m_comp->setTransparentBackground(true);
+        const QImage img = renderAt(p, 0, src);
+        m_comp->setTransparentBackground(false);
+        QCOMPARE(qAlpha(img.pixel(5, 5)), 0);
+        QCOMPARE(qAlpha(img.pixel(160, 90)), 255);
+        QVERIFY(near(px(img, 160, 90), Qt::blue));
+    }
+
     void opacityAndMultiply()
     {
         Project p = createProject(QStringLiteral("t"), 320, 180, 30);

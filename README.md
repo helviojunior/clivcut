@@ -53,7 +53,10 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
 - **Canvas:** 16:9, 9:16, 1:1, 4:3, 3:4, 4:5 and 21:9, with a background color or a blurred copy of the main video.
 - **Export:**
   - H.264, HEVC, AV1 and ProRes 422 HQ codecs, depending on the installed FFmpeg.
-  - 480p to 4K, 24 to 60 fps, with AAC audio.
+  - **GPU encoding** (VA-API, NVENC, Quick Sync, VideoToolbox, AMF) when the driver supports it, with automatic fallback to software.
+  - **Transparent video:** ProRes 4444 (MOV) and VP9 (WebM) keep the alpha channel; areas without clips stay transparent.
+  - **Audio only** (WAV, FLAC, AAC, Opus, MP3) and the **current frame** as PNG/JPG.
+  - 480p to 4K, 24 to 60 fps, with AAC audio; optionally only the in/out range.
 - **Fully local automatic captions** with whisper.cpp, no cloud:
   - 90+ languages, with models downloaded on demand (Tiny to Large v3 Turbo).
   - Each caption becomes an editable text clip on a "Captions" track.

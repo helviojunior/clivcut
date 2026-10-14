@@ -503,6 +503,16 @@ QStringList ProjectController::videoCodecs() const
     return media::availableVideoCodecs();
 }
 
+QStringList ProjectController::hardwareCodecs() const
+{
+    return media::availableHardwareCodecs();
+}
+
+QStringList ProjectController::audioFormats() const
+{
+    return media::availableAudioFormats();
+}
+
 // ---------------------------------------------------------------------------
 // Arquivos
 
@@ -1344,14 +1354,14 @@ void ProjectController::jumpToEdge(bool end)
 // Export
 
 void ProjectController::exportVideo(const QUrl &url, int height, double fps, const QString &codec, int crf,
-                                    bool rangeOnly)
+                                    bool rangeOnly, bool hardware)
 {
     if (m_exporting)
         return;
-    pause();
+    const media::VideoCodec vc = media::videoCodecFromName(codec);
     QString path = localPath(url);
     if (QFileInfo(path).suffix().isEmpty())
-        path += codec == QLatin1String("prores") ? QStringLiteral(".mov") : QStringLiteral(".mp4");
+        path += QLatin1Char('.') + media::containerFor(vc);
 
     engine::ExportOptions opts;
     opts.outputPath = path;
@@ -1366,15 +1376,35 @@ void ProjectController::exportVideo(const QUrl &url, int height, double fps, con
     }
     opts.encode.fps = fps > 0 ? fps : m_project.fps;
     opts.encode.crf = crf;
+    opts.encode.codec = vc;
+    opts.encode.hardware = hardware;
     if (rangeOnly && m_project.hasRange()) {
         opts.rangeStart = m_project.rangeStart();
         opts.rangeEnd = m_project.rangeEnd();
     }
-    opts.encode.codec = codec == QLatin1String("hevc")     ? media::VideoCodec::HEVC
-                        : codec == QLatin1String("av1")    ? media::VideoCodec::AV1
-                        : codec == QLatin1String("prores") ? media::VideoCodec::ProRes
-                                                           : media::VideoCodec::H264;
+    startExport(opts);
+}
 
+void ProjectController::exportAudio(const QUrl &url, bool rangeOnly)
+{
+    if (m_exporting)
+        return;
+    QString path = localPath(url);
+    if (!media::availableAudioFormats().contains(QFileInfo(path).suffix().toLower()))
+        path += QStringLiteral(".wav");
+    engine::ExportOptions opts;
+    opts.outputPath = path;
+    opts.encode.video = false;
+    if (rangeOnly && m_project.hasRange()) {
+        opts.rangeStart = m_project.rangeStart();
+        opts.rangeEnd = m_project.rangeEnd();
+    }
+    startExport(opts);
+}
+
+void ProjectController::startExport(const engine::ExportOptions &opts)
+{
+    pause();
     m_exporting = true;
     m_exportProgress = 0;
     m_cancelExport = false;
@@ -1384,28 +1414,64 @@ void ProjectController::exportVideo(const QUrl &url, int height, double fps, con
     auto *surface = render::OffscreenRhi::createFallbackSurface();
     auto snap = snapshot();
     std::thread([this, snap, opts, surface]() {
-        render::OffscreenRhi rhi;
         QString err;
-        bool ok = rhi.create(&err, surface);
-        if (ok) {
-            engine::Exporter exporter;
-            ok = exporter.run(
-                *snap, opts,
-                [this](double f) {
-                    QMetaObject::invokeMethod(this, [this, f] {
-                        m_exportProgress = f;
-                        emit exportChanged();
-                    }, Qt::QueuedConnection);
-                    return !m_cancelExport.load();
-                },
-                &err, &rhi);
+        engine::Exporter exporter;
+        auto progress = [this](double f) {
+            QMetaObject::invokeMethod(this, [this, f] {
+                m_exportProgress = f;
+                emit exportChanged();
+            }, Qt::QueuedConnection);
+            return !m_cancelExport.load();
+        };
+        bool ok;
+        if (opts.encode.video) {
+            render::OffscreenRhi rhi;
+            ok = rhi.create(&err, surface) && exporter.run(*snap, opts, progress, &err, &rhi);
+        } else {
+            ok = exporter.run(*snap, opts, progress, &err);
         }
-        QMetaObject::invokeMethod(this, [this, ok, err, path = opts.outputPath, surface] {
+        QMetaObject::invokeMethod(this, [this, ok, err, path = opts.outputPath, surface, encoder = exporter.encoderName()] {
             delete surface;
             m_exporting = false;
             emit exportChanged();
             emit exportFinished(ok, ok ? path : err);
-            setStatus(ok ? tr("Exported: %1").arg(path) : err);
+            setStatus(ok ? tr("Exported: %1 (%2)").arg(path, encoder) : err);
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+void ProjectController::exportFrame(const QUrl &url)
+{
+    if (m_exporting)
+        return;
+    pause();
+    QString path = localPath(url);
+    const QString ext = QFileInfo(path).suffix().toLower();
+    if (ext != QLatin1String("png") && ext != QLatin1String("jpg") && ext != QLatin1String("jpeg"))
+        path += QStringLiteral(".png");
+    m_exporting = true;
+    m_exportProgress = 0;
+    emit exportChanged();
+    auto *surface = render::OffscreenRhi::createFallbackSurface();
+    auto snap = snapshot();
+    const Micros t = m_playhead;
+    std::thread([this, snap, path, surface, t]() {
+        QString err;
+        render::OffscreenRhi rhi;
+        bool ok = rhi.create(&err, surface);
+        if (ok) {
+            const QImage img = engine::Exporter::renderStill(*snap, t, {}, &rhi, &err);
+            // JPEG não tem alfa: achata sobre o fundo opaco do projeto (já composto).
+            ok = !img.isNull() && img.convertToFormat(QImage::Format_RGB888).save(path, nullptr, 95);
+            if (!ok && err.isEmpty())
+                err = tr("Could not write %1").arg(path);
+        }
+        QMetaObject::invokeMethod(this, [this, ok, err, path, surface] {
+            delete surface;
+            m_exporting = false;
+            emit exportChanged();
+            emit exportFinished(ok, ok ? path : err);
+            setStatus(ok ? tr("Frame saved: %1").arg(path) : err);
         }, Qt::QueuedConnection);
     }).detach();
 }

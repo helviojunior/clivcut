@@ -4,6 +4,7 @@
 #include "core/Model.h"
 #include "media/Encoder.h"
 
+#include <QImage>
 #include <QString>
 
 #include <functional>
@@ -34,6 +35,14 @@ public:
     /** `rhi` opcional: um OffscreenRhi já criado (obrigatório fora da thread da GUI com OpenGL). */
     bool run(const Project &p, ExportOptions opts, const Progress &progress, QString *error,
              render::OffscreenRhi *rhi = nullptr);
+    /** Encoder usado na última exportação ("h264_vaapi", "libx264", "flac"...). */
+    QString encoderName() const { return m_encoderName; }
+
+    /** Renderiza um único quadro em `size` (vazio = resolução do projeto). */
+    static QImage renderStill(const Project &p, Micros t, QSize size, render::OffscreenRhi *rhi, QString *error);
+
+private:
+    QString m_encoderName;
 };
 
 } // namespace clv::engine

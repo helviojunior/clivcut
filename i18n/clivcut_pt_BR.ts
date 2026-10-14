@@ -355,8 +355,24 @@
     <context>
         <name>ExportDialog</name>
         <message>
-            <source>Export video</source>
-            <translation>Exportar vídeo</translation>
+            <source>ProRes 4444 with transparency (MOV)</source>
+            <translation>ProRes 4444 com transparência (MOV)</translation>
+        </message>
+        <message>
+            <source>VP9 with transparency (WebM)</source>
+            <translation>VP9 com transparência (WebM)</translation>
+        </message>
+        <message>
+            <source>Video</source>
+            <translation>Vídeo</translation>
+        </message>
+        <message>
+            <source>Audio only</source>
+            <translation>Só áudio</translation>
+        </message>
+        <message>
+            <source>Current frame</source>
+            <translation>Quadro atual</translation>
         </message>
         <message>
             <source>File</source>
@@ -395,12 +411,28 @@
             <translation>Arquivo menor</translation>
         </message>
         <message>
+            <source>Format</source>
+            <translation>Formato</translation>
+        </message>
+        <message>
+            <source>Encode on the GPU (faster)</source>
+            <translation>Codificar na GPU (mais rápido)</translation>
+        </message>
+        <message>
             <source>Only the in/out range (%1 – %2)</source>
             <translation>Só o trecho de entrada/saída (%1 – %2)</translation>
         </message>
         <message>
+            <source>Saves the frame under the playhead (%1) as an image at the canvas resolution (%2×%3).</source>
+            <translation>Salva o quadro sob o cursor (%1) como imagem na resolução do canvas (%2×%3).</translation>
+        </message>
+        <message>
             <source>Duration: %1 · Canvas %2×%3</source>
             <translation>Duração: %1 · Canvas %2×%3</translation>
+        </message>
+        <message>
+            <source>areas without clips stay transparent</source>
+            <translation>áreas sem clipes ficam transparentes</translation>
         </message>
         <message>
             <source>Cancel export</source>
@@ -415,12 +447,20 @@
             <translation>%1%</translation>
         </message>
         <message>
-            <source>Export</source>
-            <translation>Exportar</translation>
+            <source>Audio (*.%1)</source>
+            <translation>Áudio (*.%1)</translation>
         </message>
         <message>
-            <source>Video (*.mp4 *.mov *.mkv)</source>
-            <translation>Vídeo (*.mp4 *.mov *.mkv)</translation>
+            <source>Image (*.png *.jpg)</source>
+            <translation>Imagem (*.png *.jpg)</translation>
+        </message>
+        <message>
+            <source>Video (*.%1)</source>
+            <translation>Vídeo (*.%1)</translation>
+        </message>
+        <message>
+            <source>Export</source>
+            <translation>Exportar</translation>
         </message>
     </context>
     <context>
@@ -1394,8 +1434,8 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
             <translation>Nenhum encoder disponível para o codec escolhido neste FFmpeg</translation>
         </message>
         <message>
-            <source>Failed to open encoder %1: %2</source>
-            <translation>Falha ao abrir o encoder %1: %2</translation>
+            <source>No audio encoder available for this format</source>
+            <translation>Nenhum encoder de áudio disponível para este formato</translation>
         </message>
         <message>
             <source>Failed to open the audio encoder: %1</source>
@@ -1936,8 +1976,16 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
             <translation>Redefinir</translation>
         </message>
         <message>
-            <source>Exported: %1</source>
-            <translation>Exportado: %1</translation>
+            <source>Exported: %1 (%2)</source>
+            <translation>Exportado: %1 (%2)</translation>
+        </message>
+        <message>
+            <source>Could not write %1</source>
+            <translation>Não foi possível gravar %1</translation>
+        </message>
+        <message>
+            <source>Frame saved: %1</source>
+            <translation>Quadro salvo: %1</translation>
         </message>
         <message>
             <source>Main</source>
