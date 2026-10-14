@@ -23,7 +23,8 @@ jobs:
           sudo apt-get install -y ninja-build pkg-config ffmpeg libfuse2 \
             libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev \
             libsdl2-dev libva-dev libvulkan-dev libgl1-mesa-dev libegl1-mesa-dev libxkbcommon-dev \
-            libxcb-cursor0 librsvg2-bin
+            libxcb-cursor0 librsvg2-bin \
+            xvfb mesa-vulkan-drivers libgl1-mesa-dri
 
       - name: Qt
         uses: jurplel/install-qt-action@v4
@@ -36,7 +37,9 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF
           cmake --build build
-          QT_QPA_PLATFORM=offscreen SDL_AUDIODRIVER=dummy ctest --test-dir build --output-on-failure
+          # Sem GPU no runner: X virtual + Mesa por software (llvmpipe/lavapipe) para os testes de render/export.
+          LIBGL_ALWAYS_SOFTWARE=1 SDL_AUDIODRIVER=dummy xvfb-run -a -s "-screen 0 1920x1080x24" \
+            ctest --test-dir build --output-on-failure
 
       - name: AppImage
         run: QMAKE="$QT_ROOT_DIR/bin/qmake" packaging/appimage/build-appimage.sh
