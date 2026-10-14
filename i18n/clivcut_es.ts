@@ -973,6 +973,14 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
             <translation>Reproducir al revés</translation>
         </message>
         <message>
+            <source>Keep original pitch</source>
+            <translation>Mantener el tono original</translation>
+        </message>
+        <message>
+            <source>When off, the voice gets higher when sped up and lower when slowed down</source>
+            <translation>Desactivado, la voz se vuelve más aguda al acelerar y más grave al ralentizar</translation>
+        </message>
+        <message>
             <source>❄ Freeze frame at playhead (Alt+F)</source>
             <translation>❄ Congelar fotograma en el cursor (Alt+F)</translation>
         </message>

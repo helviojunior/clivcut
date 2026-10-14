@@ -3,6 +3,7 @@
 
 #include "core/Model.h"
 #include "media/AudioDecoder.h"
+#include "TimeStretch.h"
 
 #include <unordered_map>
 #include <QSet>
@@ -15,8 +16,9 @@ namespace clv::engine {
 /**
  * Mixa todas as fontes de áudio do projeto num intervalo da timeline.
  * Saída: float estéreo intercalado 48 kHz. Aplica volume (com keyframes),
- * fades e velocidade (reamostragem simples, altera o tom; pitch-lock virá
- * com Rubber Band/SoundTouch). Clipes em reverso ficam mudos por enquanto.
+ * fades e velocidade: com "manter tom" (padrão) usa TimeStretch (WSOLA);
+ * sem ele, reamostragem simples (o tom acompanha a velocidade). Clipes em
+ * reverso tocam o áudio de trás para frente.
  *
  * Não é thread-safe: use uma instância por thread.
  */
@@ -32,8 +34,17 @@ private:
         std::unique_ptr<media::AudioDecoder> dec;
         QString path;
         bool failed = false;
+        // Fluxo contínuo para velocidade com tom preservado e reverso.
+        std::unique_ptr<TimeStretch> stretch;
+        std::int64_t nextOut = -1;   ///< próxima amostra da timeline esperada
+        Micros origin = 0;           ///< tempo de origem no último reset
+        int dir = 1;                 ///< -1 = reverso
+        std::vector<float> revBuf;   ///< bloco lido para trás (amostras da origem)
+        std::int64_t revStart = 0;   ///< primeira amostra da origem em revBuf
     };
     media::AudioDecoder *decoderFor(const Clip &c, const MediaAsset &a);
+    Entry &entryFor(const Clip &c) { return m_decoders[c.id]; }
+    void readStream(Entry &e, std::int64_t k, float *dst, int frames);
 
     std::unordered_map<QString, Entry> m_decoders;
     std::vector<float> m_tmp;

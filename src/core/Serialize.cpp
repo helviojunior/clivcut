@@ -276,6 +276,8 @@ QJsonObject clipToJson(const Clip &c)
         o.insert("denoise", c.denoise);
     if (c.removeBackground)
         o.insert("removeBackground", true);
+    if (!c.keepPitch)
+        o.insert("keepPitch", false);
     if (c.audioOnly)
         o.insert("audioOnly", true);
     o.insert("fadeIn", us(c.fadeIn));
@@ -361,6 +363,7 @@ Clip clipFromJson(const QJsonObject &o)
     c.gainDb = o.value("gainDb").toDouble();
     c.denoise = o.value("denoise").toDouble();
     c.removeBackground = o.value("removeBackground").toBool();
+    c.keepPitch = o.value("keepPitch").toBool(true);
     c.audioOnly = o.value("audioOnly").toBool();
     c.fadeIn = toUs(o.value("fadeIn"));
     c.fadeOut = toUs(o.value("fadeOut"));

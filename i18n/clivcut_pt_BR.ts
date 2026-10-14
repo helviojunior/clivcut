@@ -973,6 +973,14 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
             <translation>Reproduzir ao contrário</translation>
         </message>
         <message>
+            <source>Keep original pitch</source>
+            <translation>Manter o tom original</translation>
+        </message>
+        <message>
+            <source>When off, the voice gets higher when sped up and lower when slowed down</source>
+            <translation>Desligado, a voz fica mais aguda ao acelerar e mais grave ao desacelerar</translation>
+        </message>
+        <message>
             <source>❄ Freeze frame at playhead (Alt+F)</source>
             <translation>❄ Congelar quadro no cursor (Alt+F)</translation>
         </message>

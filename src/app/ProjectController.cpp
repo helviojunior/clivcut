@@ -458,6 +458,7 @@ QVariantMap ProjectController::selectedClip() const
                }()},
               {"denoiseProgress", m_denoiseProgress},
               {"removeBackground", c->removeBackground},
+              {"keepPitch", c->keepPitch},
               {"matteState", [&] {
                    if (!a || !c->removeBackground)
                        return QStringLiteral("off");
@@ -1043,6 +1044,7 @@ bool applyClipProperty(Project &p, Clip *c, Micros rel, const QString &key, cons
     else if (key == QLatin1String("gainDb")) c->gainDb = std::clamp(value.toDouble(), -24.0, 24.0);
     else if (key == QLatin1String("denoise")) c->denoise = engine::quantizedDenoise(value.toDouble());
     else if (key == QLatin1String("removeBackground")) c->removeBackground = value.toBool();
+    else if (key == QLatin1String("keepPitch")) c->keepPitch = value.toBool();
     else if (key == QLatin1String("temperature")) c->color.temperature = value.toDouble();
     else if (key == QLatin1String("maskShape")) c->mask.shape = maskShapeFromName(value.toString());
     else if (key == QLatin1String("maskX")) c->mask.x = value.toDouble();

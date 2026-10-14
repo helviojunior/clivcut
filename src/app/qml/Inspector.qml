@@ -738,6 +738,16 @@ Rectangle {
                         focusPolicy: Qt.NoFocus
                         onToggled: root.setProp("reverse", checked)
                     }
+                    CheckBox {
+                        visible: root.isMedia && root.sel.hasAudio && root.sel.speed > 0
+                        text: qsTr("Keep original pitch")
+                        checked: root.isMedia && root.sel.keepPitch
+                        focusPolicy: Qt.NoFocus
+                        onToggled: root.setProp("keepPitch", checked)
+                        ToolTip.visible: hovered
+                        ToolTip.delay: 500
+                        ToolTip.text: qsTr("When off, the voice gets higher when sped up and lower when slowed down")
+                    }
                     Button {
                         visible: root.isMedia && root.sel.mediaKind === "video"
                         text: qsTr("❄ Freeze frame at playhead (Alt+F)")

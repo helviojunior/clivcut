@@ -3,6 +3,7 @@
 #include "core/Evaluate.h"
 #include "engine/AudioCleanup.h"
 #include "engine/AudioMixer.h"
+#include "engine/TimeStretch.h"
 #include "media/AudioDecoder.h"
 #include "media/Loudness.h"
 #include "media/MediaProbe.h"
@@ -28,6 +29,16 @@ std::vector<float> readMono(const QString &path, Micros start, int frames)
     for (int i = 0; i < frames; ++i)
         mono[i] = (st[i * 2] + st[i * 2 + 1]) * 0.5f;
     return mono;
+}
+
+// Frequência pelos cruzamentos de zero ascendentes (sinal estéreo intercalado).
+double frequency(const float *st, int frames)
+{
+    int crossings = 0;
+    for (int i = 1; i < frames; ++i)
+        if (st[(i - 1) * 2] < 0 && st[i * 2] >= 0)
+            ++crossings;
+    return crossings * 48000.0 / frames;
 }
 
 double rms(const std::vector<float> &v)
@@ -125,6 +136,91 @@ private slots:
         edit::clipById(p, id)->denoise = 0;
         edit::clipById(p, id)->gainDb = 6;
         QVERIFY(std::abs(level(p) / original - 2.0) < 0.05); // +6 dB ≈ 2×
+    }
+
+    void timeStretchIdentityAndPitch()
+    {
+        // Velocidade 1: saída idêntica à entrada, em blocos de qualquer tamanho.
+        auto sine = [](std::int64_t k, float *dst, int n, double hz) {
+            for (int i = 0; i < n; ++i)
+                dst[i * 2] = dst[i * 2 + 1] = static_cast<float>(0.5 * std::sin(2 * M_PI * hz * (k + i) / 48000.0));
+        };
+        engine::TimeStretch ts;
+        std::vector<float> out(48000 * 2), ref(48000 * 2);
+        auto reader440 = [&](std::int64_t k, float *dst, int n) { sine(k, dst, n, 440); };
+        for (int pos = 0; pos < 48000;) {
+            const int n = std::min(48000 - pos, 300 + pos % 700);
+            ts.process(out.data() + pos * 2, n, 1.0, reader440);
+            pos += n;
+        }
+        sine(0, ref.data(), 48000, 440);
+        float maxDiff = 0;
+        for (size_t i = 0; i < out.size(); ++i)
+            maxDiff = std::max(maxDiff, std::abs(out[i] - ref[i]));
+        QVERIFY2(maxDiff < 1e-4f, qPrintable(QString::number(maxDiff)));
+
+        // Velocidade 2: consome o dobro da entrada e mantém 440 Hz.
+        ts.reset();
+        ts.process(out.data(), 48000, 2.0, reader440);
+        QVERIFY(std::abs(ts.inputPosition() - 96000) < 2000);
+        const double hz = frequency(out.data() + 4800 * 2, 38400);
+        QVERIFY2(std::abs(hz - 440) < 6, qPrintable(QString::number(hz)));
+    }
+
+    void mixerPitchAndReverse()
+    {
+        // 1 s de 440 Hz seguido de 1 s de silêncio.
+        const QString tone = m_dir.filePath(QStringLiteral("tom.wav"));
+        QProcess proc;
+        proc.start(QStringLiteral("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                                              "sine=frequency=440:duration=1,apad=whole_dur=2", "-ac", "2", "-ar", "48000", tone});
+        QVERIFY(proc.waitForFinished(60000) && proc.exitCode() == 0);
+        Project p = createProject();
+        MediaAsset a;
+        QVERIFY(media::probe(tone, a));
+        a.id = newId("ast");
+        p.assets.emplace(a.id, a);
+        Clip c = createMediaClip(a, 0);
+        c.speed = 2;
+        c.duration = a.duration / 2;
+        const QString id = edit::insertClip(p, c, -1);
+
+        // Toca em blocos como o player: 0,1 s a 0,4 s da timeline (fonte 0,2 a 0,8 s).
+        auto play = [&](const Project &proj, Micros from, Micros to) {
+            engine::AudioMixer mixer;
+            std::vector<float> all;
+            std::vector<float> block(1024 * 2);
+            for (Micros t = from; t < to;) {
+                mixer.mix(proj, t, block.data(), 1024);
+                all.insert(all.end(), block.begin(), block.end());
+                t += 1024 * kSecond / 48000;
+            }
+            return all;
+        };
+        std::vector<float> st = play(p, 100'000, 400'000);
+        double hz = frequency(st.data(), static_cast<int>(st.size() / 2));
+        QVERIFY2(std::abs(hz - 440) < 8, qPrintable(QString::number(hz)));
+        edit::clipById(p, id)->keepPitch = false;
+        st = play(p, 100'000, 400'000);
+        hz = frequency(st.data(), static_cast<int>(st.size() / 2));
+        QVERIFY2(std::abs(hz - 880) < 12, qPrintable(QString::number(hz)));
+
+        // Reverso a 1×: primeiro o silêncio, depois o tom.
+        Clip *rc = edit::clipById(p, id);
+        rc->speed = 1;
+        rc->duration = a.duration;
+        rc->keepPitch = true;
+        rc->reverse = true;
+        st = play(p, 0, 2'000'000);
+        auto level = [&](double from, double to) {
+            double acc = 0;
+            const int i0 = static_cast<int>(from * 48000), i1 = static_cast<int>(to * 48000);
+            for (int i = i0; i < i1; ++i)
+                acc += st[i * 2] * st[i * 2];
+            return std::sqrt(acc / (i1 - i0));
+        };
+        QVERIFY2(level(0.2, 0.8) < 0.01, qPrintable(QString::number(level(0.2, 0.8))));
+        QVERIFY2(level(1.2, 1.8) > 0.05, qPrintable(QString::number(level(1.2, 1.8)))); // seno do ffmpeg: amplitude 1/8
     }
 };
 

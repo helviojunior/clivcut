@@ -42,7 +42,7 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
   - 10 blend modes and chroma key.
   - Linear, mirror, circle and rounded-rectangle **masks**, with position, size, rotation, feather and invert. They also work on adjustment layers, to grade just one region.
 - **Speed:**
-  - Constant from 0.1× to 10×, and reverse.
+  - Constant from 0.1× to 10×, and reverse (audio included). The pitch is kept by default and can be unlocked per clip.
   - **Speed curves** (Montage, Hero, Bullet, Jump…), with a point-based graph editor. Speed curves from drafts are imported too.
 - **Audio:**
   - Volume (up to 200%), gain in dB, fade in/out and multi-track mixing.

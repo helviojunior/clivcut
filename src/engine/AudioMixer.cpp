@@ -41,6 +41,46 @@ media::AudioDecoder *AudioMixer::decoderFor(const Clip &c, const MediaAsset &a)
     return e.dec.get();
 }
 
+namespace {
+std::int64_t toFrames(Micros t) { return static_cast<std::int64_t>(std::llround(static_cast<double>(t) * kSampleRate / kSecond)); }
+Micros toMicros(std::int64_t f) { return static_cast<Micros>(std::llround(static_cast<double>(f) * kSecond / kSampleRate)); }
+} // namespace
+
+void AudioMixer::readStream(Entry &e, std::int64_t k, float *dst, int frames)
+{
+    if (e.dir > 0) {
+        e.dec->read(e.origin + toMicros(k), dst, frames);
+        return;
+    }
+    // Reverso: a amostra k do fluxo é a amostra (origem - 1 - k) da mídia. Lê blocos grandes
+    // para trás (uma busca a cada meio segundo) e copia invertido.
+    const std::int64_t originFrame = toFrames(e.origin);
+    for (int i = 0; i < frames;) {
+        const std::int64_t src = originFrame - 1 - (k + i);
+        if (src < 0) {
+            std::memset(dst + i * kChannels, 0, sizeof(float) * (frames - i) * kChannels);
+            return;
+        }
+        const std::int64_t have = static_cast<std::int64_t>(e.revBuf.size() / kChannels);
+        if (src < e.revStart || src >= e.revStart + have) {
+            const int chunk = std::max(frames, kSampleRate / 2);
+            const std::int64_t start = std::max<std::int64_t>(0, src + 1 - chunk);
+            const int len = static_cast<int>(src + 1 - start);
+            e.revBuf.resize(static_cast<size_t>(len) * kChannels);
+            e.dec->read(toMicros(start), e.revBuf.data(), len);
+            e.revStart = start;
+        }
+        // Copia até o começo do bloco em cache, invertendo.
+        const int n = static_cast<int>(std::min<std::int64_t>(frames - i, src - e.revStart + 1));
+        for (int j = 0; j < n; ++j) {
+            const float *s = e.revBuf.data() + (src - j - e.revStart) * kChannels;
+            dst[(i + j) * kChannels] = s[0];
+            dst[(i + j) * kChannels + 1] = s[1];
+        }
+        i += n;
+    }
+}
+
 void AudioMixer::mix(const Project &p, Micros t, float *out, int frames)
 {
     std::memset(out, 0, sizeof(float) * frames * kChannels);
@@ -51,7 +91,7 @@ void AudioMixer::mix(const Project &p, Micros t, float *out, int frames)
         if (track.muted || track.kind == TrackKind::Text)
             continue;
         for (const Clip &c : track.clips) {
-            if (!c.hasMedia() || c.audioMuted || c.end() <= t || c.start >= tEnd || c.reverse || c.speed <= 0)
+            if (!c.hasMedia() || c.audioMuted || c.end() <= t || c.start >= tEnd || c.speed <= 0)
                 continue;
             const MediaAsset *a = p.asset(c.assetId);
             if (!a || !a->hasAudio)
@@ -72,16 +112,40 @@ void AudioMixer::mix(const Project &p, Micros t, float *out, int frames)
             const Micros rel = segStart - c.start;
             const Micros src = sourceTimeAt(p, c, rel);
             const double speed = speedAt(c, rel); // instantânea (curvas mudam ao longo do clipe)
-            const int srcFrames = std::max(1, static_cast<int>(std::ceil(n * speed)) + 1);
-            m_tmp.resize(static_cast<size_t>(srcFrames) * kChannels);
-            dec->read(src, m_tmp.data(), srcFrames);
+            const bool varying = c.speed != 1.0 || !c.speedCurve.empty();
+            const bool stretched = c.reverse || (c.keepPitch && varying);
+            int srcFrames = n;
+            if (stretched) {
+                // Fluxo contínuo: recomeça em busca, edição ou deriva de mais de 50 ms.
+                Entry &e = entryFor(c);
+                const std::int64_t outIdx = toFrames(t) + off;
+                const int dir = c.reverse ? -1 : 1;
+                const Micros expected = e.origin + dir * toMicros(static_cast<std::int64_t>(e.stretch ? e.stretch->inputPosition() : 0));
+                if (!e.stretch || e.nextOut < 0 || std::llabs(outIdx - e.nextOut) > 2 || e.dir != dir
+                    || std::llabs(expected - src) > 60'000 + static_cast<Micros>(speed * 40'000)) {
+                    if (!e.stretch)
+                        e.stretch = std::make_unique<TimeStretch>();
+                    e.stretch->reset();
+                    e.origin = src;
+                    e.dir = dir;
+                    e.revBuf.clear();
+                }
+                m_tmp.resize(static_cast<size_t>(n) * kChannels);
+                e.stretch->process(m_tmp.data(), n, speed,
+                                   [&](std::int64_t k, float *dst, int count) { readStream(e, k, dst, count); });
+                e.nextOut = outIdx + n;
+            } else {
+                srcFrames = std::max(1, static_cast<int>(std::ceil(n * speed)) + 1);
+                m_tmp.resize(static_cast<size_t>(srcFrames) * kChannels);
+                dec->read(src, m_tmp.data(), srcFrames);
+            }
 
             const double g0 = audioGainAt(c, rel);
             const double g1 = audioGainAt(c, rel + (segEnd - segStart));
             for (int i = 0; i < n; ++i) {
                 const double g = g0 + (g1 - g0) * (static_cast<double>(i) / n);
                 float l, r;
-                if (speed == 1.0) {
+                if (stretched || speed == 1.0) {
                     l = m_tmp[i * 2];
                     r = m_tmp[i * 2 + 1];
                 } else {
