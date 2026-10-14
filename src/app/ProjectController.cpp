@@ -851,6 +851,51 @@ void ProjectController::addMarker()
     });
 }
 
+void ProjectController::markIn()
+{
+    const Micros t = m_project.snapToFrame(m_playhead);
+    edit(tr("Mark in"), [&](Project &p) {
+        if (p.inPoint == t)
+            return false;
+        p.inPoint = t;
+        if (p.outPoint > 0 && p.outPoint <= t)
+            p.outPoint = -1;
+        return true;
+    });
+}
+
+void ProjectController::markOut()
+{
+    const Micros t = m_project.snapToFrame(m_playhead);
+    if (t <= 0)
+        return;
+    edit(tr("Mark out"), [&](Project &p) {
+        if (p.outPoint == t)
+            return false;
+        p.outPoint = t;
+        if (p.inPoint >= t)
+            p.inPoint = -1;
+        return true;
+    });
+}
+
+void ProjectController::clearInOut()
+{
+    edit(tr("Clear in/out"), [&](Project &p) {
+        if (!p.hasRange())
+            return false;
+        p.inPoint = p.outPoint = -1;
+        return true;
+    });
+}
+
+void ProjectController::jumpToInOut(bool out)
+{
+    const Micros t = out ? m_project.outPoint : m_project.inPoint;
+    if (t >= 0)
+        seek(static_cast<double>(t));
+}
+
 void ProjectController::detachAudio()
 {
     QStringList targets = m_selection;
@@ -1285,7 +1330,8 @@ void ProjectController::jumpToEdge(bool end)
 // ---------------------------------------------------------------------------
 // Export
 
-void ProjectController::exportVideo(const QUrl &url, int height, double fps, const QString &codec, int crf)
+void ProjectController::exportVideo(const QUrl &url, int height, double fps, const QString &codec, int crf,
+                                    bool rangeOnly)
 {
     if (m_exporting)
         return;
@@ -1307,6 +1353,10 @@ void ProjectController::exportVideo(const QUrl &url, int height, double fps, con
     }
     opts.encode.fps = fps > 0 ? fps : m_project.fps;
     opts.encode.crf = crf;
+    if (rangeOnly && m_project.hasRange()) {
+        opts.rangeStart = m_project.rangeStart();
+        opts.rangeEnd = m_project.rangeEnd();
+    }
     opts.encode.codec = codec == QLatin1String("hevc")     ? media::VideoCodec::HEVC
                         : codec == QLatin1String("av1")    ? media::VideoCodec::AV1
                         : codec == QLatin1String("prores") ? media::VideoCodec::ProRes

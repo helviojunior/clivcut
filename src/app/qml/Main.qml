@@ -232,6 +232,11 @@ ApplicationWindow {
     Shortcut { sequences: ["Home"]; enabled: !window.typing; onActivated: Project.jumpToEdge(false) }
     Shortcut { sequences: ["End"]; enabled: !window.typing; onActivated: Project.jumpToEdge(true) }
     Shortcut { sequences: ["M"]; enabled: !window.typing; onActivated: Project.addMarker() }
+    Shortcut { sequences: ["I"]; enabled: !window.typing; onActivated: Project.markIn() }
+    Shortcut { sequences: ["O"]; enabled: !window.typing; onActivated: Project.markOut() }
+    Shortcut { sequences: ["Alt+X"]; enabled: !window.typing; onActivated: Project.clearInOut() }
+    Shortcut { sequences: ["Shift+I"]; enabled: !window.typing; onActivated: Project.jumpToInOut(false) }
+    Shortcut { sequences: ["Shift+O"]; enabled: !window.typing; onActivated: Project.jumpToInOut(true) }
     Shortcut { sequences: ["Alt+F"]; enabled: !window.typing; onActivated: Project.freezeFrame() }
     Shortcut { sequences: ["Ctrl+T"]; enabled: !window.typing; onActivated: Project.addText("", "") }
     Shortcut { sequences: ["N"]; enabled: !window.typing; onActivated: Project.snapping = !Project.snapping }
@@ -355,6 +360,11 @@ ApplicationWindow {
             { name: qsTr("Toggle auto snapping"), shortcut: "N", icon: "crosshair", run: () => Project.snapping = !Project.snapping },
             { name: qsTr("Use proxies for playback"), shortcut: "", icon: "gauge", run: () => Project.useProxies = !Project.useProxies },
             { name: Theme.dark ? qsTr("Light theme") : qsTr("Dark theme"), shortcut: "", icon: Theme.dark ? "sun" : "moon", run: () => Theme.dark = !Theme.dark },
+            { name: qsTr("Mark in"), shortcut: "I", icon: "arrow-right-to-line", run: () => Project.markIn() },
+            { name: qsTr("Mark out"), shortcut: "O", icon: "arrow-left-to-line", run: () => Project.markOut() },
+            { name: qsTr("Clear in/out"), shortcut: "Alt+X", icon: "x", run: () => Project.clearInOut() },
+            { name: qsTr("Go to in point"), shortcut: "Shift+I", icon: "skip-back", run: () => Project.jumpToInOut(false) },
+            { name: qsTr("Go to out point"), shortcut: "Shift+O", icon: "skip-forward", run: () => Project.jumpToInOut(true) },
             { name: qsTr("Panel: Media"), shortcut: "Alt+1", icon: "image-play", run: () => rail.activate(0) },
             { name: qsTr("Panel: Text"), shortcut: "Alt+2", icon: "type", run: () => rail.activate(1) },
             { name: qsTr("Panel: Filters"), shortcut: "Alt+4", icon: "palette", run: () => rail.activate(3) },

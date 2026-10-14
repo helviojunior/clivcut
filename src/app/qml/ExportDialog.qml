@@ -104,12 +104,22 @@ Dialog {
             }
         }
 
+        CheckBox {
+            id: rangeBox
+            readonly property bool hasRange: Project.inPoint >= 0 || Project.outPoint > 0
+            readonly property real rangeIn: Math.max(0, Project.inPoint)
+            readonly property real rangeOut: Project.outPoint > 0 ? Project.outPoint : Project.duration
+            visible: hasRange
+            checked: true
+            text: qsTr("Only the in/out range (%1 – %2)").arg(Project.formatTime(rangeIn)).arg(Project.formatTime(rangeOut))
+        }
+
         Text {
             Layout.fillWidth: true
             wrapMode: Text.Wrap
             color: Theme.textFaint
             font.pixelSize: Theme.fontSmall
-            text: qsTr("Duration: %1 · Canvas %2×%3").arg(Project.formatTime(Project.duration)).arg(Project.canvasWidth).arg(Project.canvasHeight)
+            text: qsTr("Duration: %1 · Canvas %2×%3").arg(Project.formatTime(rangeBox.hasRange && rangeBox.checked ? rangeBox.rangeOut - rangeBox.rangeIn : Project.duration)).arg(Project.canvasWidth).arg(Project.canvasHeight)
         }
 
         ProgressBar {
@@ -135,7 +145,8 @@ Dialog {
                 const path = pathField.text;
                 prefs.folder = "file://" + path.substring(0, path.lastIndexOf("/"));
                 Project.exportVideo("file://" + path, resBox.values[resBox.currentIndex], fpsBox.values[fpsBox.currentIndex],
-                                    codecBox.currentValue, qualityBox.crf[qualityBox.currentIndex]);
+                                    codecBox.currentValue, qualityBox.crf[qualityBox.currentIndex],
+                                    rangeBox.hasRange && rangeBox.checked);
             }
         }
     }

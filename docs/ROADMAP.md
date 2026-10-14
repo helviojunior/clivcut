@@ -14,7 +14,7 @@
 | 6 | Main-track magnet and snapping | ✅ | |
 | 7 | Multi-selection, copy/paste, attributes, groups | ✅ | rubber-band selection and group dragging |
 | 8 | Undo/redo | ✅ | |
-| 9 | Zoom, scroll, fit, markers | 🟡 | in/out points (I/O) missing |
+| 9 | Zoom, scroll, fit, markers, in/out points | ✅ | in/out range (I/O) saved with the project and exportable on its own |
 | 10 | Transform, crop, flip, opacity | ✅ | on-player transform handles missing |
 | 11 | Canvas aspect ratios and background color | 🟡 | blurred background missing |
 | 12 | Speed, curves, reverse, freeze | 🟡 | curves done; pitch preservation missing (Rubber Band/SoundTouch); audio is muted when reversed |

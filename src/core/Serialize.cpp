@@ -450,7 +450,7 @@ QJsonObject toJson(const Project &p)
     QJsonArray markers;
     for (const auto &m : p.markers)
         markers.append(QJsonObject{{"id", m.id}, {"t", us(m.t)}, {"label", m.label}, {"color", m.color}});
-    return {
+    QJsonObject out{
         {"format", "clivcut"},
         {"version", kProjectFormatVersion},
         {"id", p.id},
@@ -464,6 +464,11 @@ QJsonObject toJson(const Project &p)
         {"tracks", tracks},
         {"markers", markers},
     };
+    if (p.inPoint >= 0)
+        out.insert("inPoint", us(p.inPoint));
+    if (p.outPoint > 0)
+        out.insert("outPoint", us(p.outPoint));
+    return out;
 }
 
 QByteArray serializeProject(const Project &p)
@@ -499,6 +504,8 @@ bool parseProject(const QByteArray &data, Project &out, QString *error)
     p.fps = o.value("fps").toDouble(p.fps);
     p.background = o.value("background").toString(p.background);
     p.mainTrackMagnet = o.value("mainTrackMagnet").toBool(true);
+    p.inPoint = static_cast<Micros>(o.value("inPoint").toDouble(-1));
+    p.outPoint = static_cast<Micros>(o.value("outPoint").toDouble(-1));
     for (const auto &v : o.value("assets").toArray()) {
         const MediaAsset m = assetFromJson(v.toObject());
         p.assets.emplace(m.id, m);

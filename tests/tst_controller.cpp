@@ -175,6 +175,32 @@ private slots:
         QCOMPARE(a.height, 360);
         QVERIFY(std::abs(a.duration - 5'500'000) < 100'000);
         QVERIFY(a.hasAudio);
+
+        // Entrada/saída: marcar, desfazer, salvar e exportar só o trecho.
+        m_ctrl->seek(1e6);
+        m_ctrl->markIn();
+        m_ctrl->seek(3e6);
+        m_ctrl->markOut();
+        QCOMPARE(m_ctrl->inPoint(), 1e6);
+        QCOMPARE(m_ctrl->outPoint(), 3e6);
+        m_ctrl->seek(0.5e6);
+        m_ctrl->markOut(); // saída antes da entrada descarta a entrada
+        QCOMPARE(m_ctrl->inPoint(), -1.0);
+        m_ctrl->undo();
+        QCOMPARE(m_ctrl->inPoint(), 1e6);
+        QCOMPARE(m_ctrl->outPoint(), 3e6);
+        QVERIFY(m_ctrl->saveProjectAs(QUrl::fromLocalFile(proj)));
+        QVERIFY(m_ctrl->openProject(QUrl::fromLocalFile(proj)));
+        QCOMPARE(m_ctrl->outPoint(), 3e6);
+        done.clear();
+        const QString part = m_dir.filePath(QStringLiteral("part.mp4"));
+        m_ctrl->exportVideo(QUrl::fromLocalFile(part), 360, 0, QStringLiteral("h264"), 23, true);
+        QVERIFY(done.wait(60000));
+        QVERIFY2(done.first().at(0).toBool(), qPrintable(done.first().at(1).toString()));
+        QVERIFY(clv::media::probe(part, a));
+        QVERIFY(std::abs(a.duration - 2'000'000) < 100'000);
+        m_ctrl->clearInOut();
+        QCOMPARE(m_ctrl->outPoint(), -1.0);
     }
 
     void filtersWorkflow()

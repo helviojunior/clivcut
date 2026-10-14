@@ -51,6 +51,9 @@ class ProjectController : public QObject {
     Q_PROPERTY(QVariantList tracks READ tracks NOTIFY projectChanged)
     Q_PROPERTY(QVariantList assets READ assets NOTIFY assetsChanged)
     Q_PROPERTY(QVariantList markers READ markers NOTIFY projectChanged)
+    /// Pontos de entrada/saída em µs (-1 = não definido).
+    Q_PROPERTY(double inPoint READ inPoint NOTIFY projectChanged)
+    Q_PROPERTY(double outPoint READ outPoint NOTIFY projectChanged)
     Q_PROPERTY(double playhead READ playhead WRITE seek NOTIFY playheadChanged)
     Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
     Q_PROPERTY(QStringList selection READ selection NOTIFY selectionChanged)
@@ -186,6 +189,13 @@ public:
     Q_INVOKABLE double snapTime(double t, const QStringList &ignore, double thresholdUs) const;
     Q_INVOKABLE void setTrackFlag(int trackIndex, const QString &flag, bool value);
     Q_INVOKABLE void addMarker();
+    /// Marca entrada/saída no cursor (I/O); limpar com clearInOut (Alt+X).
+    Q_INVOKABLE void markIn();
+    Q_INVOKABLE void markOut();
+    Q_INVOKABLE void clearInOut();
+    Q_INVOKABLE void jumpToInOut(bool out);
+    double inPoint() const { return static_cast<double>(m_project.inPoint); }
+    double outPoint() const { return static_cast<double>(m_project.outPoint); }
     Q_INVOKABLE void freezeFrame();
     /// Separa o áudio dos clipes de vídeo selecionados em clipes de áudio.
     Q_INVOKABLE void detachAudio();
@@ -229,7 +239,8 @@ public:
     Q_INVOKABLE void jumpToEdge(bool end);
 
     // --- export ---
-    Q_INVOKABLE void exportVideo(const QUrl &url, int height, double fps, const QString &codec, int crf);
+    Q_INVOKABLE void exportVideo(const QUrl &url, int height, double fps, const QString &codec, int crf,
+                                 bool rangeOnly = false);
     Q_INVOKABLE void cancelExport();
 
     // --- legendas ---

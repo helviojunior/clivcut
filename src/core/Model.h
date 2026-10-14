@@ -232,8 +232,15 @@ struct Project {
     std::vector<Track> tracks;
     std::map<QString, MediaAsset> assets;
     std::vector<Marker> markers;
+    /// Pontos de entrada/saída (I/O) para exportar ou revisar um trecho; -1 = não definido.
+    Micros inPoint = -1;
+    Micros outPoint = -1;
 
     Micros duration() const;
+    /// Trecho de entrada/saída válido (fim -1 = até o final do projeto).
+    bool hasRange() const { return inPoint >= 0 || outPoint > 0; }
+    Micros rangeStart() const { return inPoint >= 0 ? inPoint : 0; }
+    Micros rangeEnd() const { return outPoint > 0 ? outPoint : duration(); }
     const MediaAsset *asset(const QString &id) const;
     Micros frameDuration() const { return static_cast<Micros>(kSecond / fps + 0.5); }
     Micros snapToFrame(Micros t) const;

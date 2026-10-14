@@ -181,6 +181,7 @@ Useful environment variables:
 | Previous/next frame (1 s with Shift) | ← / → |
 | Start/end | Home / End |
 | Marker | M |
+| Mark in / out, clear, go to in / out | I / O, Alt+X, Shift+I / Shift+O |
 | Freeze frame | Alt+F |
 | New text | Ctrl+T |
 | Toggle snapping | N |

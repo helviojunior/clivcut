@@ -147,6 +147,10 @@ Rectangle {
                     property real offset: flick.contentX
                     property real scale: root.pxPerSec
                     property var markers: Project.markers
+                    property real inPoint: Project.inPoint
+                    property real outPoint: Project.outPoint
+                    onInPointChanged: requestPaint()
+                    onOutPointChanged: requestPaint()
                     onOffsetChanged: requestPaint()
                     onScaleChanged: requestPaint()
                     onWidthChanged: requestPaint()
@@ -156,6 +160,23 @@ Rectangle {
                         ctx.reset();
                         ctx.fillStyle = Theme.panel;
                         ctx.fillRect(0, 0, width, height);
+                        // Trecho de entrada/saída (I/O): faixa destacada com colchetes nas pontas.
+                        if (inPoint >= 0 || outPoint > 0) {
+                            const xin = (inPoint >= 0 ? inPoint : 0) / 1e6 * scale - offset;
+                            const xout = (outPoint > 0 ? outPoint : Project.duration) / 1e6 * scale - offset;
+                            ctx.fillStyle = Theme.accentSoft;
+                            ctx.fillRect(xin, 0, xout - xin, height);
+                            ctx.fillStyle = Theme.accent;
+                            ctx.fillRect(xin, height - 3, xout - xin, 3);
+                            if (inPoint >= 0) {
+                                ctx.fillRect(xin, 0, 2, height);
+                                ctx.fillRect(xin, 0, 6, 2);
+                            }
+                            if (outPoint > 0) {
+                                ctx.fillRect(xout - 2, 0, 2, height);
+                                ctx.fillRect(xout - 6, 0, 6, 2);
+                            }
+                        }
                         const steps = [1 / Project.fps, 0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800];
                         let major = steps[steps.length - 1];
                         for (const s of steps)
@@ -175,8 +196,11 @@ Rectangle {
                             ctx.lineTo(x, height - (isMajor ? 10 : 5));
                             ctx.stroke();
                             if (isMajor) {
-                                const m = Math.floor(t / 60), s = Math.floor(t % 60);
-                                const f = Math.round((t % 1) * Project.fps);
+                                // t acumula erro de ponto flutuante: arredonda para o quadro antes de formatar.
+                                const frames = Math.round(t * Project.fps);
+                                const secs = Math.floor(frames / Project.fps);
+                                const m = Math.floor(secs / 60), s = secs % 60;
+                                const f = frames - Math.round(secs * Project.fps);
                                 let label = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
                                 if (major < 1) label += "." + String(f).padStart(2, "0");
                                 ctx.fillText(label, x + 3, 11);
