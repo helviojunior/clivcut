@@ -3,7 +3,9 @@
 
 #include <QOffscreenSurface>
 #include <QSurfaceFormat>
+#ifdef CLIVCUT_HAS_VULKAN
 #include <QVulkanInstance>
+#endif
 
 namespace clv::render {
 
@@ -55,7 +57,7 @@ bool OffscreenRhi::create(QString *error, QOffscreenSurface *fallbackSurface)
     }
 #endif
 
-#if QT_CONFIG(vulkan)
+#ifdef CLIVCUT_HAS_VULKAN
     if (forced.isEmpty() || forced == "vulkan") {
         m_vulkan = std::make_unique<QVulkanInstance>();
         m_vulkan->setExtensions(QRhiVulkanInitParams::preferredInstanceExtensions());

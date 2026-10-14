@@ -11,6 +11,12 @@ class QOffscreenSurface;
 class QSurfaceFormat;
 class QVulkanInstance;
 
+// QT_CONFIG(vulkan) não garante os headers do Vulkan no build do app (ex.: Qt do Homebrew);
+// sem eles o Qt esconde o QVulkanInstance.
+#if QT_CONFIG(vulkan) && __has_include(<vulkan/vulkan.h>)
+#define CLIVCUT_HAS_VULKAN 1
+#endif
+
 namespace clv::render {
 
 /**
@@ -38,7 +44,9 @@ public:
     QString backendName() const;
 
 private:
+#ifdef CLIVCUT_HAS_VULKAN
     std::unique_ptr<QVulkanInstance> m_vulkan;
+#endif
     std::unique_ptr<QOffscreenSurface> m_surface;
     std::unique_ptr<QRhi> m_rhi;
 };
