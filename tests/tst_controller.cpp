@@ -214,8 +214,9 @@ private slots:
         QCOMPARE(m_ctrl->outPoint(), -1.0);
 
         // Só áudio, quadro atual e GPU (cai para software se não houver encoder de hardware).
+        // Áudio e quadro vão para pastas que ainda não existem (ex.: ~/Videos ausente).
         done.clear();
-        const QString wav = m_dir.filePath(QStringLiteral("mix.wav"));
+        const QString wav = m_dir.filePath(QStringLiteral("missing/sub dir/mix.wav"));
         m_ctrl->exportAudio(QUrl::fromLocalFile(wav));
         QVERIFY(done.wait(60000));
         QVERIFY2(done.first().at(0).toBool(), qPrintable(done.first().at(1).toString()));
@@ -226,7 +227,7 @@ private slots:
 
         done.clear();
         m_ctrl->seek(1e6);
-        const QString png = m_dir.filePath(QStringLiteral("frame"));
+        const QString png = m_dir.filePath(QStringLiteral("missing frames/frame"));
         m_ctrl->exportFrame(QUrl::fromLocalFile(png));
         QVERIFY(done.wait(60000));
         QVERIFY2(done.first().at(0).toBool(), qPrintable(done.first().at(1).toString()));

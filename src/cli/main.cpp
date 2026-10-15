@@ -15,6 +15,7 @@
 #include "media/VideoDecoder.h"
 
 #include <QCommandLineParser>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
@@ -260,6 +261,7 @@ int main(int argc, char **argv)
     }
     opts.encode.fps = cli.isSet(fps) ? cli.value(fps).toDouble() : p.fps;
 
+    QDir().mkpath(QFileInfo(opts.outputPath).absolutePath());
     QElapsedTimer timer;
     timer.start();
     int lastPct = -1;
