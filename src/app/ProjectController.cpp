@@ -492,6 +492,7 @@ QVariantMap ProjectController::selectedClip() const
                }()},
               {"denoiseProgress", m_denoiseProgress},
               {"voiceIsolation", c->voiceIsolation},
+              {"ducking", c->ducking},
               {"voiceState", [&] {
                    if (!a || c->voiceIsolation <= 0)
                        return QStringLiteral("off");
@@ -1104,6 +1105,7 @@ bool applyClipProperty(Project &p, Clip *c, Micros rel, const QString &key, cons
     else if (key == QLatin1String("gainDb")) c->gainDb = std::clamp(value.toDouble(), -24.0, 24.0);
     else if (key == QLatin1String("denoise")) c->denoise = engine::quantizedDenoise(value.toDouble());
     else if (key == QLatin1String("removeBackground")) c->removeBackground = value.toBool();
+    else if (key == QLatin1String("ducking")) c->ducking = std::clamp(value.toDouble(), 0.0, 1.0);
     else if (key == QLatin1String("voiceIsolation")) c->voiceIsolation = engine::quantizedVoice(value.toDouble());
     else if (key == QLatin1String("keepPitch")) c->keepPitch = value.toBool();
     else if (key == QLatin1String("temperature")) c->color.temperature = value.toDouble();

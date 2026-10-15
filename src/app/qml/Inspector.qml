@@ -736,6 +736,25 @@ Rectangle {
                     }
                     SectionLabel {
                         visible: root.isMedia && root.sel.hasAudio
+                        text: qsTr("Duck under voice")
+                    }
+                    PropSlider {
+                        visible: root.isMedia && root.sel.hasAudio
+                        label: qsTr("Amount")
+                        from: 0; to: 1; stepSize: 0.05; displayScale: 100; decimals: 0; suffix: "%"
+                        value: root.isMedia ? root.sel.ducking : 0
+                        onMoved: (v) => root.setProp("ducking", v)
+                    }
+                    Text {
+                        visible: root.isMedia && root.sel.hasAudio
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        color: Theme.textFaint
+                        font.pixelSize: Theme.fontSmall
+                        text: qsTr("For background music: this clip gets quieter (up to -16 dB) whenever the other clips have speech, and comes back up in the pauses.")
+                    }
+                    SectionLabel {
+                        visible: root.isMedia && root.sel.hasAudio
                         text: qsTr("Voice isolation (AI)")
                     }
                     PropSlider {

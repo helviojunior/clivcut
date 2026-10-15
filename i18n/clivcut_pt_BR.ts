@@ -1072,6 +1072,18 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
         <translation>Remove chiado, zumbido e ruído de fundo constante. O processamento roda em segundo plano.</translation>
     </message>
     <message>
+        <source>Duck under voice</source>
+        <translation>Abaixar sob a voz</translation>
+    </message>
+    <message>
+        <source>Amount</source>
+        <translation>Quantidade</translation>
+    </message>
+    <message>
+        <source>For background music: this clip gets quieter (up to -16 dB) whenever the other clips have speech, and comes back up in the pauses.</source>
+        <translation>Para música de fundo: este clipe fica mais baixo (até -16 dB) sempre que os outros clipes têm fala, e volta nas pausas.</translation>
+    </message>
+    <message>
         <source>Voice isolation (AI)</source>
         <translation>Isolamento de voz (IA)</translation>
     </message>

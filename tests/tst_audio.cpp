@@ -227,6 +227,56 @@ private slots:
         QVERIFY2(level(1.2, 1.8) > 0.05, qPrintable(QString::number(level(1.2, 1.8)))); // seno do ffmpeg: amplitude 1/8
     }
 
+    void ducking()
+    {
+        const QString music = m_dir.filePath(QStringLiteral("musica.wav"));
+        const QString voice = m_dir.filePath(QStringLiteral("fala.wav"));
+        QProcess proc;
+        proc.start(QStringLiteral("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                                              "sine=frequency=440:duration=5", "-ac", "2", "-ar", "48000", music});
+        QVERIFY(proc.waitForFinished(60000) && proc.exitCode() == 0);
+        proc.start(QStringLiteral("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                                              "aevalsrc=0.4*sin(2*PI*220*t)*between(t\\,2\\,3):d=5:s=48000", "-ac", "2", voice});
+        QVERIFY(proc.waitForFinished(60000) && proc.exitCode() == 0);
+        Project p = createProject();
+        auto addAudio = [&](const QString &path) {
+            MediaAsset a;
+            media::probe(path, a);
+            a.id = newId("ast");
+            p.assets.emplace(a.id, a);
+            return edit::insertClip(p, createMediaClip(a, 0), -1);
+        };
+        const QString musicId = addAudio(music);
+        addAudio(voice);
+        // Amplitude da música (440 Hz) num trecho, por Goertzel, tocando em blocos como o player.
+        auto level440 = [&](const Project &proj, double from, double to) {
+            engine::AudioMixer mixer;
+            std::vector<float> all, block(1024 * 2);
+            for (Micros t = 0; t < static_cast<Micros>(to * kSecond);) {
+                mixer.mix(proj, t, block.data(), 1024);
+                all.insert(all.end(), block.begin(), block.end());
+                t += 1024 * kSecond / 48000;
+            }
+            const int i0 = static_cast<int>(from * 48000), i1 = static_cast<int>(to * 48000);
+            const double w = 2 * M_PI * 440 / 48000;
+            double re = 0, im = 0;
+            for (int i = i0; i < i1; ++i) {
+                re += all[i * 2] * std::cos(w * i);
+                im += all[i * 2] * std::sin(w * i);
+            }
+            return 2 * std::hypot(re, im) / (i1 - i0);
+        };
+        const double quiet = level440(p, 0.5, 0.9);
+        QVERIFY(quiet > 0.05);
+        QVERIFY(std::abs(level440(p, 2.4, 2.8) / quiet - 1) < 0.05); // sem ducking: nada muda
+        edit::clipById(p, musicId)->ducking = 1;
+        QVERIFY(std::abs(level440(p, 0.5, 0.9) / quiet - 1) < 0.05);  // sem voz: volume cheio
+        const double underVoice = level440(p, 2.4, 2.8) / quiet;
+        QVERIFY2(underVoice < 0.25, qPrintable(QString::number(underVoice)));
+        const double after = level440(p, 4.4, 4.9) / quiet;       // voz parou há mais de 1 s
+        QVERIFY2(after > 0.8, qPrintable(QString::number(after)));
+    }
+
     void silenceDetection()
     {
         // 16 kHz: 1 s de tom, 0,3 s de pausa curta, 1 s de tom, 1,5 s de silêncio, 1 s de tom.

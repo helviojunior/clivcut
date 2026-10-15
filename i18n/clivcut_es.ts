@@ -1072,6 +1072,18 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <translation>Elimina siseo, zumbido y ruido de fondo constante. El procesamiento se ejecuta en segundo plano.</translation>
     </message>
     <message>
+        <source>Duck under voice</source>
+        <translation>Bajar bajo la voz</translation>
+    </message>
+    <message>
+        <source>Amount</source>
+        <translation>Cantidad</translation>
+    </message>
+    <message>
+        <source>For background music: this clip gets quieter (up to -16 dB) whenever the other clips have speech, and comes back up in the pauses.</source>
+        <translation>Para música de fondo: este clip baja (hasta -16 dB) cuando los otros clips tienen voz y vuelve a subir en las pausas.</translation>
+    </message>
+    <message>
         <source>Voice isolation (AI)</source>
         <translation>Aislamiento de voz (IA)</translation>
     </message>

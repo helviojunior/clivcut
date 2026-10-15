@@ -53,6 +53,7 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
   - Volume (up to 200%), gain in dB, fade in/out and multi-track mixing.
   - **Loudness normalization** (EBU R128) for social media (-14 LUFS), podcast (-16) or broadcast (-23).
   - Local **noise reduction**, processed in the background and kept in sync with the video.
+  - **Ducking:** background music gets quieter automatically while there is speech on the other clips.
   - **AI voice isolation** (DeepFilterNet3, local): keeps only the speech, removing music, noise and room sound. The model (16 MB) is downloaded once.
   - **Detach audio from video** (Ctrl+Shift+D) and mute clip.
 - **Background removal:** cuts people out of videos without a green screen, using a local AI model (RobustVideoMatting on ONNX Runtime, downloaded once). Processing runs in the background and the result is used in preview and export.

@@ -43,11 +43,18 @@ private:
         std::int64_t revStart = 0;   ///< primeira amostra da origem em revBuf
     };
     media::AudioDecoder *decoderFor(const Clip &c, const MediaAsset &a);
+    /** Mixa um clipe no bloco [t, t + frames) somando em `dst`. */
+    void mixClip(const Project &p, const Clip &c, Micros t, int frames, float *dst);
     Entry &entryFor(const Clip &c) { return m_decoders[c.id]; }
     void readStream(Entry &e, std::int64_t k, float *dst, int frames);
 
     std::unordered_map<QString, Entry> m_decoders;
     std::vector<float> m_tmp;
+    // Ducking: envoltória da voz contínua entre blocos.
+    double m_duckEnv = 0;
+    std::int64_t m_duckNext = -1;
+    std::vector<float> m_voice;
+    std::vector<float> m_duckBuf;
 };
 
 } // namespace clv::engine
