@@ -122,7 +122,7 @@ int main(int argc, char **argv)
         });
         QTimer::singleShot(delay, window, [window, shot] {
             window->grabWindow().save(shot);
-            QCoreApplication::quit();
+            QCoreApplication::exit(0); // quit() pediria para fechar a janela (e perguntaria sobre alterações)
         });
     }
 

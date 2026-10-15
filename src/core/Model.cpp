@@ -49,7 +49,7 @@ Project createProject(const QString &name, int width, int height, double fps)
     p.width = width;
     p.height = height;
     p.fps = fps;
-    p.tracks.push_back(createTrack(TrackKind::Video, QStringLiteral("Principal")));
+    p.tracks.push_back(createTrack(TrackKind::Video, QCoreApplication::translate("Track", "Main")));
     return p;
 }
 

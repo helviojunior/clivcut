@@ -531,7 +531,7 @@ bool parseProject(const QByteArray &data, Project &out, QString *error)
         p.tracks.push_back(std::move(tr));
     }
     if (p.tracks.empty())
-        p.tracks.push_back(createTrack(TrackKind::Video, QStringLiteral("Principal")));
+        p.tracks.push_back(createTrack(TrackKind::Video, QCoreApplication::translate("Track", "Main")));
     for (const auto &v : o.value("markers").toArray()) {
         const auto m = v.toObject();
         p.markers.push_back({m.value("id").toString(), toUs(m.value("t")), m.value("label").toString(),

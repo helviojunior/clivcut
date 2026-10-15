@@ -323,7 +323,7 @@ DraftImportResult importDraftJson(const QByteArray &json, const QString &draftDi
     // Ordem do clivcut: principal (1º vídeo), demais vídeos, textos por cima, áudios.
     if (visualVideo.empty())
         visualVideo.push_back(createTrack(TrackKind::Video));
-    visualVideo.front().name = QStringLiteral("Principal");
+    visualVideo.front().name = QCoreApplication::translate("Track", "Main");
     for (auto &t : visualVideo)
         p.tracks.push_back(std::move(t));
     for (auto &t : text)
