@@ -54,7 +54,7 @@
 | 15 | Music beat detection with automatic markers | ⬜ | |
 | 16 | Project templates with media slots and ready-made text templates | ⬜ | |
 | 17 | Packaging: AppImage | ✅ | tested |
-| 18 | Packaging: Flatpak | 🟡 | manifest ready; needs validation with flatpak-builder and publishing on Flathub |
+| 18 | Packaging: Flatpak | 🟡 | manifest on KDE 6.11 with ONNX Runtime as a pinned source (the build has no network); built by CI on every push; publishing on Flathub missing |
 | 19 | Packaging: Windows (MSVC/vcpkg/NSIS) and macOS (Homebrew/DMG) | 🟡 | CMake and CI ready, not yet run (no Windows/Mac machine and no active CI) |
 
 ## Phase 3

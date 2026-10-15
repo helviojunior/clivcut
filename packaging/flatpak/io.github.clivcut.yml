@@ -1,13 +1,13 @@
 # Flatpak do clivcut.
 #
-#   flatpak install flathub org.kde.Sdk//6.9 org.kde.Platform//6.9
+#   flatpak install flathub org.kde.Sdk//6.11 org.kde.Platform//6.11
 #   flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.clivcut.yml
 #   flatpak run io.github.clivcut
 #
 # FFmpeg é compilado aqui com x264 (GPL) e VA-API; o do runtime não tem H.264.
 app-id: io.github.clivcut
 runtime: org.kde.Platform
-runtime-version: '6.9'
+runtime-version: '6.11'
 sdk: org.kde.Sdk
 command: clivcut
 rename-desktop-file: io.github.clivcut.desktop
@@ -18,7 +18,7 @@ finish-args:
   - --socket=fallback-x11
   - --socket=pulseaudio
   - --device=dri
-  # Download dos modelos de legendas (opcional, sob demanda).
+  # Download dos modelos de IA (legendas, recorte, voz), opcional e sob demanda.
   - --share=network
   # Projetos referenciam mídias por caminho absoluto em qualquer lugar da pasta pessoal.
   - --filesystem=home
@@ -78,10 +78,27 @@ modules:
     config-opts:
       - -DCMAKE_BUILD_TYPE=Release
       - -DCLIVCUT_BUILD_TESTS=OFF
+      # O build do Flatpak não tem rede: o ONNX Runtime vem como fonte abaixo, não pelo FetchContent.
+      - -DCLIVCUT_ONNXRUNTIME_ROOT=/run/build/clivcut/onnxruntime
     sources:
       - type: dir
         path: ../..
         skip:
           - build
           - build-appimage
+          - build-flatpak
           - dist
+          - .flatpak-builder
+          - .claude
+          - _bmad
+          - _bmad-output
+      - type: archive
+        only-arches: [x86_64]
+        url: https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-1.30.0.tgz
+        sha256: a5ed5a3cac51fbb2e90da632ae43d19212faaa20e76484e62bcb7c23ddb3b3fd
+        dest: onnxruntime
+      - type: archive
+        only-arches: [aarch64]
+        url: https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-aarch64-1.30.0.tgz
+        sha256: e16a27a8ed330bbc698df7330b0cf56e722f354e3bcc92118682c74ef3c3e3da
+        dest: onnxruntime

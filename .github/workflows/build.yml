@@ -133,6 +133,20 @@ jobs:
           name: clivcut-macos
           path: build/clivcut-*.dmg
 
+  flatpak:
+    name: Flatpak
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v5
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: clivcut.flatpak
+          manifest-path: packaging/flatpak/io.github.clivcut.yml
+          cache-key: flatpak-builder-${{ hashFiles('packaging/flatpak/io.github.clivcut.yml') }}
+
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')

@@ -114,7 +114,7 @@ chmod +x dist/clivcut-*.AppImage && dist/clivcut-*.AppImage
 **Flatpak** (manifest in `packaging/flatpak/`; builds FFmpeg with x264, VA-API and whisper.cpp inside the sandbox):
 
 ```sh
-flatpak install flathub org.kde.Sdk//6.9 org.kde.Platform//6.9
+flatpak install flathub org.kde.Sdk//6.11 org.kde.Platform//6.11
 flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.clivcut.yml
 flatpak run io.github.clivcut
 ```
