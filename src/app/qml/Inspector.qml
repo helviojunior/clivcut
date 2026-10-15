@@ -611,6 +611,46 @@ Rectangle {
                               : root.sel.denoiseState === "ready" ? qsTr("✓ Clean audio in use (processed locally)")
                               : qsTr("Removes hiss, hum and constant background noise. Processing runs in the background.")
                     }
+                    SectionLabel {
+                        visible: root.isMedia && root.sel.hasAudio
+                        text: qsTr("Voice isolation (AI)")
+                    }
+                    PropSlider {
+                        visible: root.isMedia && root.sel.hasAudio
+                        enabled: root.isMedia && root.sel.voiceState !== "unavailable"
+                        label: qsTr("Intensity")
+                        from: 0; to: 1; stepSize: 0.1; displayScale: 100; decimals: 0; suffix: "%"
+                        value: root.isMedia ? root.sel.voiceIsolation : 0
+                        onMoved: (v) => root.setProp("voiceIsolation", v)
+                    }
+                    ProgressBar {
+                        visible: root.isMedia && (root.sel.voiceState === "processing"
+                                                  || (root.sel.voiceState === "needsModel" && Project.downloadingModel === "dfn3"))
+                        Layout.fillWidth: true
+                        value: root.sel.voiceState === "processing" ? root.sel.voiceProgress : Project.modelDownloadProgress
+                    }
+                    PillButton {
+                        visible: root.isMedia && root.sel.voiceState === "needsModel" && Project.downloadingModel !== "dfn3"
+                        enabled: Project.downloadingModel === ""
+                        text: qsTr("Download model (16 MB)")
+                        iconName: "download"
+                        onClicked: Project.downloadModel("dfn3")
+                    }
+                    Text {
+                        visible: root.isMedia && root.sel.hasAudio
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        color: root.isMedia && root.sel.voiceState === "ready" ? Theme.accent : Theme.textFaint
+                        font.pixelSize: Theme.fontSmall
+                        text: !root.isMedia ? ""
+                              : root.sel.voiceState === "unavailable" ? qsTr("Not available in this build (compiled without ONNX Runtime).")
+                              : root.sel.voiceState === "needsModel" ? (Project.downloadingModel === "dfn3" ? qsTr("Downloading the voice model…")
+                                                                        : qsTr("Requires the voice isolation model (DeepFilterNet3, MIT/Apache-2.0), downloaded only once."))
+                              : root.sel.voiceState === "processing" ? qsTr("Isolating the voice… %1%").arg(Math.round(root.sel.voiceProgress * 100))
+                              : root.sel.voiceState === "queued" ? qsTr("Queued…")
+                              : root.sel.voiceState === "ready" ? qsTr("✓ Isolated voice in use (processed locally)")
+                              : qsTr("Keeps only the speech: removes background music, noise and room sound. Runs on your computer.")
+                    }
                     PropSlider {
                         enabled: root.isMedia && root.sel.hasAudio
                         label: qsTr("Fade in")

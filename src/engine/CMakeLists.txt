@@ -3,6 +3,7 @@ add_library(clivcut_engine STATIC
     AudioMixer.h AudioMixer.cpp
     TimeStretch.h TimeStretch.cpp
     RenderCache.h RenderCache.cpp
+    VoiceIsolation.h VoiceIsolation.cpp
     Exporter.h Exporter.cpp
     Transcriber.h Transcriber.cpp
     WhisperModels.h WhisperModels.cpp

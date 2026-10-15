@@ -23,6 +23,11 @@ const std::vector<AiModel> &aiModels()
                         QUrl(QStringLiteral("https://github.com/PeterL1n/RobustVideoMatting/releases/download/v1.0.0/"
                                             "rvm_mobilenetv3_fp32.onnx")),
                         QStringLiteral("GPL-3.0")});
+        list.push_back({kVoiceModel, QString::fromUtf8(QT_TRANSLATE_NOOP("Models", "Voice isolation (DeepFilterNet3)")), 16'104'687,
+                        QString::fromUtf8(QT_TRANSLATE_NOOP("Models", "Separates speech from noise, music and room sound")),
+                        QStringLiteral("voice"), QStringLiteral("deepfilternet3_streaming.onnx"),
+                        QUrl(QStringLiteral("https://huggingface.co/kimtos-labs/denoiser-dfn3/resolve/main/denoiser_model.onnx")),
+                        QStringLiteral("MIT OR Apache-2.0")});
         return list;
     }();
     return models;

@@ -27,5 +27,7 @@ bool aiModelInstalled(const QString &id);
 
 /// Modelo de recorte de pessoas (RobustVideoMatting, GPL-3.0).
 inline const QString kMattingModel = QStringLiteral("rvm");
+/// Isolamento de voz (DeepFilterNet3 em streaming, MIT ou Apache-2.0).
+inline const QString kVoiceModel = QStringLiteral("dfn3");
 
 } // namespace clv::engine

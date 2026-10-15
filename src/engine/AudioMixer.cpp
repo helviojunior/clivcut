@@ -4,6 +4,7 @@
 #include "core/Evaluate.h"
 #include "core/SpeedCurve.h"
 #include "AudioCleanup.h"
+#include "VoiceIsolation.h"
 
 #include <algorithm>
 #include <cmath>
@@ -18,7 +19,11 @@ media::AudioDecoder *AudioMixer::decoderFor(const Clip &c, const MediaAsset &a)
 {
     // Com redução de ruído, usa a versão limpa quando já estiver pronta (alinhada à original).
     QString path = a.path;
-    if (c.denoise > 0) {
+    // Voz isolada (IA) tem prioridade: já remove o ruído também.
+    const QString voice = c.voiceIsolation > 0 ? registeredVoice(a.path, c.voiceIsolation) : QString();
+    if (!voice.isEmpty())
+        path = voice;
+    else if (c.denoise > 0) {
         const QString clean = registeredDenoised(a.path, c.denoise);
         if (!clean.isEmpty())
             path = clean;

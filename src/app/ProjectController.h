@@ -357,6 +357,8 @@ private:
     void startNextDenoise();
     void refreshMattes();
     void startNextMatte();
+    void refreshVoice();
+    void startNextVoice();
     void startExport(const clv::engine::ExportOptions &opts);
     void refreshRenderCache();
     void enqueueProxy(const QString &mediaPath);
@@ -413,6 +415,10 @@ private:
     bool m_rendering = false;
     double m_renderProgress = 0;
     std::shared_ptr<std::atomic<bool>> m_renderCancel = std::make_shared<std::atomic<bool>>(false); ///< para retraduzir a interface ao trocar o idioma
+    QStringList m_voiceQueue;       ///< "caminho|intensidade" aguardando isolamento de voz
+    QString m_voiceBuilding;
+    double m_voiceProgress = 0;
+    std::shared_ptr<std::atomic<bool>> m_voiceCancel = std::make_shared<std::atomic<bool>>(false);
     QStringList m_matteQueue;       ///< mídias aguardando remoção de fundo
     QString m_matteBuilding;
     double m_matteProgress = 0;

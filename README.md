@@ -49,6 +49,7 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
   - Volume (up to 200%), gain in dB, fade in/out and multi-track mixing.
   - **Loudness normalization** (EBU R128) for social media (-14 LUFS), podcast (-16) or broadcast (-23).
   - Local **noise reduction**, processed in the background and kept in sync with the video.
+  - **AI voice isolation** (DeepFilterNet3, local): keeps only the speech, removing music, noise and room sound. The model (16 MB) is downloaded once.
   - **Detach audio from video** (Ctrl+Shift+D) and mute clip.
 - **Background removal:** cuts people out of videos without a green screen, using a local AI model (RobustVideoMatting on ONNX Runtime, downloaded once). Processing runs in the background and the result is used in preview and export.
 - **Canvas:** 16:9, 9:16, 1:1, 4:3, 3:4, 4:5 and 21:9, with a background color or a blurred copy of the main video.
@@ -74,7 +75,7 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
 - **Languages:** English, Português (Brasil) and Español. The interface follows the system language and can be switched live from the logo menu, the command palette or the welcome screen.
 - **`clivcut-render`:** headless rendering, conversion and transcription (`--transcribe`) from the command line.
 
-See the [roadmap](docs/ROADMAP.md) for what comes next: AI voice isolation, interactive cutout and more.
+See the [roadmap](docs/ROADMAP.md) for what comes next: interactive cutout, stem separation and more.
 
 ## Building
 

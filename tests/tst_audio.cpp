@@ -4,10 +4,13 @@
 #include "engine/AudioCleanup.h"
 #include "engine/AudioMixer.h"
 #include "engine/TimeStretch.h"
+#include "engine/VoiceIsolation.h"
 #include "media/AudioDecoder.h"
 #include "media/Loudness.h"
 #include "media/MediaProbe.h"
 
+#include <QDir>
+#include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -221,6 +224,52 @@ private slots:
         };
         QVERIFY2(level(0.2, 0.8) < 0.01, qPrintable(QString::number(level(0.2, 0.8))));
         QVERIFY2(level(1.2, 1.8) > 0.05, qPrintable(QString::number(level(1.2, 1.8)))); // seno do ffmpeg: amplitude 1/8
+    }
+
+    void voiceIsolation()
+    {
+        if (!engine::voiceIsolationAvailable())
+            QSKIP("compilado sem ONNX Runtime");
+        const QString model = qEnvironmentVariable("CLIVCUT_VOICE_MODEL",
+            QDir::home().filePath(QStringLiteral(".local/share/clivcut/models/deepfilternet3_streaming.onnx")));
+        if (!QFileInfo::exists(model))
+            QSKIP("modelo de isolamento de voz não instalado");
+        // 2 s só de ruído rosa, depois um tom de fala sintético (vogais com harmônicos) + ruído.
+        const QString in = m_dir.filePath(QStringLiteral("voz.wav"));
+        QProcess proc;
+        proc.start(QStringLiteral("ffmpeg"),
+                   {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=color=pink:amplitude=0.08:duration=5",
+                    "-f", "lavfi", "-i",
+                    "aevalsrc=0.3*sin(2*PI*140*t)*(0.6+0.4*sin(2*PI*3*t))+0.2*sin(2*PI*280*t)+0.1*sin(2*PI*420*t):d=3:s=48000",
+                    "-filter_complex", "[1]adelay=2000|2000[v];[0][v]amix=inputs=2:duration=longest:normalize=0", "-ac", "2",
+                    "-ar", "48000", in});
+        QVERIFY(proc.waitForFinished(60000) && proc.exitCode() == 0);
+
+        const QString out = engine::voicePathFor(in, 1.0);
+        QString err;
+        double last = 0;
+        QVERIFY2(engine::generateVoiceIsolated(in, model, out, 1.0, [&](double f) { last = f; return true; }, &err), qPrintable(err));
+        QCOMPARE(last, 1.0);
+        MediaAsset a, b;
+        QVERIFY(media::probe(in, a) && media::probe(out, b));
+        QVERIFY(std::abs(a.duration - b.duration) < 20'000);
+        // Ruído puro: bem mais baixo.
+        const double noiseIn = rms(readMono(in, 500'000, 48000)), noiseOut = rms(readMono(out, 500'000, 48000));
+        QVERIFY2(20 * std::log10(noiseOut / noiseIn) < -8, qPrintable(QStringLiteral("%1 → %2").arg(noiseIn).arg(noiseOut)));
+        // Alinhamento: a correlação entre entrada e saída é máxima sem deslocamento.
+        const auto x = readMono(in, 2'500'000, 48000), y = readMono(out, 2'500'000, 48000);
+        int best = 0;
+        double bestCorr = -1e30;
+        for (int d = -200; d <= 200; ++d) {
+            double c = 0;
+            for (int i = 300; i < 47000; ++i)
+                c += x[i] * y[i + d];
+            if (c > bestCorr) {
+                bestCorr = c;
+                best = d;
+            }
+        }
+        QVERIFY2(std::abs(best) <= 2, qPrintable(QString::number(best)));
     }
 };
 

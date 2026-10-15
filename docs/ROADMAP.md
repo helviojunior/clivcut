@@ -21,7 +21,7 @@
 | 13 | Keyframes with easing | ✅ | graph editor with custom Bézier; dragging keyframes directly on the timeline missing |
 | 14 | Text and animations | ✅ | per-character/per-word animations (typewriter, karaoke) and spoken-word highlighting in automatic captions missing |
 | 15 | Captions: SRT/VTT import, editing, export, automatic captions (whisper.cpp) | ✅ | caption list editor and local translation missing |
-| 16 | Audio: volume, fades, detach audio, normalize, noise reduction | ✅ | AI voice isolation missing |
+| 16 | Audio: volume, fades, detach audio, normalize, noise reduction, voice isolation | ✅ | voice isolation with DeepFilterNet3 (local, on demand) |
 | 17 | Color adjustments and .cube LUTs | ✅ | exposure, brightness, contrast, saturation, highlights, shadows, temperature, tint, vignette and sharpness; 3D/1D LUTs on the GPU |
 | 18 | Filters (built-in LUTs) | ✅ | 16 built-in filters, current-frame preview and adjustment layers on the timeline; curves, HSL and color wheels missing (Phase 2) |
 | 19 | Transitions | ✅ | 8 types |
@@ -45,7 +45,7 @@
 | 6 | Local background removal | 🟡 | RobustVideoMatting on ONNX Runtime: matte generated in the background, cached and applied as clip alpha in preview and export; model downloaded on demand from the Inspector. Interactive cutout (SAM 2) missing |
 | 7 | Object tracking | ⬜ | |
 | 8 | Stabilization (vid.stab) | ⬜ | |
-| 9 | Audio cleanup | 🟡 | noise reduction (afftdn) and loudness normalization (EBU R128) done; AI voice isolation (DeepFilterNet/Demucs) missing |
+| 9 | Audio cleanup | 🟡 | noise reduction (afftdn), loudness normalization (EBU R128) and AI voice isolation (DeepFilterNet3) done; music/stem separation (Demucs) missing |
 | 10 | Transcript-based editing and silence removal | ⬜ | |
 | 11 | Local TTS (Piper) | ⬜ | |
 | 12 | Stickers and shapes, curved text, per-character styles | ⬜ | |

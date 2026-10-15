@@ -15,6 +15,7 @@
 #include "engine/AiModels.h"
 #include "engine/AudioCleanup.h"
 #include "engine/Matting.h"
+#include "engine/VoiceIsolation.h"
 #include "engine/Exporter.h"
 #include "engine/Proxy.h"
 #include "engine/Transcriber.h"
@@ -122,6 +123,7 @@ ProjectController::~ProjectController()
     *m_proxyCancel = true;
     *m_denoiseCancel = true;
     *m_matteCancel = true;
+    *m_voiceCancel = true;
     *m_renderCancel = true;
     if (g_instance == this)
         g_instance = nullptr;
@@ -185,6 +187,7 @@ void ProjectController::commitChange()
     ++m_revisionCounter;
     refreshDenoise();
     refreshMattes();
+    refreshVoice();
     m_cacheTimer.start();
     emit projectChanged();
     emit selectedClipChanged();
@@ -463,6 +466,22 @@ QVariantMap ProjectController::selectedClip() const
                                                                                      : QStringLiteral("ready");
                }()},
               {"denoiseProgress", m_denoiseProgress},
+              {"voiceIsolation", c->voiceIsolation},
+              {"voiceState", [&] {
+                   if (!a || c->voiceIsolation <= 0)
+                       return QStringLiteral("off");
+                   if (!engine::voiceIsolationAvailable())
+                       return QStringLiteral("unavailable");
+                   if (!engine::registeredVoice(a->path, c->voiceIsolation).isEmpty())
+                       return QStringLiteral("ready");
+                   if (!engine::aiModelInstalled(engine::kVoiceModel))
+                       return QStringLiteral("needsModel");
+                   const QString job = a->path + QLatin1Char('|') + QString::number(engine::quantizedVoice(c->voiceIsolation));
+                   if (m_voiceBuilding == job)
+                       return QStringLiteral("processing");
+                   return m_voiceQueue.contains(job) ? QStringLiteral("queued") : QStringLiteral("off");
+               }()},
+              {"voiceProgress", m_voiceProgress},
               {"removeBackground", c->removeBackground},
               {"keepPitch", c->keepPitch},
               {"matteState", [&] {
@@ -1060,6 +1079,7 @@ bool applyClipProperty(Project &p, Clip *c, Micros rel, const QString &key, cons
     else if (key == QLatin1String("gainDb")) c->gainDb = std::clamp(value.toDouble(), -24.0, 24.0);
     else if (key == QLatin1String("denoise")) c->denoise = engine::quantizedDenoise(value.toDouble());
     else if (key == QLatin1String("removeBackground")) c->removeBackground = value.toBool();
+    else if (key == QLatin1String("voiceIsolation")) c->voiceIsolation = engine::quantizedVoice(value.toDouble());
     else if (key == QLatin1String("keepPitch")) c->keepPitch = value.toBool();
     else if (key == QLatin1String("temperature")) c->color.temperature = value.toDouble();
     else if (key == QLatin1String("maskShape")) c->mask.shape = maskShapeFromName(value.toString());
@@ -1597,6 +1617,9 @@ void ProjectController::downloadModel(const QString &id)
             setStatus(tr("Model %1 installed").arg(id));
             if (id == engine::kMattingModel)
                 refreshMattes();
+            if (id == engine::kVoiceModel)
+                refreshVoice();
+            emit selectedClipChanged();
         }
         else if (!cancelled)
             emit errorOccurred(tr("Model download failed: %1").arg(err));
@@ -2606,6 +2629,81 @@ QString ProjectController::activeLanguage() const
 QVariantList ProjectController::languages() const
 {
     return app::availableLanguages();
+}
+
+// ---------------------------------------------------------------------------
+// Isolamento de voz (IA, em segundo plano)
+
+void ProjectController::refreshVoice()
+{
+    if (!engine::voiceIsolationAvailable() || !engine::aiModelInstalled(engine::kVoiceModel))
+        return;
+    bool changed = false;
+    for (const auto &t : m_project.tracks)
+        for (const auto &c : t.clips) {
+            const MediaAsset *a = c.hasMedia() && c.voiceIsolation > 0 ? m_project.asset(c.assetId) : nullptr;
+            if (!a || !a->hasAudio || !QFileInfo::exists(a->path))
+                continue;
+            if (!engine::registeredVoice(a->path, c.voiceIsolation).isEmpty() || engine::discoverVoice(a->path, c.voiceIsolation))
+                continue;
+            const QString job = a->path + QLatin1Char('|') + QString::number(engine::quantizedVoice(c.voiceIsolation));
+            if (job != m_voiceBuilding && !m_voiceQueue.contains(job)) {
+                m_voiceQueue << job;
+                changed = true;
+            }
+        }
+    if (changed) {
+        emit selectedClipChanged();
+        startNextVoice();
+    }
+}
+
+void ProjectController::startNextVoice()
+{
+    if (!m_voiceBuilding.isEmpty() || m_voiceQueue.isEmpty())
+        return;
+    m_voiceBuilding = m_voiceQueue.takeFirst();
+    m_voiceProgress = 0;
+    m_voiceCancel = std::make_shared<std::atomic<bool>>(false);
+    const QString path = m_voiceBuilding.section(QLatin1Char('|'), 0, -2);
+    const double strength = m_voiceBuilding.section(QLatin1Char('|'), -1).toDouble();
+    const QString model = engine::aiModelPath(engine::kVoiceModel);
+    auto cancel = m_voiceCancel;
+    emit selectedClipChanged();
+    setStatus(tr("Isolating voice in %1…").arg(QFileInfo(path).fileName()));
+    std::thread([this, path, strength, model, cancel] {
+        const QString out = engine::voicePathFor(path, strength);
+        QString err;
+        double lastSent = 0;
+        const bool ok = engine::generateVoiceIsolated(
+            path, model, out, strength,
+            [&](double f) {
+                if (f - lastSent >= 0.01 && !*cancel) {
+                    lastSent = f;
+                    QMetaObject::invokeMethod(this, [this, f] {
+                        m_voiceProgress = f;
+                        emit selectedClipChanged();
+                    }, Qt::QueuedConnection);
+                }
+                return !*cancel;
+            },
+            &err);
+        if (*cancel)
+            return;
+        QMetaObject::invokeMethod(this, [this, ok, err, path, strength, out] {
+            m_voiceBuilding.clear();
+            if (ok) {
+                engine::registerVoice(path, strength, out);
+                setStatus(tr("Voice isolated: %1").arg(QFileInfo(path).fileName()));
+                if (m_playing)
+                    m_audio->updateProject(snapshot());
+            } else {
+                emit errorOccurred(tr("Voice isolation failed: %1").arg(err));
+            }
+            emit selectedClipChanged();
+            startNextVoice();
+        }, Qt::QueuedConnection);
+    }).detach();
 }
 
 // ---------------------------------------------------------------------------
