@@ -57,7 +57,7 @@ modules:
     sources:
       - type: git
         url: https://git.ffmpeg.org/ffmpeg.git
-        tag: n8.0
+        tag: n8.0.3
 
   - name: whisper-cpp
     buildsystem: cmake-ninja
