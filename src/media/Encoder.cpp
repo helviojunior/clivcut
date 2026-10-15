@@ -56,7 +56,6 @@ std::vector<CodecChoice> hardwareCandidates(VideoCodec c)
     }
 }
 
-bool startsWith(const char *s, const char *prefix) { return std::strncmp(s, prefix, std::strlen(prefix)) == 0; }
 bool endsWith(const QString &s, const char *suffix) { return s.endsWith(QLatin1String(suffix)); }
 
 const std::pair<VideoCodec, const char *> kCodecNames[] = {

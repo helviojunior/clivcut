@@ -1411,6 +1411,8 @@ void ProjectController::exportAudio(const QUrl &url, bool rangeOnly)
 void ProjectController::startExport(const engine::ExportOptions &opts)
 {
     pause();
+    // A pasta padrão (ex.: ~/Videos) pode ainda não existir.
+    QDir().mkpath(QFileInfo(opts.outputPath).absolutePath());
     m_exporting = true;
     m_exportProgress = 0;
     m_cancelExport = false;
@@ -1455,6 +1457,7 @@ void ProjectController::exportFrame(const QUrl &url)
     const QString ext = QFileInfo(path).suffix().toLower();
     if (ext != QLatin1String("png") && ext != QLatin1String("jpg") && ext != QLatin1String("jpeg"))
         path += QStringLiteral(".png");
+    QDir().mkpath(QFileInfo(path).absolutePath());
     m_exporting = true;
     m_exportProgress = 0;
     emit exportChanged();

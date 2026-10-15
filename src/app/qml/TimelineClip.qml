@@ -274,12 +274,18 @@ Item {
                     }
                 }
                 onReleased: {
-                    if (handle.startEdge && root.trimStartDx !== 0)
-                        Project.trimClip(root.clipData.id, true, root.clipData.start + root.timeline.tOf(root.trimStartDx));
-                    else if (!handle.startEdge && root.trimEndDx !== 0)
-                        Project.trimClip(root.clipData.id, false, root.clipData.end + root.timeline.tOf(root.trimEndDx));
+                    // Zera antes de aparar: trimClip recria o modelo e destrói este delegate.
+                    const id = root.clipData.id;
+                    const startT = root.clipData.start + root.timeline.tOf(root.trimStartDx);
+                    const endT = root.clipData.end + root.timeline.tOf(root.trimEndDx);
+                    const trimStart = handle.startEdge && root.trimStartDx !== 0;
+                    const trimEnd = !handle.startEdge && root.trimEndDx !== 0;
                     root.trimStartDx = 0;
                     root.trimEndDx = 0;
+                    if (trimStart)
+                        Project.trimClip(id, true, startT);
+                    else if (trimEnd)
+                        Project.trimClip(id, false, endT);
                 }
             }
         }
