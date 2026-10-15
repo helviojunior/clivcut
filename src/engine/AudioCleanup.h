@@ -21,6 +21,13 @@ QString denoisedPathFor(const QString &mediaPath, double strength);
 bool generateDenoised(const QString &mediaPath, const QString &outPath, double strength,
                       const std::function<bool(double)> &progress, QString *error);
 
+/**
+ * Passa o áudio de `inPath` por uma cadeia de filtros do FFmpeg (sintaxe do -af) e grava um WAV
+ * de mesma duração, com a latência da cadeia compensada (efeitos de voz).
+ */
+bool renderAudioFilter(const QString &inPath, const QString &outPath, const QByteArray &chain,
+                       const std::function<bool(double)> &progress, QString *error);
+
 /** Registro (thread-safe) de áudios limpos prontos: (mídia, intensidade) → arquivo. */
 void registerDenoised(const QString &mediaPath, double strength, const QString &outPath);
 QString registeredDenoised(const QString &mediaPath, double strength);

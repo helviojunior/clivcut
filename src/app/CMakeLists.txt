@@ -15,7 +15,10 @@ qt_add_executable(clivcut
     PreviewItem.h PreviewItem.cpp
     ImageProviders.h ImageProviders.cpp
     AudioOutput.h AudioOutput.cpp
+    AudioRecorder.h AudioRecorder.cpp
     Language.h Language.cpp
+    Scopes.h Scopes.cpp
+    ScopeItem.h ScopeItem.cpp
 )
 
 set_source_files_properties(qml/Theme.qml qml/Keymap.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
@@ -31,6 +34,9 @@ qt_add_qml_module(clivcut
         qml/Theme.qml
         qml/Keymap.qml
         qml/ShortcutsDialog.qml
+        qml/SilenceDialog.qml
+        qml/TranscriptPanel.qml
+        qml/VoiceoverPanel.qml
         qml/TopBar.qml
         qml/MediaPanel.qml
         qml/CaptionsPanel.qml
@@ -55,6 +61,8 @@ qt_add_qml_module(clivcut
         qml/components/TileButton.qml
         qml/components/CurveEditor.qml
         qml/components/KeyframeGraph.qml
+        qml/components/ToneCurveEditor.qml
+        qml/components/ColorWheelPad.qml
     RESOURCES
         icons/clivcut.svg
         ${CLIVCUT_UI_ICONS}

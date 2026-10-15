@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "Lut.h"
+#include <QJsonObject>
+#include <QJsonDocument>
+#include "Serialize.h"
 
 #include <QCoreApplication>
 #include <QFile>
@@ -278,6 +281,189 @@ Lut3D builtinFilterLut(const QString &id, int size)
     return {};
 }
 
+std::vector<float> sampleCurve(std::vector<CurvePoint> pts, int samples)
+{
+    std::vector<float> out(static_cast<size_t>(samples));
+    std::sort(pts.begin(), pts.end(), [](const CurvePoint &a, const CurvePoint &b) { return a.x < b.x; });
+    // Pontos com o mesmo x: fica o último.
+    pts.erase(std::unique(pts.begin(), pts.end(), [](const CurvePoint &a, const CurvePoint &b) { return std::abs(a.x - b.x) < 1e-6; }),
+              pts.end());
+    // Sem ponto nas bordas, a curva começa em (0, 0) e termina em (1, 1).
+    if (pts.empty() || pts.front().x > 0)
+        pts.insert(pts.begin(), CurvePoint{0, 0});
+    if (pts.back().x < 1)
+        pts.push_back(CurvePoint{1, 1});
+    const size_t n = pts.size();
+    // Tangentes de Fritsch–Carlson: interpolação cúbica sem ultrapassar os pontos.
+    std::vector<double> d(n - 1), m(n);
+    for (size_t i = 0; i + 1 < n; ++i)
+        d[i] = (pts[i + 1].y - pts[i].y) / std::max(1e-9, pts[i + 1].x - pts[i].x);
+    m[0] = d[0];
+    m[n - 1] = d[n - 2];
+    for (size_t i = 1; i + 1 < n; ++i)
+        m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2;
+    for (size_t i = 0; i + 1 < n; ++i) {
+        if (d[i] == 0) {
+            m[i] = m[i + 1] = 0;
+            continue;
+        }
+        const double a = m[i] / d[i], b = m[i + 1] / d[i], h = a * a + b * b;
+        if (h > 9) {
+            const double t = 3 / std::sqrt(h);
+            m[i] = t * a * d[i];
+            m[i + 1] = t * b * d[i];
+        }
+    }
+    size_t seg = 0;
+    for (int s = 0; s < samples; ++s) {
+        const double x = static_cast<double>(s) / (samples - 1);
+        while (seg + 2 < n && x > pts[seg + 1].x)
+            ++seg;
+        const double x0 = pts[seg].x, x1 = pts[seg + 1].x, hgt = std::max(1e-9, x1 - x0);
+        const double t = std::clamp((x - x0) / hgt, 0.0, 1.0), t2 = t * t, t3 = t2 * t;
+        const double y = (2 * t3 - 3 * t2 + 1) * pts[seg].y + (t3 - 2 * t2 + t) * hgt * m[seg]
+                         + (-2 * t3 + 3 * t2) * pts[seg + 1].y + (t3 - t2) * hgt * m[seg + 1];
+        out[static_cast<size_t>(s)] = static_cast<float>(std::clamp(y, 0.0, 1.0));
+    }
+    return out;
+}
+
+namespace {
+
+// Cor pura (soma de luminância zero) na direção de um ponto da roda: ângulo = matiz.
+Vec3 wheelOffset(const ColorWheel &w)
+{
+    const double r = std::min(1.0, std::hypot(w.x, w.y));
+    if (r <= 0)
+        return {0, 0, 0};
+    const double hue = std::atan2(w.y, w.x); // 0 = vermelho, sentido anti-horário
+    Vec3 c{static_cast<float>(std::cos(hue)), static_cast<float>(std::cos(hue - 2.0943951)),
+           static_cast<float>(std::cos(hue + 2.0943951))};
+    const float l = luma(c);
+    return {static_cast<float>((c[0] - l) * r), static_cast<float>((c[1] - l) * r), static_cast<float>((c[2] - l) * r)};
+}
+
+void rgbToHsl(const Vec3 &c, double &h, double &s, double &l)
+{
+    const double mx = std::max({c[0], c[1], c[2]}), mn = std::min({c[0], c[1], c[2]});
+    l = (mx + mn) / 2;
+    const double d = mx - mn;
+    if (d < 1e-9) {
+        h = s = 0;
+        return;
+    }
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    if (mx == c[0])
+        h = (c[1] - c[2]) / d + (c[1] < c[2] ? 6 : 0);
+    else if (mx == c[1])
+        h = (c[2] - c[0]) / d + 2;
+    else
+        h = (c[0] - c[1]) / d + 4;
+    h /= 6;
+}
+
+Vec3 hslToRgb(double h, double s, double l)
+{
+    auto f = [&](double t) {
+        t -= std::floor(t);
+        const double q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+        if (t < 1.0 / 6) return p + (q - p) * 6 * t;
+        if (t < 0.5) return q;
+        if (t < 2.0 / 3) return p + (q - p) * (2.0 / 3 - t) * 6;
+        return p;
+    };
+    return {static_cast<float>(f(h + 1.0 / 3)), static_cast<float>(f(h)), static_cast<float>(f(h - 1.0 / 3))};
+}
+
+// Centros das faixas do HSL em graus: vermelho, laranja, amarelo, verde, ciano, azul, roxo, magenta.
+constexpr double kBandCenters[kHslBands] = {0, 30, 60, 120, 180, 240, 270, 300};
+
+// Peso de cada faixa para um matiz (interpolação linear entre os centros vizinhos; soma 1).
+std::array<double, kHslBands> bandWeights(double hueDeg)
+{
+    std::array<double, kHslBands> w{};
+    for (int i = 0; i < kHslBands; ++i) {
+        const double a = kBandCenters[i], b = i + 1 < kHslBands ? kBandCenters[i + 1] : 360.0;
+        double hh = hueDeg;
+        if (hh < a)
+            hh += 360;
+        if (hh >= a && hh < b) {
+            const double t = (hh - a) / (b - a);
+            w[i] += 1 - t;
+            w[(i + 1) % kHslBands] += t;
+            break;
+        }
+    }
+    return w;
+}
+
+} // namespace
+
+Lut3D buildGradeLut(const ColorAdjust &c, int size)
+{
+    Lut3D lut;
+    lut.size = size;
+    lut.rgb.resize(static_cast<size_t>(size) * size * size * 3);
+    std::array<std::vector<float>, 4> curves;
+    for (int ch = 0; ch < 4; ++ch)
+        if (!c.curves[ch].empty())
+            curves[ch] = sampleCurve(c.curves[ch]);
+    auto applyCurve = [&](int ch, float v) {
+        if (curves[ch].empty())
+            return v;
+        const float pos = clamp01(v) * (curves[ch].size() - 1);
+        const auto i = static_cast<size_t>(pos);
+        const float f = pos - i;
+        return i + 1 < curves[ch].size() ? curves[ch][i] * (1 - f) + curves[ch][i + 1] * f : curves[ch].back();
+    };
+    const Vec3 liftC = wheelOffset(c.lift), gammaC = wheelOffset(c.gamma), gainC = wheelOffset(c.gain);
+    bool anyHsl = false;
+    for (const auto &b : c.hsl)
+        anyHsl = anyHsl || !b.isZero();
+
+    size_t o = 0;
+    for (int bi = 0; bi < size; ++bi)
+        for (int gi = 0; gi < size; ++gi)
+            for (int ri = 0; ri < size; ++ri) {
+                Vec3 v{static_cast<float>(ri) / (size - 1), static_cast<float>(gi) / (size - 1), static_cast<float>(bi) / (size - 1)};
+                // Rodas: lift atua nas sombras, gamma nos meios-tons, gain multiplica (realces).
+                for (int ch = 0; ch < 3; ++ch) {
+                    float x = v[ch];
+                    x = x + (liftC[ch] * 0.25f + static_cast<float>(c.lift.luma) * 0.25f) * (1 - x);
+                    x = x * (1 + gainC[ch] * 0.5f + static_cast<float>(c.gain.luma) * 0.5f);
+                    const float g = std::max(0.1f, 1 + gammaC[ch] * 0.5f + static_cast<float>(c.gamma.luma) * 0.5f);
+                    x = std::pow(clamp01(x), 1 / g);
+                    v[ch] = clamp01(x);
+                }
+                // HSL por faixa, mais fraco em cores pouco saturadas (cinzas ficam como estão).
+                if (anyHsl) {
+                    double h, s, l;
+                    rgbToHsl(v, h, s, l);
+                    if (s > 1e-4) {
+                        const auto w = bandWeights(h * 360);
+                        double dh = 0, ds = 0, dl = 0;
+                        for (int i = 0; i < kHslBands; ++i) {
+                            dh += w[i] * c.hsl[i].hue;
+                            ds += w[i] * c.hsl[i].saturation;
+                            dl += w[i] * c.hsl[i].luminance;
+                        }
+                        const double k = std::clamp(s / 0.2, 0.0, 1.0);
+                        h += dh * k * 30.0 / 360.0;
+                        s = std::clamp(s * (1 + ds * k), 0.0, 1.0);
+                        l = std::clamp(l + dl * k * 0.25 * s, 0.0, 1.0);
+                        v = hslToRgb(h, s, l);
+                    }
+                }
+                // Curvas: mestre nos três canais, depois a de cada canal.
+                for (int ch = 0; ch < 3; ++ch)
+                    v[ch] = applyCurve(ch + 1, applyCurve(0, v[ch]));
+                lut.rgb[o++] = v[0];
+                lut.rgb[o++] = v[1];
+                lut.rgb[o++] = v[2];
+            }
+    return lut;
+}
+
 std::shared_ptr<const Lut3D> lutForKey(const QString &key)
 {
     if (key.isEmpty())
@@ -287,7 +473,18 @@ std::shared_ptr<const Lut3D> lutForKey(const QString &key)
     QMutexLocker lock(&mutex);
     if (auto it = cache.find(key); it != cache.end())
         return *it;
-    Lut3D lut = findBuiltinFilter(key) ? builtinFilterLut(key) : loadCube(key);
+    Lut3D lut;
+    if (key.startsWith(QLatin1String("grade:"))) {
+        // Correção de cor gerada: os parâmetros estão na própria chave. Ao mexer nos controles surgem
+        // muitas chaves; as antigas saem do cache para não acumular.
+        ColorAdjust c;
+        gradeFromJson(QJsonDocument::fromJson(key.mid(6).toUtf8()).object(), c);
+        lut = buildGradeLut(c);
+        for (auto it = cache.begin(); it != cache.end() && cache.size() > 48;)
+            it = it.key().startsWith(QLatin1String("grade:")) ? cache.erase(it) : std::next(it);
+    } else {
+        lut = findBuiltinFilter(key) ? builtinFilterLut(key) : loadCube(key);
+    }
     std::shared_ptr<const Lut3D> ptr = lut.isValid() ? std::make_shared<const Lut3D>(std::move(lut)) : nullptr;
     cache.insert(key, ptr);
     return ptr;

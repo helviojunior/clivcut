@@ -17,7 +17,8 @@ Rectangle {
         { icon: "captions", label: qsTr("Captions"), action: "panel2" },
         { icon: "palette", label: qsTr("Filters"), action: "panel3" },
         { icon: "arrow-right-left", label: qsTr("Transitions"), action: "panel4" },
-        { icon: "sparkles", label: qsTr("Animations"), action: "panel5" }
+        { icon: "sparkles", label: qsTr("Animations"), action: "panel5" },
+        { icon: "file-text", label: qsTr("Transcript"), action: "panel6" }
     ]
     function activate(i) {
         if (i === current && !collapsed)

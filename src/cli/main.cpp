@@ -15,11 +15,13 @@
 #include "media/VideoDecoder.h"
 
 #include <QCommandLineParser>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
 
+#include <clocale>
 #include <cstdio>
 
 using namespace clv;
@@ -80,6 +82,7 @@ int main(int argc, char **argv)
     if (qEnvironmentVariableIsEmpty("DISPLAY") && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY"))
         qputenv("QT_QPA_PLATFORM", "offscreen");
     QGuiApplication app(argc, argv);
+    std::setlocale(LC_NUMERIC, "C"); // FFmpeg lê números das cadeias de filtros com strtod
     media::quietFFmpegLogs();
     QGuiApplication::setApplicationName(QStringLiteral("clivcut-render"));
     QGuiApplication::setApplicationVersion(QStringLiteral(CLIVCUT_VERSION));
@@ -260,6 +263,7 @@ int main(int argc, char **argv)
     }
     opts.encode.fps = cli.isSet(fps) ? cli.value(fps).toDouble() : p.fps;
 
+    QDir().mkpath(QFileInfo(opts.outputPath).absolutePath());
     QElapsedTimer timer;
     timer.start();
     int lastPct = -1;

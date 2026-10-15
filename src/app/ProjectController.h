@@ -8,6 +8,7 @@
 #include "engine/RenderCache.h"
 
 #include <QElapsedTimer>
+#include <QImage>
 #include <QObject>
 #include <QStringList>
 #include <QTimer>
@@ -26,6 +27,7 @@ class QLockFile;
 class QNetworkAccessManager;
 class QNetworkReply;
 class QQmlEngine;
+class AudioRecorder;
 class QJSEngine;
 
 /**
@@ -78,6 +80,22 @@ class ProjectController : public QObject {
     Q_PROPERTY(QVariantList cachedRanges READ cachedRanges NOTIFY renderCacheChanged)
     Q_PROPERTY(bool renderingPreview READ renderingPreview NOTIFY renderCacheChanged)
     Q_PROPERTY(double renderProgress READ renderProgress NOTIFY renderCacheChanged)
+    /// Remoção de silêncios: pausas encontradas na última análise ([{start, end}] em µs).
+    Q_PROPERTY(QVariantList silences READ silences NOTIFY silencesChanged)
+    Q_PROPERTY(bool analyzingSilences READ analyzingSilences NOTIFY silencesChanged)
+    Q_PROPERTY(double silenceProgress READ silenceProgress NOTIFY silencesChanged)
+    /// Transcrição palavra a palavra da timeline: [{start, end, text}] em µs.
+    Q_PROPERTY(QVariantList transcript READ transcript NOTIFY transcriptChanged)
+    /// O projeto mudou por outra edição depois da transcrição: os tempos podem não bater.
+    Q_PROPERTY(bool transcriptStale READ transcriptStale NOTIFY transcriptChanged)
+    /// Escopos visíveis: o player passa a enviar quadros reduzidos (scopeFrame).
+    Q_PROPERTY(bool scopesEnabled READ scopesEnabled WRITE setScopesEnabled NOTIFY scopesChanged)
+    /// Efeitos de voz disponíveis: [{id, name}].
+    Q_PROPERTY(QVariantList voiceEffects READ voiceEffects NOTIFY languageChanged)
+    /// Narração: gravando do microfone, nível (pico 0..1) e duração gravada em µs.
+    Q_PROPERTY(bool recording READ recording NOTIFY recordingChanged)
+    Q_PROPERTY(double recordLevel READ recordLevel NOTIFY recordLevelChanged)
+    Q_PROPERTY(double recordElapsed READ recordElapsed NOTIFY recordLevelChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     // Legendas automáticas
     Q_PROPERTY(bool transcriptionAvailable READ transcriptionAvailable CONSTANT)
@@ -154,6 +172,26 @@ public:
     QVariantList cachedRanges() const;
     bool renderingPreview() const { return m_rendering; }
     double renderProgress() const { return m_renderProgress; }
+    QVariantList silences() const { return m_silences; }
+    bool analyzingSilences() const { return m_analyzingSilences; }
+    double silenceProgress() const { return m_silenceProgress; }
+    QVariantList transcript() const { return m_transcript; }
+    bool scopesEnabled() const { return m_scopesEnabled; }
+    QVariantList voiceEffects() const;
+    bool recording() const;
+    double recordLevel() const { return m_recordLevel; }
+    double recordElapsed() const;
+    /// Microfones disponíveis.
+    Q_INVOKABLE QStringList inputDevices() const;
+    /// Grava narração a partir do cursor enquanto a timeline toca; `device` vazio = padrão.
+    Q_INVOKABLE bool startRecording(const QString &device = {});
+    /// Para, importa o áudio e o coloca na timeline onde a gravação começou.
+    Q_INVOKABLE void stopRecording();
+    void setScopesEnabled(bool on);
+    /// Chamado pela thread de renderização com o quadro composto reduzido.
+    void setScopeFrame(const QImage &img);
+    QImage scopeFrame() const;
+    bool transcriptStale() const { return !m_transcript.isEmpty() && m_transcriptRevision != m_revisionCounter; }
     /// Estado do cache lido pela pré-visualização (thread de renderização).
     std::shared_ptr<const clv::engine::RenderCacheView> renderCacheView() const;
     QStringList audioFormats() const;
@@ -230,6 +268,13 @@ public:
     Q_INVOKABLE void select(const QString &clipId, bool additive = false);
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void setClipProperty(const QString &clipId, const QString &key, const QVariant &value);
+    /// Correção de cor avançada. Curva: canal 0 = mestre, 1..3 = R, G, B; pontos [{x, y}] (0..1).
+    Q_INVOKABLE void setCurve(const QString &clipId, int channel, const QVariantList &points);
+    /// HSL da faixa `band` (0 vermelho … 7 magenta); valores -1..1.
+    Q_INVOKABLE void setHsl(const QString &clipId, int band, double hue, double saturation, double luminance);
+    /// Roda "lift", "gamma" ou "gain": cor (x, y no disco) e luminância (-1..1).
+    Q_INVOKABLE void setColorWheel(const QString &clipId, const QString &which, double x, double y, double luma);
+    Q_INVOKABLE void resetGrade(const QString &clipId);
     /// Várias propriedades numa única edição (um passo de desfazer).
     Q_INVOKABLE void setClipProperties(const QString &clipId, const QVariantMap &values);
     Q_INVOKABLE void toggleKeyframe(const QString &clipId, const QString &prop);
@@ -273,6 +318,20 @@ public:
     Q_INVOKABLE void renderPreview();
     Q_INVOKABLE void cancelRenderPreview();
     Q_INVOKABLE void clearRenderCache();
+    /// Procura pausas na mixagem (no trecho de entrada/saída, se houver); o resultado vai para `silences`.
+    Q_INVOKABLE void analyzeSilences(double thresholdDb, double minPauseMs, double paddingMs);
+    /// Corta as pausas da última análise (se o projeto não mudou desde então).
+    Q_INVOKABLE void removeSilences();
+    Q_INVOKABLE void clearSilences();
+    /// Remove trechos [{start, end}] de todas as faixas, com ripple (edição por transcrição).
+    Q_INVOKABLE bool removeTimeRanges(const QVariantList &ranges, const QString &label = {});
+    /// Transcreve a timeline palavra a palavra (whisper.cpp) para editar pelo texto.
+    Q_INVOKABLE void generateTranscript(const QString &modelId, const QString &language);
+    /// Corta da timeline o trecho das palavras indicadas (índices em `transcript`), com ripple.
+    Q_INVOKABLE bool removeTranscriptWords(const QVariantList &indices);
+    /// Índices das palavras de hesitação ("hum", "é…", "uh", "um"...).
+    Q_INVOKABLE QVariantList fillerWordIndices() const;
+    Q_INVOKABLE void clearTranscript();
     Q_INVOKABLE void cancelExport();
 
     // --- legendas ---
@@ -341,6 +400,12 @@ signals:
     void audioJobsChanged();
     void languageChanged();
     void renderCacheChanged();
+    void silencesChanged();
+    void transcriptChanged();
+    void scopesChanged();
+    void recordingChanged();
+    void recordLevelChanged();
+    void scopeFrameChanged();
     void recentProjectsChanged();
 
 private:
@@ -359,6 +424,10 @@ private:
     void startNextMatte();
     void refreshVoice();
     void startNextVoice();
+    void refreshEffects();
+    void startNextEffect();
+    /// Áudio que o mixer usa antes do efeito: voz isolada, limpo ou o original.
+    QString audioSourceFor(const clv::Clip &c, const clv::MediaAsset &a) const;
     void startExport(const clv::engine::ExportOptions &opts);
     void refreshRenderCache();
     void enqueueProxy(const QString &mediaPath);
@@ -409,12 +478,30 @@ private:
     std::shared_ptr<std::atomic<bool>> m_denoiseCancel = std::make_shared<std::atomic<bool>>(false);
     QQmlEngine *m_engine = nullptr;
     int m_previewResolution = 1280;
+    bool m_scopesEnabled = false;
+    mutable std::mutex m_scopeMutex;
+    QImage m_scopeFrame;
+    QVariantList m_transcript;
+    quint64 m_transcriptRevision = 0;
+    QVariantList m_silences;
+    quint64 m_silenceRevision = 0;
+    bool m_analyzingSilences = false;
+    double m_silenceProgress = 0;
     QTimer m_cacheTimer;               ///< agrupa as edições antes de recalcular as chaves do cache
     std::shared_ptr<const clv::engine::RenderCacheView> m_cacheView = std::make_shared<clv::engine::RenderCacheView>();
     QVariantList m_cachedRanges;
     bool m_rendering = false;
     double m_renderProgress = 0;
     std::shared_ptr<std::atomic<bool>> m_renderCancel = std::make_shared<std::atomic<bool>>(false); ///< para retraduzir a interface ao trocar o idioma
+    std::unique_ptr<AudioRecorder> m_recorder;
+    QTimer m_recordTimer;
+    QString m_recordPath;
+    clv::Micros m_recordStart = 0;
+    double m_recordLevel = 0;
+    QStringList m_effectQueue;      ///< "fonte|efeito" aguardando processamento
+    QString m_effectBuilding;
+    double m_effectProgress = 0;
+    std::shared_ptr<std::atomic<bool>> m_effectCancel = std::make_shared<std::atomic<bool>>(false);
     QStringList m_voiceQueue;       ///< "caminho|intensidade" aguardando isolamento de voz
     QString m_voiceBuilding;
     double m_voiceProgress = 0;

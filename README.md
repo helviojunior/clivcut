@@ -38,10 +38,14 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
   - 16 built-in filters (Vivid, Teal & Orange, Vintage, Noir…), previewed on the current frame, with intensity.
   - `.cube` LUTs with intensity.
   - Exposure, brightness, contrast, saturation, highlights, shadows, temperature, tint, vignette and sharpness.
+  - **Scopes** over the player (Ctrl+Shift+V): histogram, luma waveform and vectorscope with color targets and a skin tone line, measured on the composited frame.
+  - **Advanced grading:** tone curves (luma, R, G, B), HSL per color range (8 ranges) and lift/gamma/gain color wheels, baked into a LUT on the GPU.
   - **Adjustment/filter layers** on the timeline that affect everything below them.
 - **Compositing:**
   - 10 blend modes and chroma key.
   - Linear, mirror, circle and rounded-rectangle **masks**, with position, size, rotation, feather and invert. They also work on adjustment layers, to grade just one region.
+- **Edit by transcript** (Alt+7): transcribes the timeline word by word, locally. Click a word to jump to it; delete words (or select the fillers like "um" and "uh") to cut those parts of the video with ripple.
+- **Remove silences** (Ctrl+Shift+R): finds the pauses in what you hear, marks them in red on the ruler for review and cuts them all with ripple, keeping a short margin around each phrase.
 - **Speed:**
   - Constant from 0.1× to 10×, and reverse (audio included). The pitch is kept by default and can be unlocked per clip.
   - **Speed curves** (Montage, Hero, Bullet, Jump…), with a point-based graph editor. Speed curves from drafts are imported too.
@@ -49,6 +53,9 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
   - Volume (up to 200%), gain in dB, fade in/out and multi-track mixing.
   - **Loudness normalization** (EBU R128) for social media (-14 LUFS), podcast (-16) or broadcast (-23).
   - Local **noise reduction**, processed in the background and kept in sync with the video.
+  - **Voiceover recording** (Alt+R): counts down, records the microphone while the timeline plays from the playhead and drops the take on an audio track at that point.
+  - **Voice effects:** echo, hall reverb, robot, high pitch, deep voice, telephone and old radio, processed in the background and kept in sync.
+  - **Ducking:** background music gets quieter automatically while there is speech on the other clips.
   - **AI voice isolation** (DeepFilterNet3, local): keeps only the speech, removing music, noise and room sound. The model (16 MB) is downloaded once.
   - **Detach audio from video** (Ctrl+Shift+D) and mute clip.
 - **Background removal:** cuts people out of videos without a green screen, using a local AI model (RobustVideoMatting on ONNX Runtime, downloaded once). Processing runs in the background and the result is used in preview and export.

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ProjectController.h"
+#include "Scopes.h"
 #include "engine/AudioMixer.h"
 #include "media/Loudness.h"
 #include "engine/WhisperModels.h"
@@ -12,6 +13,8 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <clocale>
 
 class ControllerTest : public QObject {
     Q_OBJECT
@@ -31,6 +34,7 @@ class ControllerTest : public QObject {
 private slots:
     void initTestCase()
     {
+        std::setlocale(LC_NUMERIC, "C"); // como o app: o FFmpeg lê números com strtod
         if (QStandardPaths::findExecutable(QStringLiteral("ffmpeg")).isEmpty())
             QSKIP("ffmpeg não encontrado");
         m_video = m_dir.filePath(QStringLiteral("v.mp4"));
@@ -214,8 +218,9 @@ private slots:
         QCOMPARE(m_ctrl->outPoint(), -1.0);
 
         // Só áudio, quadro atual e GPU (cai para software se não houver encoder de hardware).
+        // Áudio e quadro vão para pastas que ainda não existem (ex.: ~/Videos ausente).
         done.clear();
-        const QString wav = m_dir.filePath(QStringLiteral("mix.wav"));
+        const QString wav = m_dir.filePath(QStringLiteral("missing/sub dir/mix.wav"));
         m_ctrl->exportAudio(QUrl::fromLocalFile(wav));
         QVERIFY(done.wait(60000));
         QVERIFY2(done.first().at(0).toBool(), qPrintable(done.first().at(1).toString()));
@@ -226,7 +231,7 @@ private slots:
 
         done.clear();
         m_ctrl->seek(1e6);
-        const QString png = m_dir.filePath(QStringLiteral("frame"));
+        const QString png = m_dir.filePath(QStringLiteral("missing frames/frame"));
         m_ctrl->exportFrame(QUrl::fromLocalFile(png));
         QVERIFY(done.wait(60000));
         QVERIFY2(done.first().at(0).toBool(), qPrintable(done.first().at(1).toString()));
@@ -527,6 +532,157 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!m_ctrl->renderCacheView()->fileAt(0).isEmpty(), 5000); // mesmo conteúdo, mesmo arquivo
         m_ctrl->clearRenderCache();
         QVERIFY(m_ctrl->cachedRanges().isEmpty());
+    }
+
+    void voiceoverRecording()
+    {
+        QVERIFY(m_ctrl->openProject(QUrl::fromLocalFile(m_dir.filePath(QStringLiteral("p.clivcut")))));
+        m_ctrl->seek(1e6);
+        const int clipsBefore = [&] {
+            int n = 0;
+            for (const auto &t : m_ctrl->tracks())
+                n += t.toMap().value("clips").toList().size();
+            return n;
+        }();
+        if (!m_ctrl->startRecording())
+            QSKIP("sem dispositivo de captura neste ambiente");
+        QVERIFY(m_ctrl->recording());
+        QTest::qWait(800);
+        QVERIFY(m_ctrl->recordElapsed() > 0.3e6);
+        m_ctrl->stopRecording();
+        QVERIFY(!m_ctrl->recording());
+        int clipsAfter = 0;
+        for (const auto &t : m_ctrl->tracks())
+            clipsAfter += t.toMap().value("clips").toList().size();
+        QCOMPARE(clipsAfter, clipsBefore + 1);
+        // O clipe novo começa onde a gravação começou.
+        bool atStart = false;
+        for (const auto &t : m_ctrl->tracks())
+            for (const auto &c : t.toMap().value("clips").toList())
+                if (std::abs(c.toMap().value("start").toDouble() - 1e6) < 1000 && t.toMap().value("kind") == QStringLiteral("audio"))
+                    atStart = true;
+        QVERIFY(atStart);
+    }
+
+    void scopes()
+    {
+        // Meio quadro vermelho puro, meio cinza médio.
+        QImage img(64, 32, QImage::Format_RGBA8888);
+        img.fill(QColor(128, 128, 128));
+        for (int y = 0; y < 32; ++y)
+            for (int x = 0; x < 32; ++x)
+                img.setPixelColor(x, y, Qt::red);
+        const auto h = clv::app::histogram(img);
+        QCOMPARE(h[0][255], 32 * 32);
+        QCOMPARE(h[0][128], 32 * 32);
+        QCOMPARE(h[1][0], 32 * 32);
+        QCOMPARE(h[3][128], 32 * 32); // cinza: luminância = valor
+        QCOMPARE(h[3][54], 32 * 32);  // vermelho: 0,2126 × 255
+        for (int m = 0; m < 3; ++m) {
+            const QImage plot = clv::app::renderScope(img, static_cast<clv::app::ScopeMode>(m), QSize(200, 150));
+            QCOMPARE(plot.size(), QSize(200, 150));
+        }
+        // Forma de onda: o vermelho (luma 54) acende embaixo à esquerda, o cinza no meio à direita.
+        const QImage wf = clv::app::renderScope(img, clv::app::ScopeMode::Waveform, QSize(64, 256));
+        QVERIFY(qAlpha(wf.pixel(10, 255 - 54)) > 200);
+        QVERIFY(qAlpha(wf.pixel(50, 255 - 128)) > 200);
+        QCOMPARE(qAlpha(wf.pixel(10, 255 - 128)), 0);
+    }
+
+    void colorGradingApi()
+    {
+        QVERIFY(m_ctrl->openProject(QUrl::fromLocalFile(m_dir.filePath(QStringLiteral("p.clivcut")))));
+        const QString clip = clipsOf(0).first().toMap().value("id").toString();
+        m_ctrl->select(clip);
+        QVERIFY(!m_ctrl->selectedClip().value("hasGrade").toBool());
+        m_ctrl->setCurve(clip, 0, {QVariantMap{{"x", 0.5}, {"y", 0.7}}});
+        m_ctrl->setHsl(clip, 5, 0.2, -0.5, 0);
+        m_ctrl->setColorWheel(clip, QStringLiteral("gain"), 3, 4, 0.5); // fora do disco: volta à borda
+        const QVariantMap c = m_ctrl->selectedClip();
+        QVERIFY(c.value("hasGrade").toBool());
+        QCOMPARE(c.value("curves").toList().at(0).toList().size(), 1);
+        QCOMPARE(c.value("hsl").toList().at(5).toMap().value("saturation").toDouble(), -0.5);
+        const QVariantMap gain = c.value("wheels").toMap().value("gain").toMap();
+        QVERIFY(std::abs(gain.value("x").toDouble() - 0.6) < 1e-9 && std::abs(gain.value("y").toDouble() - 0.8) < 1e-9);
+        // Curva identidade conta como "sem curva".
+        m_ctrl->setCurve(clip, 0, {QVariantMap{{"x", 0.0}, {"y", 0.0}}, QVariantMap{{"x", 1.0}, {"y", 1.0}}});
+        QCOMPARE(m_ctrl->selectedClip().value("curves").toList().at(0).toList().size(), 0);
+        m_ctrl->resetGrade(clip);
+        QVERIFY(!m_ctrl->selectedClip().value("hasGrade").toBool());
+        m_ctrl->undo();
+        QVERIFY(m_ctrl->selectedClip().value("hasGrade").toBool());
+    }
+
+    void silenceRemovalWorkflow()
+    {
+        // 6 s: tom de 0–2 s, silêncio de 2–4 s, tom de 4–6 s.
+        const QString file = m_dir.filePath(QStringLiteral("pausas.wav"));
+        QProcess p;
+        p.start(QStringLiteral("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                                           "aevalsrc=0.3*sin(2*PI*220*t)*(1-between(t\\,2\\,4)):d=6:s=48000", "-ac", "2", file});
+        QVERIFY(p.waitForFinished(60000) && p.exitCode() == 0);
+        m_ctrl->newProject(1280, 720, 30);
+        m_ctrl->importMedia({QUrl::fromLocalFile(file)});
+        m_ctrl->addAssetToTimeline(m_ctrl->assets().first().toMap().value("id").toString());
+        QVERIFY(m_ctrl->duration() > 5e6);
+        const double before = m_ctrl->duration();
+
+        m_ctrl->analyzeSilences(-40, 500, 100);
+        QTRY_VERIFY_WITH_TIMEOUT(!m_ctrl->analyzingSilences(), 30000);
+        QCOMPARE(m_ctrl->silences().size(), 1);
+        const QVariantMap r = m_ctrl->silences().first().toMap();
+        QVERIFY(std::abs(r.value("start").toDouble() - 2.1e6) < 30'000);
+        QVERIFY(std::abs(r.value("end").toDouble() - 3.9e6) < 30'000);
+        m_ctrl->removeSilences();
+        QVERIFY(m_ctrl->silences().isEmpty());
+        QVERIFY(std::abs(m_ctrl->duration() - (before - 1.8e6)) < 50'000);
+        m_ctrl->undo();
+        QCOMPARE(m_ctrl->duration(), before);
+    }
+
+    void transcriptWorkflow()
+    {
+#ifndef CLIVCUT_WHISPER_SAMPLES
+        QSKIP("build sem whisper.cpp");
+#else
+        if (!clv::engine::whisperModelInstalled(QStringLiteral("tiny")))
+            QSKIP("modelo tiny ausente");
+        m_ctrl->newProject(1280, 720, 30);
+        m_ctrl->importMedia({QUrl::fromLocalFile(QStringLiteral(CLIVCUT_WHISPER_SAMPLES "/jfk.wav"))});
+        m_ctrl->addAssetToTimeline(m_ctrl->assets().first().toMap().value("id").toString(), -1, 0.0);
+        const double before = m_ctrl->duration();
+        m_ctrl->generateTranscript(QStringLiteral("tiny"), QStringLiteral("en"));
+        QTRY_VERIFY_WITH_TIMEOUT(!m_ctrl->transcribing(), 60000);
+        const QVariantList words = m_ctrl->transcript();
+        QVERIFY2(words.size() > 15, qPrintable(QString::number(words.size())));
+        QVERIFY(!m_ctrl->transcriptStale());
+        // Uma palavra por item, com tempos crescentes.
+        int ask = -1;
+        for (int i = 0; i < words.size(); ++i) {
+            const auto w = words[i].toMap();
+            QVERIFY(!w.value("text").toString().contains(QLatin1Char(' ')));
+            if (i > 0)
+                QVERIFY(w.value("start").toDouble() >= words[i - 1].toMap().value("start").toDouble());
+            if (ask < 0 && w.value("text").toString().compare(QStringLiteral("ask"), Qt::CaseInsensitive) == 0)
+                ask = i;
+        }
+        QVERIFY(ask > 0 && ask + 1 < words.size());
+
+        // Remover "ask" corta do início dela ao início da palavra seguinte.
+        const double cut = words[ask + 1].toMap().value("start").toDouble() - words[ask].toMap().value("start").toDouble();
+        QVERIFY(m_ctrl->removeTranscriptWords({ask}));
+        QVERIFY(std::abs(m_ctrl->duration() - (before - cut)) < 2000);
+        QCOMPARE(m_ctrl->transcript().size(), words.size() - 1);
+        QCOMPARE(m_ctrl->transcript()[ask].toMap().value("start").toDouble(), words[ask].toMap().value("start").toDouble());
+        QVERIFY(!m_ctrl->transcriptStale());
+
+        // Outra edição deixa a transcrição desatualizada e bloqueia cortes por texto.
+        m_ctrl->addMarker();
+        QVERIFY(m_ctrl->transcriptStale());
+        QVERIFY(!m_ctrl->removeTranscriptWords({0}));
+        m_ctrl->clearTranscript();
+        QVERIFY(m_ctrl->transcript().isEmpty());
+#endif
     }
 
     void captionsWorkflow()

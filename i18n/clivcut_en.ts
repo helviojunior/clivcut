@@ -45,5 +45,53 @@
             <numerusform>Loudness normalized to %1 LUFS (%n clips)</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n pause(s) found (%1)</source>
+        <translation>
+            <numerusform>%n pause found (%1)</numerusform>
+            <numerusform>%n pauses found (%1)</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n pause(s) removed</source>
+        <translation>
+            <numerusform>%n pause removed</numerusform>
+            <numerusform>%n pauses removed</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n word(s) transcribed</source>
+        <translation>
+            <numerusform>%n word transcribed</numerusform>
+            <numerusform>%n words transcribed</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n word(s) removed</source>
+        <translation>
+            <numerusform>%n word removed</numerusform>
+            <numerusform>%n words removed</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>SilenceDialog</name>
+    <message numerus="yes">
+        <source>%n pause(s) to remove, %1 in total.</source>
+        <translation>
+            <numerusform>%n pause to remove, %1 in total.</numerusform>
+            <numerusform>%n pauses to remove, %1 in total.</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>TranscriptPanel</name>
+    <message numerus="yes">
+        <source>Remove %n word(s)</source>
+        <translation>
+            <numerusform>Remove %n word</numerusform>
+            <numerusform>Remove %n words</numerusform>
+        </translation>
+    </message>
 </context>
 </TS>

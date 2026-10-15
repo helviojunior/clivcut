@@ -4,7 +4,9 @@
 #include "engine/AudioCleanup.h"
 #include "engine/AudioMixer.h"
 #include "engine/TimeStretch.h"
+#include "engine/VoiceEffects.h"
 #include "engine/VoiceIsolation.h"
+#include "engine/Silence.h"
 #include "engine/WhisperModels.h"
 #include "media/AudioDecoder.h"
 #include "media/Loudness.h"
@@ -16,6 +18,8 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <clocale>
 
 #include <cmath>
 
@@ -64,6 +68,7 @@ class AudioTest : public QObject {
 private slots:
     void initTestCase()
     {
+        std::setlocale(LC_NUMERIC, "C"); // como o app: o FFmpeg lê números com strtod
         if (QStandardPaths::findExecutable(QStringLiteral("ffmpeg")).isEmpty())
             QSKIP("ffmpeg não encontrado");
         qputenv("CLIVCUT_CACHE_DIR", m_dir.filePath(QStringLiteral("cache")).toUtf8());
@@ -225,6 +230,106 @@ private slots:
         };
         QVERIFY2(level(0.2, 0.8) < 0.01, qPrintable(QString::number(level(0.2, 0.8))));
         QVERIFY2(level(1.2, 1.8) > 0.05, qPrintable(QString::number(level(1.2, 1.8)))); // seno do ffmpeg: amplitude 1/8
+    }
+
+    void ducking()
+    {
+        const QString music = m_dir.filePath(QStringLiteral("musica.wav"));
+        const QString voice = m_dir.filePath(QStringLiteral("fala.wav"));
+        QProcess proc;
+        proc.start(QStringLiteral("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                                              "sine=frequency=440:duration=5", "-ac", "2", "-ar", "48000", music});
+        QVERIFY(proc.waitForFinished(60000) && proc.exitCode() == 0);
+        proc.start(QStringLiteral("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                                              "aevalsrc=0.4*sin(2*PI*220*t)*between(t\\,2\\,3):d=5:s=48000", "-ac", "2", voice});
+        QVERIFY(proc.waitForFinished(60000) && proc.exitCode() == 0);
+        Project p = createProject();
+        auto addAudio = [&](const QString &path) {
+            MediaAsset a;
+            media::probe(path, a);
+            a.id = newId("ast");
+            p.assets.emplace(a.id, a);
+            return edit::insertClip(p, createMediaClip(a, 0), -1);
+        };
+        const QString musicId = addAudio(music);
+        addAudio(voice);
+        // Amplitude da música (440 Hz) num trecho, por Goertzel, tocando em blocos como o player.
+        auto level440 = [&](const Project &proj, double from, double to) {
+            engine::AudioMixer mixer;
+            std::vector<float> all, block(1024 * 2);
+            for (Micros t = 0; t < static_cast<Micros>(to * kSecond);) {
+                mixer.mix(proj, t, block.data(), 1024);
+                all.insert(all.end(), block.begin(), block.end());
+                t += 1024 * kSecond / 48000;
+            }
+            const int i0 = static_cast<int>(from * 48000), i1 = static_cast<int>(to * 48000);
+            const double w = 2 * M_PI * 440 / 48000;
+            double re = 0, im = 0;
+            for (int i = i0; i < i1; ++i) {
+                re += all[i * 2] * std::cos(w * i);
+                im += all[i * 2] * std::sin(w * i);
+            }
+            return 2 * std::hypot(re, im) / (i1 - i0);
+        };
+        const double quiet = level440(p, 0.5, 0.9);
+        QVERIFY(quiet > 0.05);
+        QVERIFY(std::abs(level440(p, 2.4, 2.8) / quiet - 1) < 0.05); // sem ducking: nada muda
+        edit::clipById(p, musicId)->ducking = 1;
+        QVERIFY(std::abs(level440(p, 0.5, 0.9) / quiet - 1) < 0.05);  // sem voz: volume cheio
+        const double underVoice = level440(p, 2.4, 2.8) / quiet;
+        QVERIFY2(underVoice < 0.25, qPrintable(QString::number(underVoice)));
+        const double after = level440(p, 4.4, 4.9) / quiet;       // voz parou há mais de 1 s
+        QVERIFY2(after > 0.8, qPrintable(QString::number(after)));
+    }
+
+    void voiceEffects()
+    {
+        // 1 s de silêncio e depois 2 s de "voz" (harmônicos de 150 Hz).
+        const QString in = m_dir.filePath(QStringLiteral("efeito.wav"));
+        QProcess proc;
+        proc.start(QStringLiteral("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                                              "aevalsrc=(0.3*sin(2*PI*150*t)+0.15*sin(2*PI*300*t)+0.1*sin(2*PI*450*t))*gte(t\\,1):d=3:s=48000",
+                                              "-ac", "2", in});
+        QVERIFY(proc.waitForFinished(60000) && proc.exitCode() == 0);
+        MediaAsset src;
+        QVERIFY(media::probe(in, src));
+        for (const auto &fx : engine::voiceEffects()) {
+            const QString out = engine::effectPathFor(in, fx.id);
+            QString err;
+            QVERIFY2(engine::generateEffect(in, fx.id, out, {}, &err), qPrintable(fx.id + QStringLiteral(": ") + err));
+            MediaAsset res;
+            QVERIFY(media::probe(out, res));
+            QVERIFY2(std::abs(res.duration - src.duration) < 20'000, qPrintable(fx.id));
+            const auto y = readMono(out, 0, 3 * 48000);
+            // Silêncio antes de 1 s (com folga para a subida) e som depois: a latência foi compensada.
+            const double before = rms(std::vector<float>(y.begin(), y.begin() + 45'000));
+            const double after = rms(std::vector<float>(y.begin() + 54'000, y.begin() + 140'000));
+            QVERIFY2(after > 0.01, qPrintable(fx.id + QStringLiteral(" mudo: ") + QString::number(after)));
+            QVERIFY2(before < after * 0.1, qPrintable(fx.id + QStringLiteral(" adiantado: ") + QString::number(before)));
+        }
+    }
+
+    void silenceDetection()
+    {
+        // 16 kHz: 1 s de tom, 0,3 s de pausa curta, 1 s de tom, 1,5 s de silêncio, 1 s de tom.
+        std::vector<float> pcm;
+        auto tone = [&](double s) { for (int i = 0; i < s * 16000; ++i) pcm.push_back(0.3f * std::sin(i * 0.1f)); };
+        auto quiet = [&](double s) { for (int i = 0; i < s * 16000; ++i) pcm.push_back(0.001f); };
+        tone(1); quiet(0.3); tone(1); quiet(1.5); tone(1);
+        engine::SilenceOptions o;
+        o.minSilence = 500'000;
+        o.padding = 100'000;
+        const auto r = engine::detectSilencesPcm16k(pcm, 10 * kSecond, o);
+        QCOMPARE(r.size(), size_t(1)); // a pausa de 0,3 s fica
+        QVERIFY(std::abs(r[0].first - (10 * kSecond + 2'400'000)) <= 20'000);
+        QVERIFY(std::abs(r[0].second - (10 * kSecond + 3'700'000)) <= 20'000);
+        // Silêncio no começo e no fim é cortado inteiro (sem respiro na borda).
+        pcm.clear();
+        quiet(1); tone(1); quiet(1);
+        const auto edges = engine::detectSilencesPcm16k(pcm, 0, o);
+        QCOMPARE(edges.size(), size_t(2));
+        QCOMPARE(edges[0].first, Micros(0));
+        QVERIFY(std::abs(edges[1].second - 3 * kSecond) <= 20'000);
     }
 
     void voiceIsolation()

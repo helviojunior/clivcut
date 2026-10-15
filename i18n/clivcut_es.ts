@@ -28,6 +28,10 @@
         <translation>Animaciones</translation>
     </message>
     <message>
+        <source>Transcript</source>
+        <translation>Transcripción</translation>
+    </message>
+    <message>
         <source>Keyboard shortcuts</source>
         <translation>Atajos de teclado</translation>
     </message>
@@ -38,6 +42,13 @@
     <message>
         <source>Dark theme</source>
         <translation>Tema oscuro</translation>
+    </message>
+</context>
+<context>
+    <name>AudioRecorder</name>
+    <message>
+        <source>Could not open the microphone: %1</source>
+        <translation>No se pudo abrir el micrófono: %1</translation>
     </message>
 </context>
 <context>
@@ -145,6 +156,13 @@
         <source>None</source>
         <comment>no color</comment>
         <translation>Ninguno</translation>
+    </message>
+</context>
+<context>
+    <name>ColorWheelPad</name>
+    <message>
+        <source>Luminance %1</source>
+        <translation>Luminancia %1</translation>
     </message>
 </context>
 <context>
@@ -340,6 +358,10 @@
         <translation>Error en el filtro de audio</translation>
     </message>
     <message>
+        <source>Audio processing cancelled</source>
+        <translation>Procesamiento de audio cancelado</translation>
+    </message>
+    <message>
         <source>This build was compiled without ONNX Runtime</source>
         <translation>Esta versión se compiló sin ONNX Runtime</translation>
     </message>
@@ -362,6 +384,10 @@
     <message>
         <source>AI model error: %1</source>
         <translation>Error del modelo de IA: %1</translation>
+    </message>
+    <message>
+        <source>Unknown voice effect: %1</source>
+        <translation>Efecto de voz desconocido: %1</translation>
     </message>
 </context>
 <context>
@@ -872,6 +898,70 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <translation>Cargar…</translation>
     </message>
     <message>
+        <source>Curves</source>
+        <translation>Curvas</translation>
+    </message>
+    <message>
+        <source>Luma</source>
+        <translation>Luma</translation>
+    </message>
+    <message>
+        <source>HSL</source>
+        <translation>HSL</translation>
+    </message>
+    <message>
+        <source>Reds</source>
+        <translation>Rojos</translation>
+    </message>
+    <message>
+        <source>Oranges</source>
+        <translation>Naranjas</translation>
+    </message>
+    <message>
+        <source>Yellows</source>
+        <translation>Amarillos</translation>
+    </message>
+    <message>
+        <source>Greens</source>
+        <translation>Verdes</translation>
+    </message>
+    <message>
+        <source>Cyans</source>
+        <translation>Cianes</translation>
+    </message>
+    <message>
+        <source>Blues</source>
+        <translation>Azules</translation>
+    </message>
+    <message>
+        <source>Purples</source>
+        <translation>Morados</translation>
+    </message>
+    <message>
+        <source>Magentas</source>
+        <translation>Magentas</translation>
+    </message>
+    <message>
+        <source>Hue</source>
+        <translation>Tono</translation>
+    </message>
+    <message>
+        <source>Luminance</source>
+        <translation>Luminancia</translation>
+    </message>
+    <message>
+        <source>Color wheels</source>
+        <translation>Ruedas de color</translation>
+    </message>
+    <message>
+        <source>Reset all grading</source>
+        <translation>Restablecer toda la corrección</translation>
+    </message>
+    <message>
+        <source>Midtones</source>
+        <translation>Medios tonos</translation>
+    </message>
+    <message>
         <source>None</source>
         <comment>transition, mask or animation</comment>
         <translation>Ninguna</translation>
@@ -995,6 +1085,30 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Removes hiss, hum and constant background noise. Processing runs in the background.</source>
         <translation>Elimina siseo, zumbido y ruido de fondo constante. El procesamiento se ejecuta en segundo plano.</translation>
+    </message>
+    <message>
+        <source>Voice effect</source>
+        <translation>Efecto de voz</translation>
+    </message>
+    <message>
+        <source>Applying the effect… %1%</source>
+        <translation>Aplicando el efecto… %1%</translation>
+    </message>
+    <message>
+        <source>✓ Effect in use</source>
+        <translation>✓ Efecto en uso</translation>
+    </message>
+    <message>
+        <source>Duck under voice</source>
+        <translation>Bajar bajo la voz</translation>
+    </message>
+    <message>
+        <source>Amount</source>
+        <translation>Cantidad</translation>
+    </message>
+    <message>
+        <source>For background music: this clip gets quieter (up to -16 dB) whenever the other clips have speech, and comes back up in the pauses.</source>
+        <translation>Para música de fondo: este clip baja (hasta -16 dB) cuando los otros clips tienen voz y vuelve a subir en las pausas.</translation>
     </message>
     <message>
         <source>Voice isolation (AI)</source>
@@ -1379,6 +1493,14 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <translation>Ajustar la línea de tiempo a la ventana</translation>
     </message>
     <message>
+        <source>Record voiceover</source>
+        <translation>Grabar narración</translation>
+    </message>
+    <message>
+        <source>Remove silences</source>
+        <translation>Quitar silencios</translation>
+    </message>
+    <message>
         <source>Render preview</source>
         <translation>Renderizar vista previa</translation>
     </message>
@@ -1389,6 +1511,10 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Interface</source>
         <translation>Interfaz</translation>
+    </message>
+    <message>
+        <source>Show scopes</source>
+        <translation>Mostrar escopios</translation>
     </message>
     <message>
         <source>Command palette</source>
@@ -1421,6 +1547,10 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Panel: Animations</source>
         <translation>Panel: Animaciones</translation>
+    </message>
+    <message>
+        <source>Panel: Transcript</source>
+        <translation>Panel: Transcripción</translation>
     </message>
     <message>
         <source>File</source>
@@ -1626,6 +1756,10 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Animations</source>
         <translation>Animaciones</translation>
+    </message>
+    <message>
+        <source>Transcript</source>
+        <translation>Transcripción</translation>
     </message>
     <message>
         <source>Import media</source>
@@ -1850,6 +1984,30 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <translation>Reproductor</translation>
     </message>
     <message>
+        <source>Scopes: histogram, waveform and vectorscope</source>
+        <translation>Escopios: histograma, forma de onda y vectorscopio</translation>
+    </message>
+    <message>
+        <source>Landscape</source>
+        <translation>Horizontal</translation>
+    </message>
+    <message>
+        <source>Vertical</source>
+        <translation>Vertical</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>Cuadrado</translation>
+    </message>
+    <message>
+        <source>Feed</source>
+        <translation>Feed</translation>
+    </message>
+    <message>
+        <source>Cinema</source>
+        <translation>Cine</translation>
+    </message>
+    <message>
         <source>Playing with proxies (lightweight copies of large videos). Click to use the originals.</source>
         <translation>Reproducción con proxies (copias ligeras de vídeos grandes). Haz clic para usar los originales.</translation>
     </message>
@@ -1872,6 +2030,22 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Playback resolution (does not affect export)</source>
         <translation>Resolución de reproducción (no afecta a la exportación)</translation>
+    </message>
+    <message>
+        <source>Histogram</source>
+        <translation>Histograma</translation>
+    </message>
+    <message>
+        <source>Waveform</source>
+        <translation>Forma de onda</translation>
+    </message>
+    <message>
+        <source>Vectorscope</source>
+        <translation>Vectorscopio</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Cerrar</translation>
     </message>
     <message>
         <source>Import media and drag it to the timeline</source>
@@ -2339,6 +2513,86 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <translation>Caché de renderizado borrada (%1 MB)</translation>
     </message>
     <message>
+        <source>No pauses found</source>
+        <translation>No se encontraron pausas</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n pause(s) found (%1)</source>
+        <translation>
+            <numerusform>%n pausa encontrada (%1)</numerusform>
+            <numerusform>%n pausas encontradas (%1)</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>The project changed after the analysis; analyze again</source>
+        <translation>El proyecto cambió después del análisis; vuelve a analizar</translation>
+    </message>
+    <message>
+        <source>Remove silences</source>
+        <translation>Quitar silencios</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n pause(s) removed</source>
+        <translation>
+            <numerusform>%n pausa quitada</numerusform>
+            <numerusform>%n pausas quitadas</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Remove ranges</source>
+        <translation>Quitar tramos</translation>
+    </message>
+    <message>
+        <source>Download the model before transcribing</source>
+        <translation>Descarga el modelo antes de transcribir</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n word(s) transcribed</source>
+        <translation>
+            <numerusform>%n palabra transcrita</numerusform>
+            <numerusform>%n palabras transcritas</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Remove words</source>
+        <translation>Quitar palabras</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n word(s) removed</source>
+        <translation>
+            <numerusform>%n palabra quitada</numerusform>
+            <numerusform>%n palabras quitadas</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Curves</source>
+        <translation>Curvas</translation>
+    </message>
+    <message>
+        <source>HSL</source>
+        <translation>HSL</translation>
+    </message>
+    <message>
+        <source>Color wheels</source>
+        <translation>Ruedas de color</translation>
+    </message>
+    <message>
+        <source>Reset color grading</source>
+        <translation>Restablecer corrección de color</translation>
+    </message>
+    <message>
+        <source>Recording voiceover…</source>
+        <translation>Grabando narración…</translation>
+    </message>
+    <message>
+        <source>Voiceover recorded (%1)</source>
+        <translation>Narración grabada (%1)</translation>
+    </message>
+    <message>
+        <source>Voice effect failed: %1</source>
+        <translation>Error en el efecto de voz: %1</translation>
+    </message>
+    <message>
         <source>Isolating voice in %1…</source>
         <translation>Aislando la voz en %1…</translation>
     </message>
@@ -2452,6 +2706,56 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     </message>
 </context>
 <context>
+    <name>SilenceDialog</name>
+    <message>
+        <source>Remove silences</source>
+        <translation>Quitar silencios</translation>
+    </message>
+    <message>
+        <source>Only the in/out range is analyzed. Pauses are marked in red on the ruler; the margin keeps a little silence around each phrase so cuts do not sound abrupt.</source>
+        <translation>Solo se analiza el tramo de entrada/salida. Las pausas se marcan en rojo en la regla; el margen conserva un poco de silencio alrededor de cada frase para que los cortes no suenen bruscos.</translation>
+    </message>
+    <message>
+        <source>The whole timeline is analyzed. Pauses are marked in red on the ruler; the margin keeps a little silence around each phrase so cuts do not sound abrupt.</source>
+        <translation>Se analiza toda la línea de tiempo. Las pausas se marcan en rojo en la regla; el margen conserva un poco de silencio alrededor de cada frase para que los cortes no suenen bruscos.</translation>
+    </message>
+    <message>
+        <source>Silence below</source>
+        <translation>Silencio por debajo de</translation>
+    </message>
+    <message>
+        <source>Minimum pause</source>
+        <translation>Pausa mínima</translation>
+    </message>
+    <message>
+        <source>Margin</source>
+        <translation>Margen</translation>
+    </message>
+    <message>
+        <source>Analyzing the audio…</source>
+        <translation>Analizando el audio…</translation>
+    </message>
+    <message>
+        <source>No pauses found with these settings.</source>
+        <translation>No se encontraron pausas con estos ajustes.</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n pause(s) to remove, %1 in total.</source>
+        <translation>
+            <numerusform>%n pausa por quitar, %1 en total.</numerusform>
+            <numerusform>%n pausas por quitar, %1 en total.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Cerrar</translation>
+    </message>
+    <message>
+        <source>Remove pauses</source>
+        <translation>Quitar pausas</translation>
+    </message>
+</context>
+<context>
     <name>SpeedCurves</name>
     <message>
         <source>Montage</source>
@@ -2507,6 +2811,14 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Add marker</source>
         <translation>Añadir marcador</translation>
+    </message>
+    <message>
+        <source>Record voiceover</source>
+        <translation>Grabar narración</translation>
+    </message>
+    <message>
+        <source>Remove silences</source>
+        <translation>Quitar silencios</translation>
     </message>
     <message>
         <source>Rendering preview… %1% (click to cancel)</source>
@@ -2715,6 +3027,72 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     </message>
 </context>
 <context>
+    <name>TranscriptPanel</name>
+    <message>
+        <source>Detect automatically</source>
+        <translation>Detectar automáticamente</translation>
+    </message>
+    <message>
+        <source>This build was compiled without whisper.cpp.</source>
+        <translation>Esta versión se compiló sin whisper.cpp.</translation>
+    </message>
+    <message>
+        <source>Transcribe the timeline to edit the video by its text: deleting words cuts that part of the video, with ripple.</source>
+        <translation>Transcribe la línea de tiempo para editar el vídeo por su texto: borrar palabras corta esa parte del vídeo y cierra el hueco.</translation>
+    </message>
+    <message>
+        <source>Click a word to jump to it; Shift and Ctrl select more. Delete removes the selected words from the video.</source>
+        <translation>Haz clic en una palabra para ir a ella; Mayús y Ctrl seleccionan más. Supr quita del vídeo las palabras seleccionadas.</translation>
+    </message>
+    <message>
+        <source>Language</source>
+        <translation>Idioma</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>Modelo</translation>
+    </message>
+    <message>
+        <source>No model installed</source>
+        <translation>Ningún modelo instalado</translation>
+    </message>
+    <message>
+        <source>Download a speech recognition model in the Captions panel first.</source>
+        <translation>Descarga primero un modelo de reconocimiento de voz en el panel Subtítulos.</translation>
+    </message>
+    <message>
+        <source>The timeline changed after the transcription. Transcribe again before cutting by text.</source>
+        <translation>La línea de tiempo cambió después de la transcripción. Vuelve a transcribir antes de cortar por texto.</translation>
+    </message>
+    <message>
+        <source>Transcribe timeline</source>
+        <translation>Transcribir la línea de tiempo</translation>
+    </message>
+    <message>
+        <source>Transcribe again</source>
+        <translation>Transcribir de nuevo</translation>
+    </message>
+    <message numerus="yes">
+        <source>Remove %n word(s)</source>
+        <translation>
+            <numerusform>Quitar %n palabra</numerusform>
+            <numerusform>Quitar %n palabras</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Quitar</translation>
+    </message>
+    <message>
+        <source>Select fillers</source>
+        <translation>Seleccionar muletillas</translation>
+    </message>
+    <message>
+        <source>Close transcript</source>
+        <translation>Cerrar transcripción</translation>
+    </message>
+</context>
+<context>
     <name>UnsavedDialog</name>
     <message>
         <source>Save changes?</source>
@@ -2735,6 +3113,72 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Save</source>
         <translation>Guardar</translation>
+    </message>
+</context>
+<context>
+    <name>VoiceEffects</name>
+    <message>
+        <source>Echo</source>
+        <translation>Eco</translation>
+    </message>
+    <message>
+        <source>Hall reverb</source>
+        <translation>Reverberación de sala</translation>
+    </message>
+    <message>
+        <source>Robot</source>
+        <translation>Robot</translation>
+    </message>
+    <message>
+        <source>High pitch</source>
+        <translation>Voz aguda</translation>
+    </message>
+    <message>
+        <source>Deep voice</source>
+        <translation>Voz grave</translation>
+    </message>
+    <message>
+        <source>Telephone</source>
+        <translation>Teléfono</translation>
+    </message>
+    <message>
+        <source>Old radio</source>
+        <translation>Radio antigua</translation>
+    </message>
+</context>
+<context>
+    <name>VoiceoverPanel</name>
+    <message>
+        <source>System default</source>
+        <translation>Predeterminado del sistema</translation>
+    </message>
+    <message>
+        <source>Recording %1</source>
+        <translation>Grabando %1</translation>
+    </message>
+    <message>
+        <source>Starting in %1…</source>
+        <translation>Empieza en %1…</translation>
+    </message>
+    <message>
+        <source>Voiceover</source>
+        <translation>Narración</translation>
+    </message>
+    <message>
+        <source>Records from the playhead while the timeline plays. Use headphones so the microphone does not pick up the video&apos;s sound.</source>
+        <translation>Graba desde el cursor mientras se reproduce la línea de tiempo. Usa auriculares para que el micrófono no capte el sonido del vídeo.</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Detener</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Record</source>
+        <translation>Grabar</translation>
     </message>
 </context>
 <context>

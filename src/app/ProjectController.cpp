@@ -11,11 +11,15 @@
 #include "core/Lut.h"
 #include "core/Serialize.h"
 #include "core/SpeedCurve.h"
+#include "AudioRecorder.h"
 #include "Language.h"
 #include "engine/AiModels.h"
+#include "media/AudioDecoder.h"
 #include "engine/AudioCleanup.h"
 #include "engine/Matting.h"
+#include "engine/VoiceEffects.h"
 #include "engine/VoiceIsolation.h"
+#include "engine/Silence.h"
 #include "engine/Exporter.h"
 #include "engine/Proxy.h"
 #include "engine/Transcriber.h"
@@ -43,6 +47,7 @@
 #include <QNetworkReply>
 #include <QSaveFile>
 #include <QOffscreenSurface>
+#include <QRegularExpression>
 #include <QSet>
 #include <QSettings>
 #include <QStandardPaths>
@@ -109,6 +114,15 @@ ProjectController::ProjectController(QObject *parent) : QObject(parent)
     m_ticker.setInterval(15);
     m_ticker.setTimerType(Qt::PreciseTimer);
     connect(&m_ticker, &QTimer::timeout, this, &ProjectController::tick);
+    m_recordTimer.setInterval(100);
+    connect(&m_recordTimer, &QTimer::timeout, this, [this] {
+        if (!m_recorder)
+            return;
+        m_recorder->flush();
+        // Nível com queda suave, para o medidor não piscar.
+        m_recordLevel = std::max(static_cast<double>(m_recorder->takePeak()), m_recordLevel * 0.7);
+        emit recordLevelChanged();
+    });
     m_cacheTimer.setSingleShot(true);
     m_cacheTimer.setInterval(300);
     connect(&m_cacheTimer, &QTimer::timeout, this, &ProjectController::refreshRenderCache);
@@ -124,6 +138,7 @@ ProjectController::~ProjectController()
     *m_denoiseCancel = true;
     *m_matteCancel = true;
     *m_voiceCancel = true;
+    *m_effectCancel = true;
     *m_renderCancel = true;
     if (g_instance == this)
         g_instance = nullptr;
@@ -188,7 +203,10 @@ void ProjectController::commitChange()
     refreshDenoise();
     refreshMattes();
     refreshVoice();
+    refreshEffects();
     m_cacheTimer.start();
+    if (!m_transcript.isEmpty())
+        emit transcriptChanged(); // pode ter ficado desatualizada
     emit projectChanged();
     emit selectedClipChanged();
     emit historyChanged();
@@ -422,6 +440,27 @@ QVariantMap ProjectController::selectedClip() const
         return m;
     }
     const ColorAdjust &col = c->color;
+    m.insert({{"curves", [&] {
+                   QVariantList out;
+                   for (const auto &curve : col.curves) {
+                       QVariantList pts;
+                       for (const auto &p : curve)
+                           pts << QVariantMap{{"x", p.x}, {"y", p.y}};
+                       out << QVariant(pts);
+                   }
+                   return out;
+               }()},
+              {"hsl", [&] {
+                   QVariantList out;
+                   for (const auto &b : col.hsl)
+                       out << QVariantMap{{"hue", b.hue}, {"saturation", b.saturation}, {"luminance", b.luminance}};
+                   return out;
+               }()},
+              {"wheels", QVariantMap{
+                   {"lift", QVariantMap{{"x", col.lift.x}, {"y", col.lift.y}, {"luma", col.lift.luma}}},
+                   {"gamma", QVariantMap{{"x", col.gamma.x}, {"y", col.gamma.y}, {"luma", col.gamma.luma}}},
+                   {"gain", QVariantMap{{"x", col.gain.x}, {"y", col.gain.y}, {"luma", col.gain.luma}}}}},
+              {"hasGrade", col.hasGrade()}});
     m.insert({{"temperature", col.temperature},
               {"exposure", col.exposure},
               {"tint", col.tint},
@@ -467,6 +506,20 @@ QVariantMap ProjectController::selectedClip() const
                }()},
               {"denoiseProgress", m_denoiseProgress},
               {"voiceIsolation", c->voiceIsolation},
+              {"ducking", c->ducking},
+              {"voiceEffect", c->voiceEffect},
+              {"effectState", [&] {
+                   if (!a || c->voiceEffect.isEmpty())
+                       return QStringLiteral("off");
+                   const QString source = audioSourceFor(*c, *a);
+                   if (!engine::registeredEffect(source, c->voiceEffect).isEmpty())
+                       return QStringLiteral("ready");
+                   const QString job = source + QLatin1Char('|') + c->voiceEffect;
+                   if (m_effectBuilding == job)
+                       return QStringLiteral("processing");
+                   return QStringLiteral("queued");
+               }()},
+              {"effectProgress", m_effectProgress},
               {"voiceState", [&] {
                    if (!a || c->voiceIsolation <= 0)
                        return QStringLiteral("off");
@@ -1079,6 +1132,8 @@ bool applyClipProperty(Project &p, Clip *c, Micros rel, const QString &key, cons
     else if (key == QLatin1String("gainDb")) c->gainDb = std::clamp(value.toDouble(), -24.0, 24.0);
     else if (key == QLatin1String("denoise")) c->denoise = engine::quantizedDenoise(value.toDouble());
     else if (key == QLatin1String("removeBackground")) c->removeBackground = value.toBool();
+    else if (key == QLatin1String("voiceEffect")) c->voiceEffect = engine::findVoiceEffect(value.toString()) ? value.toString() : QString();
+    else if (key == QLatin1String("ducking")) c->ducking = std::clamp(value.toDouble(), 0.0, 1.0);
     else if (key == QLatin1String("voiceIsolation")) c->voiceIsolation = engine::quantizedVoice(value.toDouble());
     else if (key == QLatin1String("keepPitch")) c->keepPitch = value.toBool();
     else if (key == QLatin1String("temperature")) c->color.temperature = value.toDouble();
@@ -2433,6 +2488,7 @@ void ProjectController::startNextDenoise()
             m_denoiseBuilding.clear();
             if (ok) {
                 engine::registerDenoised(path, strength, out);
+                refreshEffects(); // o efeito passa a usar o áudio limpo
                 setStatus(tr("Noise reduced: %1").arg(QFileInfo(path).fileName()));
                 if (m_playing)
                     m_audio->updateProject(snapshot());
@@ -2579,6 +2635,328 @@ void ProjectController::clearRenderCache()
 }
 
 // ---------------------------------------------------------------------------
+// Remoção de silêncios e cortes por trecho de tempo
+
+void ProjectController::analyzeSilences(double thresholdDb, double minPauseMs, double paddingMs)
+{
+    if (m_analyzingSilences || m_project.duration() <= 0)
+        return;
+    engine::SilenceOptions opts;
+    opts.thresholdDb = std::clamp(thresholdDb, -80.0, -10.0);
+    opts.minSilence = static_cast<Micros>(std::max(50.0, minPauseMs) * 1000);
+    opts.padding = static_cast<Micros>(std::clamp(paddingMs, 0.0, 2000.0) * 1000);
+    if (m_project.hasRange()) {
+        opts.rangeStart = m_project.rangeStart();
+        opts.rangeEnd = m_project.rangeEnd();
+    }
+    m_analyzingSilences = true;
+    m_silenceProgress = 0;
+    m_silences.clear();
+    emit silencesChanged();
+    auto snap = snapshot();
+    const quint64 revision = m_revisionCounter;
+    std::thread([this, snap, opts, revision] {
+        const auto ranges = engine::detectSilences(*snap, opts, [this](double f) {
+            QMetaObject::invokeMethod(this, [this, f] {
+                m_silenceProgress = f;
+                emit silencesChanged();
+            }, Qt::QueuedConnection);
+            return true;
+        });
+        QVariantList list;
+        Micros total = 0;
+        for (const auto &[a, b] : ranges) {
+            list << QVariantMap{{"start", static_cast<double>(a)}, {"end", static_cast<double>(b)}};
+            total += b - a;
+        }
+        QMetaObject::invokeMethod(this, [this, list, total, revision] {
+            m_analyzingSilences = false;
+            m_silences = list;
+            m_silenceRevision = revision;
+            emit silencesChanged();
+            setStatus(list.isEmpty() ? tr("No pauses found")
+                                     : tr("%n pause(s) found (%1)", nullptr, static_cast<int>(list.size()))
+                                           .arg(formatTime(static_cast<double>(total))));
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+void ProjectController::removeSilences()
+{
+    if (m_silences.isEmpty() || m_analyzingSilences)
+        return;
+    // A análise vale para o projeto como estava; editado depois disso, os tempos não batem mais.
+    if (m_silenceRevision != m_revisionCounter) {
+        emit errorOccurred(tr("The project changed after the analysis; analyze again"));
+        return;
+    }
+    const int n = static_cast<int>(m_silences.size());
+    if (removeTimeRanges(m_silences, tr("Remove silences")))
+        setStatus(tr("%n pause(s) removed", nullptr, n));
+    clearSilences();
+}
+
+void ProjectController::clearSilences()
+{
+    if (m_silences.isEmpty())
+        return;
+    m_silences.clear();
+    emit silencesChanged();
+}
+
+bool ProjectController::removeTimeRanges(const QVariantList &ranges, const QString &label)
+{
+    std::vector<std::pair<Micros, Micros>> list;
+    for (const auto &v : ranges) {
+        const QVariantMap m = v.toMap();
+        list.emplace_back(static_cast<Micros>(m.value("start").toDouble()), static_cast<Micros>(m.value("end").toDouble()));
+    }
+    return edit(label.isEmpty() ? tr("Remove ranges") : label,
+                [&](Project &p) { return edit::removeRanges(p, list) > 0; });
+}
+
+// ---------------------------------------------------------------------------
+// Edição pela transcrição
+
+void ProjectController::generateTranscript(const QString &modelId, const QString &language)
+{
+    if (m_transcribing)
+        return;
+    if (!engine::whisperModelInstalled(modelId)) {
+        emit errorOccurred(tr("Download the model before transcribing"));
+        return;
+    }
+    pause();
+    engine::TranscribeOptions opts;
+    opts.modelPath = engine::whisperModelPath(modelId);
+    opts.language = language.isEmpty() ? QStringLiteral("auto") : language;
+    opts.maxChars = 1; // um segmento por palavra
+    m_transcribing = true;
+    m_transcribeProgress = 0;
+    m_cancelTranscription = false;
+    emit transcribeChanged();
+
+    auto snap = snapshot();
+    const quint64 revision = m_revisionCounter;
+    std::thread([this, snap, opts, revision] {
+        std::vector<CaptionSegment> words;
+        QString err;
+        const bool ok = engine::transcribeProject(
+            *snap, opts,
+            [this](double f) {
+                QMetaObject::invokeMethod(this, [this, f] {
+                    m_transcribeProgress = f;
+                    emit transcribeChanged();
+                }, Qt::QueuedConnection);
+                return !m_cancelTranscription.load();
+            },
+            words, &err);
+        QMetaObject::invokeMethod(this, [this, ok, err, words = std::move(words), revision] {
+            m_transcribing = false;
+            emit transcribeChanged();
+            if (!ok) {
+                if (!m_cancelTranscription)
+                    emit errorOccurred(err);
+                return;
+            }
+            if (words.empty()) {
+                emit errorOccurred(tr("No speech recognized"));
+                return;
+            }
+            m_transcript.clear();
+            for (const auto &w : words)
+                m_transcript << QVariantMap{{"start", static_cast<double>(w.start)},
+                                            {"end", static_cast<double>(w.end)},
+                                            {"text", w.text}};
+            m_transcriptRevision = revision;
+            emit transcriptChanged();
+            setStatus(tr("%n word(s) transcribed", nullptr, static_cast<int>(words.size())));
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+bool ProjectController::removeTranscriptWords(const QVariantList &indices)
+{
+    if (m_transcript.isEmpty() || transcriptStale())
+        return false;
+    QList<int> idx;
+    for (const auto &v : indices)
+        if (v.toInt() >= 0 && v.toInt() < m_transcript.size())
+            idx << v.toInt();
+    std::sort(idx.begin(), idx.end());
+    idx.erase(std::unique(idx.begin(), idx.end()), idx.end());
+    if (idx.isEmpty())
+        return false;
+    // Palavras consecutivas viram um corte só, do início da primeira ao início da seguinte
+    // (leva junto a pausa entre elas e evita sobrar meia sílaba).
+    std::vector<std::pair<Micros, Micros>> ranges;
+    auto wordAt = [&](int i) { return m_transcript.at(i).toMap(); };
+    for (int k = 0; k < idx.size();) {
+        const int first = idx[k];
+        int last = first;
+        while (k + 1 < idx.size() && idx[k + 1] == last + 1)
+            last = idx[++k];
+        ++k;
+        const auto a = static_cast<Micros>(wordAt(first).value("start").toDouble());
+        const auto b = static_cast<Micros>(last + 1 < m_transcript.size() ? wordAt(last + 1).value("start").toDouble()
+                                                                         : wordAt(last).value("end").toDouble());
+        ranges.emplace_back(a, std::max(a, b));
+    }
+    QVariantList rangeList;
+    for (const auto &[a, b] : ranges)
+        rangeList << QVariantMap{{"start", static_cast<double>(a)}, {"end", static_cast<double>(b)}};
+    if (!removeTimeRanges(rangeList, tr("Remove words")))
+        return false;
+
+    // Atualiza a transcrição sem transcrever de novo: tira as palavras e recua as seguintes.
+    QVariantList updated;
+    for (int i = 0; i < m_transcript.size(); ++i) {
+        if (idx.contains(i))
+            continue;
+        QVariantMap w = m_transcript.at(i).toMap();
+        Micros shift = 0;
+        for (const auto &[a, b] : ranges)
+            if (static_cast<Micros>(w.value("start").toDouble()) >= b)
+                shift += b - a;
+        w["start"] = w.value("start").toDouble() - static_cast<double>(shift);
+        w["end"] = w.value("end").toDouble() - static_cast<double>(shift);
+        updated << w;
+    }
+    m_transcript = updated;
+    m_transcriptRevision = m_revisionCounter;
+    emit transcriptChanged();
+    setStatus(tr("%n word(s) removed", nullptr, static_cast<int>(idx.size())));
+    return true;
+}
+
+QVariantList ProjectController::fillerWordIndices() const
+{
+    // Hesitações comuns em inglês, português e espanhol (sem pontuação, minúsculas).
+    static const QSet<QString> fillers{
+        QStringLiteral("um"),  QStringLiteral("uh"),  QStringLiteral("uhm"), QStringLiteral("umm"), QStringLiteral("uhh"),
+        QStringLiteral("er"),  QStringLiteral("erm"), QStringLiteral("ah"),  QStringLiteral("ahh"), QStringLiteral("eh"),
+        QStringLiteral("hmm"), QStringLiteral("hm"),  QStringLiteral("mm"),  QStringLiteral("mhm"), QStringLiteral("é"),
+        QStringLiteral("éé"),  QStringLiteral("ééé"), QStringLiteral("ã"),   QStringLiteral("ãh"),  QStringLiteral("ahn"),
+        QStringLiteral("hum"), QStringLiteral("eee"), QStringLiteral("ehh")};
+    QVariantList out;
+    for (int i = 0; i < m_transcript.size(); ++i) {
+        QString w = m_transcript.at(i).toMap().value("text").toString().toLower();
+        w.remove(QRegularExpression(QStringLiteral("[^\\p{L}]")));
+        if (fillers.contains(w))
+            out << i;
+    }
+    return out;
+}
+
+void ProjectController::clearTranscript()
+{
+    m_transcript.clear();
+    emit transcriptChanged();
+}
+
+// ---------------------------------------------------------------------------
+// Correção de cor avançada (curvas, HSL, rodas)
+
+void ProjectController::setCurve(const QString &clipId, int channel, const QVariantList &points)
+{
+    if (channel < 0 || channel > 3)
+        return;
+    std::vector<CurvePoint> pts;
+    for (const auto &v : points) {
+        const QVariantMap m = v.toMap();
+        pts.push_back({std::clamp(m.value("x").toDouble(), 0.0, 1.0), std::clamp(m.value("y").toDouble(), 0.0, 1.0)});
+    }
+    std::sort(pts.begin(), pts.end(), [](const CurvePoint &a, const CurvePoint &b) { return a.x < b.x; });
+    // Só os cantos na identidade = curva vazia (neutra).
+    if (pts.size() <= 2 && std::all_of(pts.begin(), pts.end(), [](const CurvePoint &p) { return p.x == p.y && (p.x == 0 || p.x == 1); }))
+        pts.clear();
+    edit(tr("Curves"), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c || c->color.curves[channel] == pts)
+            return false;
+        c->color.curves[channel] = pts;
+        return true;
+    }, QStringLiteral("curve:%1:%2").arg(clipId).arg(channel));
+}
+
+void ProjectController::setHsl(const QString &clipId, int band, double hue, double saturation, double luminance)
+{
+    if (band < 0 || band >= kHslBands)
+        return;
+    const HslAdjust value{std::clamp(hue, -1.0, 1.0), std::clamp(saturation, -1.0, 1.0), std::clamp(luminance, -1.0, 1.0)};
+    edit(tr("HSL"), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c || c->color.hsl[band] == value)
+            return false;
+        c->color.hsl[band] = value;
+        return true;
+    }, QStringLiteral("hsl:%1:%2").arg(clipId).arg(band));
+}
+
+void ProjectController::setColorWheel(const QString &clipId, const QString &which, double x, double y, double luma)
+{
+    // Ponto fora do disco volta para a borda.
+    const double r = std::hypot(x, y);
+    if (r > 1) {
+        x /= r;
+        y /= r;
+    }
+    const ColorWheel value{x, y, std::clamp(luma, -1.0, 1.0)};
+    edit(tr("Color wheels"), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c)
+            return false;
+        ColorWheel *w = which == QLatin1String("lift") ? &c->color.lift
+                        : which == QLatin1String("gamma") ? &c->color.gamma
+                        : which == QLatin1String("gain") ? &c->color.gain : nullptr;
+        if (!w || *w == value)
+            return false;
+        *w = value;
+        return true;
+    }, QStringLiteral("wheel:%1:%2").arg(clipId, which));
+}
+
+void ProjectController::resetGrade(const QString &clipId)
+{
+    edit(tr("Reset color grading"), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c || !c->color.hasGrade())
+            return false;
+        for (auto &curve : c->color.curves)
+            curve.clear();
+        c->color.hsl = {};
+        c->color.lift = c->color.gamma = c->color.gain = {};
+        return true;
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Escopos
+
+void ProjectController::setScopesEnabled(bool on)
+{
+    if (on == m_scopesEnabled)
+        return;
+    m_scopesEnabled = on;
+    emit scopesChanged();
+}
+
+void ProjectController::setScopeFrame(const QImage &img)
+{
+    {
+        std::lock_guard lock(m_scopeMutex);
+        m_scopeFrame = img;
+    }
+    QMetaObject::invokeMethod(this, &ProjectController::scopeFrameChanged, Qt::QueuedConnection);
+}
+
+QImage ProjectController::scopeFrame() const
+{
+    std::lock_guard lock(m_scopeMutex);
+    return m_scopeFrame;
+}
+
+// ---------------------------------------------------------------------------
 // Atalhos
 
 QString ProjectController::keySequence(int key, int modifiers) const
@@ -2629,6 +3007,166 @@ QString ProjectController::activeLanguage() const
 QVariantList ProjectController::languages() const
 {
     return app::availableLanguages();
+}
+
+// ---------------------------------------------------------------------------
+// Narração (gravação do microfone)
+
+bool ProjectController::recording() const
+{
+    return m_recorder && m_recorder->recording();
+}
+
+double ProjectController::recordElapsed() const
+{
+    return m_recorder ? static_cast<double>(m_recorder->frames()) * kSecond / media::kSampleRate : 0.0;
+}
+
+QStringList ProjectController::inputDevices() const
+{
+    return AudioRecorder::devices();
+}
+
+bool ProjectController::startRecording(const QString &device)
+{
+    if (recording())
+        return false;
+    // Ao lado do projeto salvo; sem projeto salvo, na pasta de dados do app.
+    const QString dir = m_filePath.isEmpty()
+                            ? QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath(QStringLiteral("recordings"))
+                            : QDir(QFileInfo(m_filePath).absolutePath()).filePath(QFileInfo(m_filePath).completeBaseName() + QStringLiteral(" recordings"));
+    m_recordPath = QDir(dir).filePath(QStringLiteral("voiceover-%1.wav").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss"))));
+    if (!m_recorder)
+        m_recorder = std::make_unique<AudioRecorder>();
+    QString err;
+    if (!m_recorder->start(m_recordPath, device, &err)) {
+        emit errorOccurred(err);
+        return false;
+    }
+    m_recordStart = m_project.snapToFrame(m_playhead);
+    m_recordLevel = 0;
+    m_recordTimer.start();
+    emit recordingChanged();
+    play(); // narra por cima do vídeo
+    setStatus(tr("Recording voiceover…"));
+    return true;
+}
+
+void ProjectController::stopRecording()
+{
+    if (!recording())
+        return;
+    m_recordTimer.stop();
+    const std::int64_t frames = m_recorder->stop();
+    pause();
+    m_recordLevel = 0;
+    emit recordingChanged();
+    emit recordLevelChanged();
+    if (frames < media::kSampleRate / 10) { // menos de 0,1 s: descarta
+        QFile::remove(m_recordPath);
+        return;
+    }
+    importMedia({QUrl::fromLocalFile(m_recordPath)});
+    for (const auto &[id, a] : m_project.assets)
+        if (a.path == m_recordPath) {
+            addAssetToTimeline(id, -1, static_cast<double>(m_recordStart));
+            break;
+        }
+    setStatus(tr("Voiceover recorded (%1)").arg(formatTime(static_cast<double>(frames) * kSecond / media::kSampleRate)));
+}
+
+// ---------------------------------------------------------------------------
+// Efeitos de voz (em segundo plano)
+
+QVariantList ProjectController::voiceEffects() const
+{
+    QVariantList out;
+    for (const auto &e : engine::voiceEffects())
+        out << QVariantMap{{"id", e.id}, {"name", QCoreApplication::translate("VoiceEffects", e.name.toUtf8())}};
+    return out;
+}
+
+QString ProjectController::audioSourceFor(const Clip &c, const MediaAsset &a) const
+{
+    if (c.voiceIsolation > 0) {
+        const QString voice = engine::registeredVoice(a.path, c.voiceIsolation);
+        if (!voice.isEmpty())
+            return voice;
+    }
+    if (c.denoise > 0) {
+        const QString clean = engine::registeredDenoised(a.path, c.denoise);
+        if (!clean.isEmpty())
+            return clean;
+    }
+    return a.path;
+}
+
+void ProjectController::refreshEffects()
+{
+    bool changed = false;
+    for (const auto &t : m_project.tracks)
+        for (const auto &c : t.clips) {
+            const MediaAsset *a = c.hasMedia() && !c.voiceEffect.isEmpty() ? m_project.asset(c.assetId) : nullptr;
+            if (!a || !a->hasAudio || !QFileInfo::exists(a->path))
+                continue;
+            const QString source = audioSourceFor(c, *a);
+            if (!engine::registeredEffect(source, c.voiceEffect).isEmpty() || engine::discoverEffect(source, c.voiceEffect))
+                continue;
+            const QString job = source + QLatin1Char('|') + c.voiceEffect;
+            if (job != m_effectBuilding && !m_effectQueue.contains(job)) {
+                m_effectQueue << job;
+                changed = true;
+            }
+        }
+    if (changed) {
+        emit selectedClipChanged();
+        startNextEffect();
+    }
+}
+
+void ProjectController::startNextEffect()
+{
+    if (!m_effectBuilding.isEmpty() || m_effectQueue.isEmpty())
+        return;
+    m_effectBuilding = m_effectQueue.takeFirst();
+    m_effectProgress = 0;
+    m_effectCancel = std::make_shared<std::atomic<bool>>(false);
+    const QString source = m_effectBuilding.section(QLatin1Char('|'), 0, -2);
+    const QString effect = m_effectBuilding.section(QLatin1Char('|'), -1);
+    auto cancel = m_effectCancel;
+    emit selectedClipChanged();
+    std::thread([this, source, effect, cancel] {
+        const QString out = engine::effectPathFor(source, effect);
+        QString err;
+        double lastSent = 0;
+        const bool ok = engine::generateEffect(
+            source, effect, out,
+            [&](double f) {
+                if (f - lastSent >= 0.02 && !*cancel) {
+                    lastSent = f;
+                    QMetaObject::invokeMethod(this, [this, f] {
+                        m_effectProgress = f;
+                        emit selectedClipChanged();
+                    }, Qt::QueuedConnection);
+                }
+                return !*cancel;
+            },
+            &err);
+        if (*cancel)
+            return;
+        QMetaObject::invokeMethod(this, [this, ok, err, source, effect, out] {
+            m_effectBuilding.clear();
+            if (ok) {
+                engine::registerEffect(source, effect, out);
+                if (m_playing)
+                    m_audio->updateProject(snapshot());
+            } else {
+                emit errorOccurred(tr("Voice effect failed: %1").arg(err));
+            }
+            emit selectedClipChanged();
+            startNextEffect();
+        }, Qt::QueuedConnection);
+    }).detach();
 }
 
 // ---------------------------------------------------------------------------
@@ -2694,6 +3232,7 @@ void ProjectController::startNextVoice()
             m_voiceBuilding.clear();
             if (ok) {
                 engine::registerVoice(path, strength, out);
+                refreshEffects();
                 setStatus(tr("Voice isolated: %1").arg(QFileInfo(path).fileName()));
                 if (m_playing)
                     m_audio->updateProject(snapshot());

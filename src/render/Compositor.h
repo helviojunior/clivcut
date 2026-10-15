@@ -65,7 +65,8 @@ private:
     struct LayerUbo;
 
     void ensureResources(QRhiResourceUpdateBatch *u);
-    Slot &slotFor(const QString &key, QSize texSize, QRhiTexture *filterLut, QRhiTexture *userLut, bool usesBackdrop);
+    Slot &slotFor(const QString &key, QSize texSize, QRhiTexture *filterLut, QRhiTexture *userLut, QRhiTexture *gradeLut,
+                  bool usesBackdrop);
     /** Textura 3D de um LUT (filtro embutido ou .cube); identidade se não houver. */
     QRhiTexture *lutTexture(const QString &key, QRhiResourceUpdateBatch *u);
     std::unique_ptr<QRhiTexture> uploadLut(const Lut3D &lut, QRhiResourceUpdateBatch *u);
@@ -100,6 +101,7 @@ private:
     QHash<QString, std::shared_ptr<Slot>> m_slots;
     std::unique_ptr<QRhiTexture> m_identityLut;
     std::unordered_map<QString, std::unique_ptr<QRhiTexture>> m_luts;
+    std::unordered_map<QString, quint64> m_lutUsed; ///< último quadro em que cada LUT de correção foi usado
     quint64 m_frameCounter = 0;
     bool m_transparent = false;
     qint64 m_bgSourceKey = 0;

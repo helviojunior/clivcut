@@ -19,6 +19,7 @@ layout(std140, binding = 0) uniform buf {
     vec4 clipMask;     // forma, inverter, suavização, arredondamento
     vec4 clipMaskGeom; // centro x, centro y, largura, altura (frações do quadro)
     vec4 clipMaskExtra; // rotação (rad), proporção do quadro
+    vec4 grade;
 } ubuf;
 
 void main()

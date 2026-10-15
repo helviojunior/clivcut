@@ -61,9 +61,12 @@ QtObject {
         { id: "zoomIn", group: qsTr("Timeline"), name: qsTr("Zoom in"), keys: ["Ctrl+=", "Ctrl++"], edit: true },
         { id: "zoomOut", group: qsTr("Timeline"), name: qsTr("Zoom out"), keys: ["Ctrl+-"], edit: true },
         { id: "zoomFit", group: qsTr("Timeline"), name: qsTr("Fit timeline to window"), keys: ["Shift+Z"], edit: true },
+        { id: "recordVoiceover", group: qsTr("Editing"), name: qsTr("Record voiceover"), keys: ["Alt+R"], edit: true },
+        { id: "removeSilences", group: qsTr("Editing"), name: qsTr("Remove silences"), keys: ["Ctrl+Shift+R"], edit: true },
         { id: "renderPreview", group: qsTr("Timeline"), name: qsTr("Render preview"), keys: ["Ctrl+R"], edit: true },
         { id: "clearRenderCache", group: qsTr("Timeline"), name: qsTr("Clear render cache"), keys: [], edit: true },
 
+        { id: "scopes", group: qsTr("Interface"), name: qsTr("Show scopes"), keys: ["Ctrl+Shift+V"], edit: false },
         { id: "palette", group: qsTr("Interface"), name: qsTr("Command palette"), keys: ["Ctrl+K", "Ctrl+Shift+P"], edit: false },
         { id: "shortcuts", group: qsTr("Interface"), name: qsTr("Keyboard shortcuts"), keys: [], edit: false },
         { id: "panel0", group: qsTr("Interface"), name: qsTr("Panel: Media"), keys: ["Alt+1"], edit: false },
@@ -72,6 +75,7 @@ QtObject {
         { id: "panel3", group: qsTr("Interface"), name: qsTr("Panel: Filters"), keys: ["Alt+4"], edit: false },
         { id: "panel4", group: qsTr("Interface"), name: qsTr("Panel: Transitions"), keys: ["Alt+5"], edit: false },
         { id: "panel5", group: qsTr("Interface"), name: qsTr("Panel: Animations"), keys: ["Alt+6"], edit: false },
+        { id: "panel6", group: qsTr("Interface"), name: qsTr("Panel: Transcript"), keys: ["Alt+7"], edit: false },
 
         { id: "newProject", group: qsTr("File"), name: qsTr("New project"), keys: ["Ctrl+N"], edit: false },
         { id: "open", group: qsTr("File"), name: qsTr("Open project"), keys: ["Ctrl+O"], edit: false },

@@ -17,6 +17,8 @@
 #include <QTimer>
 #include <QUrl>
 
+#include <clocale>
+
 int main(int argc, char **argv)
 {
     // Se o Qt Quick usar OpenGL, precisa de 3.3 Core (shaders GLSL 330 com texturas 3D).
@@ -27,6 +29,9 @@ int main(int argc, char **argv)
         QSurfaceFormat::setDefaultFormat(fmt);
     }
     QGuiApplication app(argc, argv);
+    // O QGuiApplication adota o locale do sistema; o FFmpeg lê os números das cadeias de filtros
+    // com strtod, que em pt_BR esperaria vírgula. Números do processo ficam no formato "C".
+    std::setlocale(LC_NUMERIC, "C");
     clv::media::quietFFmpegLogs();
     QGuiApplication::setApplicationName(QStringLiteral("clivcut"));
     QGuiApplication::setOrganizationName(QStringLiteral("clivcut"));
@@ -73,7 +78,9 @@ int main(int argc, char **argv)
     // CLIVCUT_SCREENSHOT_DELAY=ms, CLIVCUT_SCREENSHOT_SEEK=µs, CLIVCUT_SCREENSHOT_SELECT=1 (seleciona 1º clipe),
     // CLIVCUT_SCREENSHOT_PANEL=índice do painel lateral, CLIVCUT_SCREENSHOT_TAB=aba do inspetor,
     // CLIVCUT_SCREENSHOT_PALETTE=1 (abre a paleta de comandos), CLIVCUT_SCREENSHOT_EXPORT=aba do diálogo de exportação,
-    // CLIVCUT_SCREENSHOT_SHORTCUTS=1 (abre o editor de atalhos), CLIVCUT_SCREENSHOT_RENDER=1 (renderiza a pré-visualização).
+    // CLIVCUT_SCREENSHOT_SHORTCUTS=1 (abre o editor de atalhos), CLIVCUT_SCREENSHOT_RENDER=1 (renderiza a pré-visualização),
+    // CLIVCUT_SCREENSHOT_OPEN=objectName de um diálogo para abrir, CLIVCUT_SCREENSHOT_TRANSCRIBE=modelo (transcreve em inglês),
+    // CLIVCUT_SCREENSHOT_SCROLL=px (rola o inspetor), CLIVCUT_SCREENSHOT_SCOPES=modo (mostra os escopos).
     const QString shot = qEnvironmentVariable("CLIVCUT_SCREENSHOT");
     if (!shot.isEmpty() && !engine.rootObjects().isEmpty()) {
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
@@ -83,6 +90,10 @@ int main(int argc, char **argv)
             delay = 2500;
         if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_SEEK"))
             controller.seek(qEnvironmentVariable("CLIVCUT_SCREENSHOT_SEEK").toDouble());
+        if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_TRANSCRIBE"))
+            QTimer::singleShot(500, &controller, [&controller] {
+                controller.generateTranscript(qEnvironmentVariable("CLIVCUT_SCREENSHOT_TRANSCRIBE"), QStringLiteral("en"));
+            });
         if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_RENDER"))
             QTimer::singleShot(500, &controller, [&controller] { controller.renderPreview(); });
         if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_SELECT")) {
@@ -102,6 +113,10 @@ int main(int argc, char **argv)
             if (ok)
                 if (auto *rail = window->findChild<QObject *>(QStringLiteral("rail")))
                     QMetaObject::invokeMethod(rail, "activate", Q_ARG(QVariant, panel));
+            const int scroll = qEnvironmentVariableIntValue("CLIVCUT_SCREENSHOT_SCROLL", &ok);
+            if (ok)
+                if (auto *flick = window->findChild<QObject *>(QStringLiteral("inspectorScroll")))
+                    QTimer::singleShot(300, flick, [flick, scroll] { flick->setProperty("contentY", scroll); });
             const QString tab = qEnvironmentVariable("CLIVCUT_SCREENSHOT_TAB");
             if (!tab.isEmpty())
                 if (auto *inspector = window->findChild<QObject *>(QStringLiteral("inspector")))
@@ -109,6 +124,17 @@ int main(int argc, char **argv)
             if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_PALETTE"))
                 if (auto *palette = window->findChild<QObject *>(QStringLiteral("commandPalette")))
                     QMetaObject::invokeMethod(palette, "open");
+            const int scopeMode = qEnvironmentVariableIntValue("CLIVCUT_SCREENSHOT_SCOPES", &ok);
+            if (ok) {
+                if (auto *ctrl = ProjectController::instance())
+                    ctrl->setScopesEnabled(true);
+                if (auto *scope = window->findChild<QObject *>(QStringLiteral("scopeView")))
+                    scope->setProperty("mode", scopeMode);
+            }
+            const QString openName = qEnvironmentVariable("CLIVCUT_SCREENSHOT_OPEN");
+            if (!openName.isEmpty())
+                if (auto *dialog = window->findChild<QObject *>(openName))
+                    QMetaObject::invokeMethod(dialog, "open");
             if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_SHORTCUTS"))
                 if (auto *dialog = window->findChild<QObject *>(QStringLiteral("shortcutsDialog")))
                     QMetaObject::invokeMethod(dialog, "open");

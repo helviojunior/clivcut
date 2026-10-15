@@ -10,8 +10,6 @@ runtime: org.kde.Platform
 runtime-version: '6.11'
 sdk: org.kde.Sdk
 command: clivcut
-rename-desktop-file: io.github.clivcut.desktop
-rename-icon: io.github.clivcut
 finish-args:
   - --share=ipc
   - --socket=wayland

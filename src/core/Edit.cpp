@@ -281,6 +281,60 @@ int splitAt(Project &p, Micros t, const QStringList &onlyIds)
     return n;
 }
 
+Micros removeRanges(Project &p, std::vector<std::pair<Micros, Micros>> ranges)
+{
+    // Normaliza: ordena, descarta vazios e junta sobrepostos.
+    std::sort(ranges.begin(), ranges.end());
+    std::vector<std::pair<Micros, Micros>> merged;
+    for (auto [a, b] : ranges) {
+        a = std::max<Micros>(0, a);
+        if (b <= a)
+            continue;
+        if (!merged.empty() && a <= merged.back().second)
+            merged.back().second = std::max(merged.back().second, b);
+        else
+            merged.emplace_back(a, b);
+    }
+    Micros total = 0;
+    // De trás para frente: cada corte não desloca os trechos ainda por cortar.
+    for (auto it = merged.rbegin(); it != merged.rend(); ++it) {
+        const auto [a, b] = *it;
+        splitAt(p, a);
+        splitAt(p, b);
+        const Micros len = b - a;
+        for (Track &track : p.tracks) {
+            if (track.locked)
+                continue;
+            track.clips.erase(std::remove_if(track.clips.begin(), track.clips.end(),
+                                             [&](const Clip &c) { return c.start >= a && c.end() <= b; }),
+                              track.clips.end());
+            for (Clip &c : track.clips)
+                if (c.start >= b)
+                    c.start -= len;
+        }
+        p.markers.erase(std::remove_if(p.markers.begin(), p.markers.end(),
+                                       [&](const Marker &m) { return m.t >= a && m.t < b; }),
+                        p.markers.end());
+        for (Marker &m : p.markers)
+            if (m.t >= b)
+                m.t -= len;
+        auto shift = [&](Micros &t) {
+            if (t >= b)
+                t -= len;
+            else if (t > a)
+                t = a;
+        };
+        if (p.inPoint >= 0)
+            shift(p.inPoint);
+        if (p.outPoint > 0)
+            shift(p.outPoint);
+        total += len;
+    }
+    if (total > 0)
+        removeEmptyTracks(p);
+    return total;
+}
+
 bool deleteClips(Project &p, const QStringList &ids, bool ripple)
 {
     bool any = false;

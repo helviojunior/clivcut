@@ -1,10 +1,12 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtCore
 import Clivcut
 
 Rectangle {
     id: root
+    function openVoiceover() { voiceover.armed ? voiceover.stop() : voiceover.open() }
     color: Theme.bg
 
     readonly property var sel: Project.selectedClip
@@ -27,18 +29,25 @@ Rectangle {
                 visible: root.width > 420
             }
             Item { Layout.fillWidth: true }
+            IconButton {
+                iconName: "activity"
+                active: Project.scopesEnabled
+                tip: qsTr("Scopes: histogram, waveform and vectorscope")
+                shortcut: Keymap.label("scopes")
+                onClicked: Project.scopesEnabled = !Project.scopesEnabled
+            }
             ComboBox {
                 id: ratio
                 focusPolicy: Qt.NoFocus
                 implicitWidth: 130
                 model: [
-                    { label: "16:9 · Paisagem", w: 1920, h: 1080 },
-                    { label: "9:16 · Vertical", w: 1080, h: 1920 },
-                    { label: "1:1 · Quadrado", w: 1080, h: 1080 },
+                    { label: "16:9 · " + qsTr("Landscape"), w: 1920, h: 1080 },
+                    { label: "9:16 · " + qsTr("Vertical"), w: 1080, h: 1920 },
+                    { label: "1:1 · " + qsTr("Square"), w: 1080, h: 1080 },
                     { label: "4:3", w: 1440, h: 1080 },
                     { label: "3:4", w: 1080, h: 1440 },
-                    { label: "4:5 · Feed", w: 1080, h: 1350 },
-                    { label: "21:9 · Cinema", w: 2560, h: 1080 }
+                    { label: "4:5 · " + qsTr("Feed"), w: 1080, h: 1350 },
+                    { label: "21:9 · " + qsTr("Cinema"), w: 2560, h: 1080 }
                 ]
                 textRole: "label"
                 displayText: Project.canvasWidth + "×" + Project.canvasHeight
@@ -72,6 +81,80 @@ Rectangle {
                 id: preview
                 anchors.fill: parent
                 maxResolution: Project.previewResolution
+            }
+
+            VoiceoverPanel {
+                id: voiceover
+                objectName: "voiceoverPanel"
+                z: 6
+                anchors.left: parent.left
+                anchors.bottom: parent.bottom
+                anchors.margins: 10
+                width: Math.min(implicitWidth, parent.width - 20)
+            }
+
+            // Escopos do quadro atual (o mesmo que vai para o export).
+            Rectangle {
+                id: scopes
+                objectName: "scopesPanel"
+                visible: Project.scopesEnabled
+                z: 5
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: 8
+                width: Math.min(300, parent.width * 0.45)
+                height: width * 0.78
+                radius: Theme.radius
+                color: Qt.rgba(0.04, 0.04, 0.05, 0.86)
+                border.color: Theme.border
+                Settings {
+                    category: "scopes"
+                    property alias mode: scopeView.mode
+                }
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    spacing: 4
+                    RowLayout {
+                        spacing: 2
+                        Repeater {
+                            model: [qsTr("Histogram"), qsTr("Waveform"), qsTr("Vectorscope")]
+                            Rectangle {
+                                id: scopeTab
+                                required property string modelData
+                                required property int index
+                                readonly property bool on: scopeView.mode === index
+                                implicitWidth: tabText.implicitWidth + 12
+                                implicitHeight: 20
+                                radius: 4
+                                color: on ? Theme.accentSoft : "transparent"
+                                Text {
+                                    id: tabText
+                                    anchors.centerIn: parent
+                                    text: scopeTab.modelData
+                                    color: scopeTab.on ? Theme.accent : "#c8c8cc"
+                                    font.pixelSize: Theme.fontSmall
+                                }
+                                TapHandler { onTapped: scopeView.mode = scopeTab.index }
+                            }
+                        }
+                        Item { Layout.fillWidth: true }
+                        IconButton {
+                            implicitWidth: 22; implicitHeight: 20
+                            iconName: "x"
+                            iconSize: 12
+                            glyphColor: "#c8c8cc"
+                            tip: qsTr("Close")
+                            onClicked: Project.scopesEnabled = false
+                        }
+                    }
+                    ScopeItem {
+                        id: scopeView
+                        objectName: "scopeView"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                    }
+                }
             }
 
             // Moldura do canvas + arrastar para mover o clipe selecionado.

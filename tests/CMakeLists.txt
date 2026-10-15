@@ -15,7 +15,9 @@ if(CLIVCUT_BUILD_APP)
     add_executable(tst_controller tst_controller.cpp
         ${CMAKE_SOURCE_DIR}/src/app/ProjectController.cpp
         ${CMAKE_SOURCE_DIR}/src/app/AudioOutput.cpp
-        ${CMAKE_SOURCE_DIR}/src/app/Language.cpp)
+        ${CMAKE_SOURCE_DIR}/src/app/AudioRecorder.cpp
+        ${CMAKE_SOURCE_DIR}/src/app/Language.cpp
+        ${CMAKE_SOURCE_DIR}/src/app/Scopes.cpp)
     target_include_directories(tst_controller PRIVATE ${CMAKE_SOURCE_DIR}/src/app)
     target_link_libraries(tst_controller PRIVATE clivcut_engine Qt6::Qml Qt6::Network Qt6::Test clivcut::sdl2)
     if(TARGET whisper)

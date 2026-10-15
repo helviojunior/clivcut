@@ -3,6 +3,9 @@
 
 #include "Model.h"
 
+#include <utility>
+#include <vector>
+
 #include <QStringList>
 
 #include <optional>
@@ -56,6 +59,13 @@ std::optional<QString> splitClip(Project &p, const QString &clipId, Micros t);
 
 /** Divide todos os clipes sob `t` (ou só `onlyIds`, se dado). Retorna quantos. */
 int splitAt(Project &p, Micros t, const QStringList &onlyIds = {});
+
+/**
+ * Remove trechos de tempo da timeline inteira (todas as faixas desbloqueadas), com ripple:
+ * o que vem depois recua. Marcadores e entrada/saída acompanham. Usado pela remoção de
+ * silêncios e pela edição por transcrição. Retorna o tempo total removido.
+ */
+Micros removeRanges(Project &p, std::vector<std::pair<Micros, Micros>> ranges);
 
 /** Remove clipes; com ripple, os clipes seguintes na mesma faixa recuam. */
 bool deleteClips(Project &p, const QStringList &ids, bool ripple);

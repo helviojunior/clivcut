@@ -68,6 +68,29 @@ struct Crop {
     bool isIdentity() const { return left == 0 && top == 0 && right == 0 && bottom == 0; }
 };
 
+/// Ponto de curva de tons (entrada x → saída y, ambos 0..1).
+struct CurvePoint {
+    double x = 0, y = 0;
+    bool operator==(const CurvePoint &o) const { return x == o.x && y == o.y; }
+};
+
+/// Ajuste de uma faixa de cor do HSL (todos -1..1).
+struct HslAdjust {
+    double hue = 0, saturation = 0, luminance = 0;
+    bool isZero() const { return hue == 0 && saturation == 0 && luminance == 0; }
+    bool operator==(const HslAdjust &o) const = default;
+};
+
+/// Roda de cor: deslocamento de cor (x, y no disco unitário) e de luminância (-1..1).
+struct ColorWheel {
+    double x = 0, y = 0, luma = 0;
+    bool isZero() const { return x == 0 && y == 0 && luma == 0; }
+    bool operator==(const ColorWheel &o) const = default;
+};
+
+/// Faixas do HSL: vermelho, laranja, amarelo, verde, ciano, azul, roxo, magenta.
+constexpr int kHslBands = 8;
+
 struct ColorAdjust {
     double brightness = 0;  ///< -1..1
     double contrast = 0;    ///< -1..1
@@ -84,7 +107,16 @@ struct ColorAdjust {
     QString lutPath;        ///< LUT .cube do usuário
     double lutIntensity = 1;
 
+    /// Curvas de tons: 0 = mestre (luminância), 1..3 = R, G, B. Vazia = identidade.
+    std::array<std::vector<CurvePoint>, 4> curves;
+    std::array<HslAdjust, kHslBands> hsl{};
+    ColorWheel lift, gamma, gain; ///< sombras, meios-tons, realces
+
     bool hasFilter() const { return !filter.isEmpty() && filterIntensity > 0; }
+    /// Curvas, HSL ou rodas fora do neutro (viram um LUT gerado; ver core/Lut.h).
+    bool hasGrade() const;
+    /// Chave estável do LUT gerado ("grade:{...}"), vazia se neutro.
+    QString gradeKey() const;
     bool hasLut() const { return !lutPath.isEmpty() && lutIntensity > 0; }
 };
 
@@ -174,6 +206,8 @@ struct Clip {
     bool audioMuted = false; ///< silencia o áudio deste clipe (ex.: depois de separar o áudio)
     double gainDb = 0;       ///< ganho extra em dB (normalização de volume ou ajuste manual)
     double denoise = 0;      ///< redução de ruído 0..1 (0 = desligada)
+    QString voiceEffect;       ///< efeito de voz (engine/VoiceEffects.h), vazio = nenhum
+    double ducking = 0;        ///< abaixa sob a voz (0..1): para música de fundo
     double voiceIsolation = 0; ///< isolamento de voz por IA 0..1 (0 = desligado)
     bool keepPitch = true;   ///< mudança de velocidade preserva o tom (WSOLA)
     bool removeBackground = false; ///< alfa vindo do matte gerado por IA (engine/Matting.h)
