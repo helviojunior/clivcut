@@ -156,6 +156,8 @@ class Bundler:
             'NSSupportsAutomaticGraphicsSwitching': True,
             'NSRequiresAquaSystemAppearance': False,
             'LSApplicationCategoryType': 'public.app-category.video',
+            # Sem esta chave o macOS encerra o app ao abrir o microfone (narração).
+            'NSMicrophoneUsageDescription': 'clivcut records voiceovers from the microphone.',
         })
         plist.write_bytes(plistlib.dumps(info))
 
