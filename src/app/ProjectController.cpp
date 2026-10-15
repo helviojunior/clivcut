@@ -15,6 +15,7 @@
 #include "engine/AiModels.h"
 #include "engine/AudioCleanup.h"
 #include "engine/Matting.h"
+#include "engine/VoiceEffects.h"
 #include "engine/VoiceIsolation.h"
 #include "engine/Silence.h"
 #include "engine/Exporter.h"
@@ -126,6 +127,7 @@ ProjectController::~ProjectController()
     *m_denoiseCancel = true;
     *m_matteCancel = true;
     *m_voiceCancel = true;
+    *m_effectCancel = true;
     *m_renderCancel = true;
     if (g_instance == this)
         g_instance = nullptr;
@@ -190,6 +192,7 @@ void ProjectController::commitChange()
     refreshDenoise();
     refreshMattes();
     refreshVoice();
+    refreshEffects();
     m_cacheTimer.start();
     if (!m_transcript.isEmpty())
         emit transcriptChanged(); // pode ter ficado desatualizada
@@ -493,6 +496,19 @@ QVariantMap ProjectController::selectedClip() const
               {"denoiseProgress", m_denoiseProgress},
               {"voiceIsolation", c->voiceIsolation},
               {"ducking", c->ducking},
+              {"voiceEffect", c->voiceEffect},
+              {"effectState", [&] {
+                   if (!a || c->voiceEffect.isEmpty())
+                       return QStringLiteral("off");
+                   const QString source = audioSourceFor(*c, *a);
+                   if (!engine::registeredEffect(source, c->voiceEffect).isEmpty())
+                       return QStringLiteral("ready");
+                   const QString job = source + QLatin1Char('|') + c->voiceEffect;
+                   if (m_effectBuilding == job)
+                       return QStringLiteral("processing");
+                   return QStringLiteral("queued");
+               }()},
+              {"effectProgress", m_effectProgress},
               {"voiceState", [&] {
                    if (!a || c->voiceIsolation <= 0)
                        return QStringLiteral("off");
@@ -1105,6 +1121,7 @@ bool applyClipProperty(Project &p, Clip *c, Micros rel, const QString &key, cons
     else if (key == QLatin1String("gainDb")) c->gainDb = std::clamp(value.toDouble(), -24.0, 24.0);
     else if (key == QLatin1String("denoise")) c->denoise = engine::quantizedDenoise(value.toDouble());
     else if (key == QLatin1String("removeBackground")) c->removeBackground = value.toBool();
+    else if (key == QLatin1String("voiceEffect")) c->voiceEffect = engine::findVoiceEffect(value.toString()) ? value.toString() : QString();
     else if (key == QLatin1String("ducking")) c->ducking = std::clamp(value.toDouble(), 0.0, 1.0);
     else if (key == QLatin1String("voiceIsolation")) c->voiceIsolation = engine::quantizedVoice(value.toDouble());
     else if (key == QLatin1String("keepPitch")) c->keepPitch = value.toBool();
@@ -2460,6 +2477,7 @@ void ProjectController::startNextDenoise()
             m_denoiseBuilding.clear();
             if (ok) {
                 engine::registerDenoised(path, strength, out);
+                refreshEffects(); // o efeito passa a usar o áudio limpo
                 setStatus(tr("Noise reduced: %1").arg(QFileInfo(path).fileName()));
                 if (m_playing)
                     m_audio->updateProject(snapshot());
@@ -2981,6 +2999,100 @@ QVariantList ProjectController::languages() const
 }
 
 // ---------------------------------------------------------------------------
+// Efeitos de voz (em segundo plano)
+
+QVariantList ProjectController::voiceEffects() const
+{
+    QVariantList out;
+    for (const auto &e : engine::voiceEffects())
+        out << QVariantMap{{"id", e.id}, {"name", QCoreApplication::translate("VoiceEffects", e.name.toUtf8())}};
+    return out;
+}
+
+QString ProjectController::audioSourceFor(const Clip &c, const MediaAsset &a) const
+{
+    if (c.voiceIsolation > 0) {
+        const QString voice = engine::registeredVoice(a.path, c.voiceIsolation);
+        if (!voice.isEmpty())
+            return voice;
+    }
+    if (c.denoise > 0) {
+        const QString clean = engine::registeredDenoised(a.path, c.denoise);
+        if (!clean.isEmpty())
+            return clean;
+    }
+    return a.path;
+}
+
+void ProjectController::refreshEffects()
+{
+    bool changed = false;
+    for (const auto &t : m_project.tracks)
+        for (const auto &c : t.clips) {
+            const MediaAsset *a = c.hasMedia() && !c.voiceEffect.isEmpty() ? m_project.asset(c.assetId) : nullptr;
+            if (!a || !a->hasAudio || !QFileInfo::exists(a->path))
+                continue;
+            const QString source = audioSourceFor(c, *a);
+            if (!engine::registeredEffect(source, c.voiceEffect).isEmpty() || engine::discoverEffect(source, c.voiceEffect))
+                continue;
+            const QString job = source + QLatin1Char('|') + c.voiceEffect;
+            if (job != m_effectBuilding && !m_effectQueue.contains(job)) {
+                m_effectQueue << job;
+                changed = true;
+            }
+        }
+    if (changed) {
+        emit selectedClipChanged();
+        startNextEffect();
+    }
+}
+
+void ProjectController::startNextEffect()
+{
+    if (!m_effectBuilding.isEmpty() || m_effectQueue.isEmpty())
+        return;
+    m_effectBuilding = m_effectQueue.takeFirst();
+    m_effectProgress = 0;
+    m_effectCancel = std::make_shared<std::atomic<bool>>(false);
+    const QString source = m_effectBuilding.section(QLatin1Char('|'), 0, -2);
+    const QString effect = m_effectBuilding.section(QLatin1Char('|'), -1);
+    auto cancel = m_effectCancel;
+    emit selectedClipChanged();
+    std::thread([this, source, effect, cancel] {
+        const QString out = engine::effectPathFor(source, effect);
+        QString err;
+        double lastSent = 0;
+        const bool ok = engine::generateEffect(
+            source, effect, out,
+            [&](double f) {
+                if (f - lastSent >= 0.02 && !*cancel) {
+                    lastSent = f;
+                    QMetaObject::invokeMethod(this, [this, f] {
+                        m_effectProgress = f;
+                        emit selectedClipChanged();
+                    }, Qt::QueuedConnection);
+                }
+                return !*cancel;
+            },
+            &err);
+        if (*cancel)
+            return;
+        QMetaObject::invokeMethod(this, [this, ok, err, source, effect, out] {
+            m_effectBuilding.clear();
+            if (ok) {
+                engine::registerEffect(source, effect, out);
+                if (m_playing)
+                    m_audio->updateProject(snapshot());
+            } else {
+                emit errorOccurred(tr("Voice effect failed: %1").arg(err));
+            }
+            emit selectedClipChanged();
+            startNextEffect();
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+// ---------------------------------------------------------------------------
 // Isolamento de voz (IA, em segundo plano)
 
 void ProjectController::refreshVoice()
@@ -3043,6 +3155,7 @@ void ProjectController::startNextVoice()
             m_voiceBuilding.clear();
             if (ok) {
                 engine::registerVoice(path, strength, out);
+                refreshEffects();
                 setStatus(tr("Voice isolated: %1").arg(QFileInfo(path).fileName()));
                 if (m_playing)
                     m_audio->updateProject(snapshot());

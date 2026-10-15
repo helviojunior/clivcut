@@ -5,6 +5,7 @@ add_library(clivcut_engine STATIC
     RenderCache.h RenderCache.cpp
     VoiceIsolation.h VoiceIsolation.cpp
     Silence.h Silence.cpp
+    VoiceEffects.h VoiceEffects.cpp
     Exporter.h Exporter.cpp
     Transcriber.h Transcriber.cpp
     WhisperModels.h WhisperModels.cpp

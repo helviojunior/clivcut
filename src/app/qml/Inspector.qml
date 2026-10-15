@@ -736,6 +736,49 @@ Rectangle {
                     }
                     SectionLabel {
                         visible: root.isMedia && root.sel.hasAudio
+                        text: qsTr("Voice effect")
+                        actionText: root.isMedia && root.sel.voiceEffect !== "" ? qsTr("Remove") : ""
+                        onActionClicked: root.setProp("voiceEffect", "")
+                    }
+                    Flow {
+                        visible: root.isMedia && root.sel.hasAudio
+                        Layout.fillWidth: true
+                        spacing: 6
+                        Repeater {
+                            model: Project.voiceEffects
+                            Rectangle {
+                                id: fxChip
+                                required property var modelData
+                                readonly property bool on: root.isMedia && root.sel.voiceEffect === modelData.id
+                                implicitWidth: fxText.implicitWidth + 18
+                                implicitHeight: 26
+                                radius: 13
+                                color: on ? Theme.accentSoft : Theme.surface
+                                border.color: on ? Theme.accent : "transparent"
+                                Text {
+                                    id: fxText
+                                    anchors.centerIn: parent
+                                    text: fxChip.modelData.name
+                                    color: fxChip.on ? Theme.accent : Theme.text
+                                    font.pixelSize: Theme.fontSmall
+                                }
+                                TapHandler { onTapped: root.setProp("voiceEffect", fxChip.on ? "" : fxChip.modelData.id) }
+                            }
+                        }
+                    }
+                    Text {
+                        visible: root.isMedia && root.sel.hasAudio && root.sel.voiceEffect !== ""
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        color: root.isMedia && root.sel.effectState === "ready" ? Theme.accent : Theme.textFaint
+                        font.pixelSize: Theme.fontSmall
+                        text: !root.isMedia ? ""
+                              : root.sel.effectState === "processing" ? qsTr("Applying the effect… %1%").arg(Math.round(root.sel.effectProgress * 100))
+                              : root.sel.effectState === "queued" ? qsTr("Queued…")
+                              : qsTr("✓ Effect in use")
+                    }
+                    SectionLabel {
+                        visible: root.isMedia && root.sel.hasAudio
                         text: qsTr("Duck under voice")
                     }
                     PropSlider {

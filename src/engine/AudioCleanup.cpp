@@ -72,6 +72,16 @@ struct Graph {
 
     bool init(double strength, int noiseFloorDb)
     {
+        // Passa-altas tira ronco/vento; afftdn com o nível de ruído medido no próprio arquivo
+        // (o rastreamento automático do filtro quase não reduz quando o nível inicial está errado).
+        // Inteiros: o avaliador do FFmpeg usa strtod, que depende do locale (vírgula em pt-BR).
+        const int nr = static_cast<int>(std::lround(6 + 34 * std::clamp(strength, 0.0, 1.0)));
+        return initChain(QStringLiteral("highpass=f=70,afftdn=nr=%1:nf=%2").arg(nr).arg(noiseFloorDb).toLatin1());
+    }
+
+    /** Cadeia de filtros arbitrária entre a entrada e a saída (estéreo float 48 kHz nas duas pontas). */
+    bool initChain(const QByteArray &filters)
+    {
         graph = avfilter_graph_alloc();
         const QByteArray args =
             QStringLiteral("sample_rate=%1:sample_fmt=flt:channel_layout=stereo:time_base=1/%1").arg(kSampleRate).toLatin1();
@@ -79,15 +89,8 @@ struct Graph {
             return false;
         if (avfilter_graph_create_filter(&sink, avfilter_get_by_name("abuffersink"), "out", nullptr, nullptr, graph) < 0)
             return false;
-        // Passa-altas tira ronco/vento; afftdn com o nível de ruído medido no próprio arquivo
-        // (o rastreamento automático do filtro quase não reduz quando o nível inicial está errado).
-        // Inteiros: o avaliador do FFmpeg usa strtod, que depende do locale (vírgula em pt-BR).
-        const int nr = static_cast<int>(std::lround(6 + 34 * std::clamp(strength, 0.0, 1.0)));
-        const QByteArray chain =
-            QStringLiteral("highpass=f=70,afftdn=nr=%1:nf=%2,aformat=sample_fmts=flt:channel_layouts=stereo")
-                .arg(nr)
-                .arg(noiseFloorDb)
-                .toLatin1();
+        const QByteArray chain = filters + ",aresample=" + QByteArray::number(kSampleRate)
+                                 + ",aformat=sample_fmts=flt:channel_layouts=stereo";
         AVFilterInOut *outputs = avfilter_inout_alloc();
         AVFilterInOut *inputs = avfilter_inout_alloc();
         outputs->name = av_strdup("in");
@@ -324,6 +327,122 @@ bool generateDenoised(const QString &mediaPath, const QString &outPath, double s
             *error = QCoreApplication::translate("Engine", "Audio filter failed");
         return false;
     }
+    QFile::remove(outPath);
+    if (!QFile::rename(tmp, outPath))
+        return fail(QCoreApplication::translate("Engine", "Could not write %1").arg(outPath));
+    return true;
+}
+
+namespace {
+
+/**
+ * Latência de uma cadeia de filtros medida pelo início de um estalo: meio segundo de
+ * silêncio e depois ruído forte; a saída começa `latência` amostras depois. Funciona
+ * também para efeitos que mudam a forma de onda (tom, robô), onde a correlação falha.
+ */
+int measureOnsetLatency(const QByteArray &chain)
+{
+    Graph g;
+    if (!g.initChain(chain))
+        return 0;
+    constexpr int kLen = kSampleRate;
+    constexpr int kOnset = kSampleRate / 2;
+    std::vector<float> probe(static_cast<size_t>(kLen) * kChannels, 0.f);
+    std::uint32_t seed = 777;
+    for (int i = kOnset; i < kLen; ++i) {
+        seed = seed * 1664525u + 1013904223u;
+        probe[i * 2] = probe[i * 2 + 1] = (static_cast<float>(seed >> 8) / 16777216.0f - 0.5f) * 0.8f;
+    }
+    std::vector<float> out;
+    runThrough(g, probe.data(), kLen, 0, out);
+    std::vector<float> zeros(static_cast<size_t>(kLen / 2) * kChannels, 0.f);
+    runThrough(g, zeros.data(), kLen / 2, kLen, out);
+    double peak = 0;
+    for (float x : out)
+        peak = std::max(peak, static_cast<double>(std::abs(x)));
+    if (peak <= 0)
+        return 0;
+    for (size_t i = 0; i < out.size() / kChannels; ++i)
+        if (std::abs(out[i * 2]) > peak * 0.05)
+            return std::max(0, static_cast<int>(i) - kOnset);
+    return 0;
+}
+
+} // namespace
+
+bool renderAudioFilter(const QString &inPath, const QString &outPath, const QByteArray &chain,
+                       const std::function<bool(double)> &progress, QString *error)
+{
+    auto fail = [&](const QString &m) {
+        if (error)
+            *error = m;
+        return false;
+    };
+    media::AudioDecoder dec;
+    if (!dec.open(inPath, error))
+        return false;
+    const std::int64_t total = av_rescale(dec.duration(), kSampleRate, kSecond);
+    if (total <= 0)
+        return fail(QCoreApplication::translate("Engine", "Audio has no duration"));
+    const int latency = measureOnsetLatency(chain);
+    Graph g;
+    if (!g.initChain(chain))
+        return fail(QCoreApplication::translate("Engine", "Audio filter failed"));
+
+    QDir().mkpath(QFileInfo(outPath).absolutePath());
+    const QString tmp = outPath + QStringLiteral(".part");
+    QFile out(tmp);
+    if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return fail(out.errorString());
+    out.write(wavHeader(total));
+
+    // A saída vai sendo gravada em ordem: descarta as primeiras `latency` amostras e
+    // completa o fim com a cauda que o filtro devolve ao receber silêncio.
+    std::int64_t skip = latency, written = 0;
+    std::vector<float> chunk, filtered;
+    auto flush = [&]() {
+        size_t from = 0;
+        const auto frames = static_cast<std::int64_t>(filtered.size() / kChannels);
+        if (skip > 0) {
+            const std::int64_t d = std::min(skip, frames);
+            skip -= d;
+            from = static_cast<size_t>(d) * kChannels;
+        }
+        const std::int64_t n = std::min<std::int64_t>((filtered.size() - from) / kChannels, total - written);
+        if (n > 0) {
+            out.write(reinterpret_cast<const char *>(filtered.data() + from), n * kChannels * 4);
+            written += n;
+        }
+        filtered.clear();
+    };
+    constexpr int kChunk = 8192;
+    std::int64_t fed = 0;
+    while (fed < total) {
+        const int n = static_cast<int>(std::min<std::int64_t>(kChunk, total - fed));
+        chunk.resize(static_cast<size_t>(n) * kChannels);
+        dec.read(av_rescale(fed, kSecond, kSampleRate), chunk.data(), n);
+        runThrough(g, chunk.data(), n, fed, filtered);
+        flush();
+        fed += n;
+        if (progress && !progress(static_cast<double>(fed) / total)) {
+            out.close();
+            QFile::remove(tmp);
+            return fail(QCoreApplication::translate("Engine", "Audio processing cancelled"));
+        }
+    }
+    // Cauda: silêncio até o filtro devolver todo o áudio (latência + eco/reverberação).
+    std::vector<float> zeros(static_cast<size_t>(kChunk) * kChannels, 0.f);
+    for (int guard = 0; written < total && guard < 64; ++guard) {
+        runThrough(g, zeros.data(), kChunk, fed, filtered);
+        fed += kChunk;
+        flush();
+    }
+    // Se ainda faltar (filtro que retém demais), completa com silêncio para manter a duração.
+    if (written < total) {
+        std::vector<float> pad(static_cast<size_t>(total - written) * kChannels, 0.f);
+        out.write(reinterpret_cast<const char *>(pad.data()), static_cast<qint64>(pad.size()) * 4);
+    }
+    out.close();
     QFile::remove(outPath);
     if (!QFile::rename(tmp, outPath))
         return fail(QCoreApplication::translate("Engine", "Could not write %1").arg(outPath));

@@ -4,6 +4,7 @@
 #include "core/Evaluate.h"
 #include "core/SpeedCurve.h"
 #include "AudioCleanup.h"
+#include "VoiceEffects.h"
 #include "VoiceIsolation.h"
 
 #include <algorithm>
@@ -27,6 +28,12 @@ media::AudioDecoder *AudioMixer::decoderFor(const Clip &c, const MediaAsset &a)
         const QString clean = registeredDenoised(a.path, c.denoise);
         if (!clean.isEmpty())
             path = clean;
+    }
+    // Efeito de voz sobre a melhor versão disponível (isolada, limpa ou original).
+    if (!c.voiceEffect.isEmpty()) {
+        const QString fx = registeredEffect(path, c.voiceEffect);
+        if (!fx.isEmpty())
+            path = fx;
     }
     Entry &e = m_decoders[c.id];
     if (e.path != path) {

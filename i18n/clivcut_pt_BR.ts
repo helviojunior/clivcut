@@ -351,6 +351,10 @@
         <translation>Falha no filtro de áudio</translation>
     </message>
     <message>
+        <source>Audio processing cancelled</source>
+        <translation>Processamento de áudio cancelado</translation>
+    </message>
+    <message>
         <source>This build was compiled without ONNX Runtime</source>
         <translation>Este build foi compilado sem ONNX Runtime</translation>
     </message>
@@ -373,6 +377,10 @@
     <message>
         <source>AI model error: %1</source>
         <translation>Erro no modelo de IA: %1</translation>
+    </message>
+    <message>
+        <source>Unknown voice effect: %1</source>
+        <translation>Efeito de voz desconhecido: %1</translation>
     </message>
 </context>
 <context>
@@ -1070,6 +1078,18 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
     <message>
         <source>Removes hiss, hum and constant background noise. Processing runs in the background.</source>
         <translation>Remove chiado, zumbido e ruído de fundo constante. O processamento roda em segundo plano.</translation>
+    </message>
+    <message>
+        <source>Voice effect</source>
+        <translation>Efeito de voz</translation>
+    </message>
+    <message>
+        <source>Applying the effect… %1%</source>
+        <translation>Aplicando o efeito… %1%</translation>
+    </message>
+    <message>
+        <source>✓ Effect in use</source>
+        <translation>✓ Efeito em uso</translation>
     </message>
     <message>
         <source>Duck under voice</source>
@@ -2550,6 +2570,10 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
         <translation>Zerar correção de cor</translation>
     </message>
     <message>
+        <source>Voice effect failed: %1</source>
+        <translation>Falha no efeito de voz: %1</translation>
+    </message>
+    <message>
         <source>Isolating voice in %1…</source>
         <translation>Isolando a voz em %1…</translation>
     </message>
@@ -3066,6 +3090,37 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
     <message>
         <source>Save</source>
         <translation>Salvar</translation>
+    </message>
+</context>
+<context>
+    <name>VoiceEffects</name>
+    <message>
+        <source>Echo</source>
+        <translation>Eco</translation>
+    </message>
+    <message>
+        <source>Hall reverb</source>
+        <translation>Reverberação de salão</translation>
+    </message>
+    <message>
+        <source>Robot</source>
+        <translation>Robô</translation>
+    </message>
+    <message>
+        <source>High pitch</source>
+        <translation>Voz aguda</translation>
+    </message>
+    <message>
+        <source>Deep voice</source>
+        <translation>Voz grave</translation>
+    </message>
+    <message>
+        <source>Telephone</source>
+        <translation>Telefone</translation>
+    </message>
+    <message>
+        <source>Old radio</source>
+        <translation>Rádio antigo</translation>
     </message>
 </context>
 <context>

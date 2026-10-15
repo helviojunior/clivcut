@@ -14,6 +14,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <clocale>
+
 class ControllerTest : public QObject {
     Q_OBJECT
 
@@ -32,6 +34,7 @@ class ControllerTest : public QObject {
 private slots:
     void initTestCase()
     {
+        std::setlocale(LC_NUMERIC, "C"); // como o app: o FFmpeg lê números com strtod
         if (QStandardPaths::findExecutable(QStringLiteral("ffmpeg")).isEmpty())
             QSKIP("ffmpeg não encontrado");
         m_video = m_dir.filePath(QStringLiteral("v.mp4"));

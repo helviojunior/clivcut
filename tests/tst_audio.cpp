@@ -4,6 +4,7 @@
 #include "engine/AudioCleanup.h"
 #include "engine/AudioMixer.h"
 #include "engine/TimeStretch.h"
+#include "engine/VoiceEffects.h"
 #include "engine/VoiceIsolation.h"
 #include "engine/Silence.h"
 #include "media/AudioDecoder.h"
@@ -16,6 +17,8 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <clocale>
 
 #include <cmath>
 
@@ -64,6 +67,7 @@ class AudioTest : public QObject {
 private slots:
     void initTestCase()
     {
+        std::setlocale(LC_NUMERIC, "C"); // como o app: o FFmpeg lê números com strtod
         if (QStandardPaths::findExecutable(QStringLiteral("ffmpeg")).isEmpty())
             QSKIP("ffmpeg não encontrado");
         qputenv("CLIVCUT_CACHE_DIR", m_dir.filePath(QStringLiteral("cache")).toUtf8());
@@ -275,6 +279,33 @@ private slots:
         QVERIFY2(underVoice < 0.25, qPrintable(QString::number(underVoice)));
         const double after = level440(p, 4.4, 4.9) / quiet;       // voz parou há mais de 1 s
         QVERIFY2(after > 0.8, qPrintable(QString::number(after)));
+    }
+
+    void voiceEffects()
+    {
+        // 1 s de silêncio e depois 2 s de "voz" (harmônicos de 150 Hz).
+        const QString in = m_dir.filePath(QStringLiteral("efeito.wav"));
+        QProcess proc;
+        proc.start(QStringLiteral("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                                              "aevalsrc=(0.3*sin(2*PI*150*t)+0.15*sin(2*PI*300*t)+0.1*sin(2*PI*450*t))*gte(t\\,1):d=3:s=48000",
+                                              "-ac", "2", in});
+        QVERIFY(proc.waitForFinished(60000) && proc.exitCode() == 0);
+        MediaAsset src;
+        QVERIFY(media::probe(in, src));
+        for (const auto &fx : engine::voiceEffects()) {
+            const QString out = engine::effectPathFor(in, fx.id);
+            QString err;
+            QVERIFY2(engine::generateEffect(in, fx.id, out, {}, &err), qPrintable(fx.id + QStringLiteral(": ") + err));
+            MediaAsset res;
+            QVERIFY(media::probe(out, res));
+            QVERIFY2(std::abs(res.duration - src.duration) < 20'000, qPrintable(fx.id));
+            const auto y = readMono(out, 0, 3 * 48000);
+            // Silêncio antes de 1 s (com folga para a subida) e som depois: a latência foi compensada.
+            const double before = rms(std::vector<float>(y.begin(), y.begin() + 45'000));
+            const double after = rms(std::vector<float>(y.begin() + 54'000, y.begin() + 140'000));
+            QVERIFY2(after > 0.01, qPrintable(fx.id + QStringLiteral(" mudo: ") + QString::number(after)));
+            QVERIFY2(before < after * 0.1, qPrintable(fx.id + QStringLiteral(" adiantado: ") + QString::number(before)));
+        }
     }
 
     void silenceDetection()

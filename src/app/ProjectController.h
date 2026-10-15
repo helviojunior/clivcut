@@ -89,6 +89,8 @@ class ProjectController : public QObject {
     Q_PROPERTY(bool transcriptStale READ transcriptStale NOTIFY transcriptChanged)
     /// Escopos visíveis: o player passa a enviar quadros reduzidos (scopeFrame).
     Q_PROPERTY(bool scopesEnabled READ scopesEnabled WRITE setScopesEnabled NOTIFY scopesChanged)
+    /// Efeitos de voz disponíveis: [{id, name}].
+    Q_PROPERTY(QVariantList voiceEffects READ voiceEffects NOTIFY languageChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     // Legendas automáticas
     Q_PROPERTY(bool transcriptionAvailable READ transcriptionAvailable CONSTANT)
@@ -170,6 +172,7 @@ public:
     double silenceProgress() const { return m_silenceProgress; }
     QVariantList transcript() const { return m_transcript; }
     bool scopesEnabled() const { return m_scopesEnabled; }
+    QVariantList voiceEffects() const;
     void setScopesEnabled(bool on);
     /// Chamado pela thread de renderização com o quadro composto reduzido.
     void setScopeFrame(const QImage &img);
@@ -405,6 +408,10 @@ private:
     void startNextMatte();
     void refreshVoice();
     void startNextVoice();
+    void refreshEffects();
+    void startNextEffect();
+    /// Áudio que o mixer usa antes do efeito: voz isolada, limpo ou o original.
+    QString audioSourceFor(const clv::Clip &c, const clv::MediaAsset &a) const;
     void startExport(const clv::engine::ExportOptions &opts);
     void refreshRenderCache();
     void enqueueProxy(const QString &mediaPath);
@@ -470,6 +477,10 @@ private:
     bool m_rendering = false;
     double m_renderProgress = 0;
     std::shared_ptr<std::atomic<bool>> m_renderCancel = std::make_shared<std::atomic<bool>>(false); ///< para retraduzir a interface ao trocar o idioma
+    QStringList m_effectQueue;      ///< "fonte|efeito" aguardando processamento
+    QString m_effectBuilding;
+    double m_effectProgress = 0;
+    std::shared_ptr<std::atomic<bool>> m_effectCancel = std::make_shared<std::atomic<bool>>(false);
     QStringList m_voiceQueue;       ///< "caminho|intensidade" aguardando isolamento de voz
     QString m_voiceBuilding;
     double m_voiceProgress = 0;

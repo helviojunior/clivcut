@@ -348,6 +348,8 @@ QJsonObject clipToJson(const Clip &c)
         o.insert("voiceIsolation", c.voiceIsolation);
     if (c.ducking > 0)
         o.insert("ducking", c.ducking);
+    if (!c.voiceEffect.isEmpty())
+        o.insert("voiceEffect", c.voiceEffect);
     if (c.audioOnly)
         o.insert("audioOnly", true);
     o.insert("fadeIn", us(c.fadeIn));
@@ -436,6 +438,7 @@ Clip clipFromJson(const QJsonObject &o)
     c.keepPitch = o.value("keepPitch").toBool(true);
     c.voiceIsolation = std::clamp(o.value("voiceIsolation").toDouble(), 0.0, 1.0);
     c.ducking = std::clamp(o.value("ducking").toDouble(), 0.0, 1.0);
+    c.voiceEffect = o.value("voiceEffect").toString();
     c.audioOnly = o.value("audioOnly").toBool();
     c.fadeIn = toUs(o.value("fadeIn"));
     c.fadeOut = toUs(o.value("fadeOut"));

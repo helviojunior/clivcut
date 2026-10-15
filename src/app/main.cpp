@@ -17,6 +17,8 @@
 #include <QTimer>
 #include <QUrl>
 
+#include <clocale>
+
 int main(int argc, char **argv)
 {
     // Se o Qt Quick usar OpenGL, precisa de 3.3 Core (shaders GLSL 330 com texturas 3D).
@@ -27,6 +29,9 @@ int main(int argc, char **argv)
         QSurfaceFormat::setDefaultFormat(fmt);
     }
     QGuiApplication app(argc, argv);
+    // O QGuiApplication adota o locale do sistema; o FFmpeg lê os números das cadeias de filtros
+    // com strtod, que em pt_BR esperaria vírgula. Números do processo ficam no formato "C".
+    std::setlocale(LC_NUMERIC, "C");
     clv::media::quietFFmpegLogs();
     QGuiApplication::setApplicationName(QStringLiteral("clivcut"));
     QGuiApplication::setOrganizationName(QStringLiteral("clivcut"));
