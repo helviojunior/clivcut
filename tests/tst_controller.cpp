@@ -557,6 +557,51 @@ private slots:
         QCOMPARE(m_ctrl->duration(), before);
     }
 
+    void transcriptWorkflow()
+    {
+#ifndef CLIVCUT_WHISPER_SAMPLES
+        QSKIP("build sem whisper.cpp");
+#else
+        if (!clv::engine::whisperModelInstalled(QStringLiteral("tiny")))
+            QSKIP("modelo tiny ausente");
+        m_ctrl->newProject(1280, 720, 30);
+        m_ctrl->importMedia({QUrl::fromLocalFile(QStringLiteral(CLIVCUT_WHISPER_SAMPLES "/jfk.wav"))});
+        m_ctrl->addAssetToTimeline(m_ctrl->assets().first().toMap().value("id").toString(), -1, 0.0);
+        const double before = m_ctrl->duration();
+        m_ctrl->generateTranscript(QStringLiteral("tiny"), QStringLiteral("en"));
+        QTRY_VERIFY_WITH_TIMEOUT(!m_ctrl->transcribing(), 60000);
+        const QVariantList words = m_ctrl->transcript();
+        QVERIFY2(words.size() > 15, qPrintable(QString::number(words.size())));
+        QVERIFY(!m_ctrl->transcriptStale());
+        // Uma palavra por item, com tempos crescentes.
+        int ask = -1;
+        for (int i = 0; i < words.size(); ++i) {
+            const auto w = words[i].toMap();
+            QVERIFY(!w.value("text").toString().contains(QLatin1Char(' ')));
+            if (i > 0)
+                QVERIFY(w.value("start").toDouble() >= words[i - 1].toMap().value("start").toDouble());
+            if (ask < 0 && w.value("text").toString().compare(QStringLiteral("ask"), Qt::CaseInsensitive) == 0)
+                ask = i;
+        }
+        QVERIFY(ask > 0 && ask + 1 < words.size());
+
+        // Remover "ask" corta do início dela ao início da palavra seguinte.
+        const double cut = words[ask + 1].toMap().value("start").toDouble() - words[ask].toMap().value("start").toDouble();
+        QVERIFY(m_ctrl->removeTranscriptWords({ask}));
+        QVERIFY(std::abs(m_ctrl->duration() - (before - cut)) < 2000);
+        QCOMPARE(m_ctrl->transcript().size(), words.size() - 1);
+        QCOMPARE(m_ctrl->transcript()[ask].toMap().value("start").toDouble(), words[ask].toMap().value("start").toDouble());
+        QVERIFY(!m_ctrl->transcriptStale());
+
+        // Outra edição deixa a transcrição desatualizada e bloqueia cortes por texto.
+        m_ctrl->addMarker();
+        QVERIFY(m_ctrl->transcriptStale());
+        QVERIFY(!m_ctrl->removeTranscriptWords({0}));
+        m_ctrl->clearTranscript();
+        QVERIFY(m_ctrl->transcript().isEmpty());
+#endif
+    }
+
     void captionsWorkflow()
     {
 #ifndef CLIVCUT_WHISPER_SAMPLES

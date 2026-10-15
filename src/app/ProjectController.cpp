@@ -44,6 +44,7 @@
 #include <QNetworkReply>
 #include <QSaveFile>
 #include <QOffscreenSurface>
+#include <QRegularExpression>
 #include <QSet>
 #include <QSettings>
 #include <QStandardPaths>
@@ -190,6 +191,8 @@ void ProjectController::commitChange()
     refreshMattes();
     refreshVoice();
     m_cacheTimer.start();
+    if (!m_transcript.isEmpty())
+        emit transcriptChanged(); // pode ter ficado desatualizada
     emit projectChanged();
     emit selectedClipChanged();
     emit historyChanged();
@@ -2658,6 +2661,145 @@ bool ProjectController::removeTimeRanges(const QVariantList &ranges, const QStri
     }
     return edit(label.isEmpty() ? tr("Remove ranges") : label,
                 [&](Project &p) { return edit::removeRanges(p, list) > 0; });
+}
+
+// ---------------------------------------------------------------------------
+// Edição pela transcrição
+
+void ProjectController::generateTranscript(const QString &modelId, const QString &language)
+{
+    if (m_transcribing)
+        return;
+    if (!engine::whisperModelInstalled(modelId)) {
+        emit errorOccurred(tr("Download the model before transcribing"));
+        return;
+    }
+    pause();
+    engine::TranscribeOptions opts;
+    opts.modelPath = engine::whisperModelPath(modelId);
+    opts.language = language.isEmpty() ? QStringLiteral("auto") : language;
+    opts.maxChars = 1; // um segmento por palavra
+    m_transcribing = true;
+    m_transcribeProgress = 0;
+    m_cancelTranscription = false;
+    emit transcribeChanged();
+
+    auto snap = snapshot();
+    const quint64 revision = m_revisionCounter;
+    std::thread([this, snap, opts, revision] {
+        std::vector<CaptionSegment> words;
+        QString err;
+        const bool ok = engine::transcribeProject(
+            *snap, opts,
+            [this](double f) {
+                QMetaObject::invokeMethod(this, [this, f] {
+                    m_transcribeProgress = f;
+                    emit transcribeChanged();
+                }, Qt::QueuedConnection);
+                return !m_cancelTranscription.load();
+            },
+            words, &err);
+        QMetaObject::invokeMethod(this, [this, ok, err, words = std::move(words), revision] {
+            m_transcribing = false;
+            emit transcribeChanged();
+            if (!ok) {
+                if (!m_cancelTranscription)
+                    emit errorOccurred(err);
+                return;
+            }
+            if (words.empty()) {
+                emit errorOccurred(tr("No speech recognized"));
+                return;
+            }
+            m_transcript.clear();
+            for (const auto &w : words)
+                m_transcript << QVariantMap{{"start", static_cast<double>(w.start)},
+                                            {"end", static_cast<double>(w.end)},
+                                            {"text", w.text}};
+            m_transcriptRevision = revision;
+            emit transcriptChanged();
+            setStatus(tr("%n word(s) transcribed", nullptr, static_cast<int>(words.size())));
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+bool ProjectController::removeTranscriptWords(const QVariantList &indices)
+{
+    if (m_transcript.isEmpty() || transcriptStale())
+        return false;
+    QList<int> idx;
+    for (const auto &v : indices)
+        if (v.toInt() >= 0 && v.toInt() < m_transcript.size())
+            idx << v.toInt();
+    std::sort(idx.begin(), idx.end());
+    idx.erase(std::unique(idx.begin(), idx.end()), idx.end());
+    if (idx.isEmpty())
+        return false;
+    // Palavras consecutivas viram um corte só, do início da primeira ao início da seguinte
+    // (leva junto a pausa entre elas e evita sobrar meia sílaba).
+    std::vector<std::pair<Micros, Micros>> ranges;
+    auto wordAt = [&](int i) { return m_transcript.at(i).toMap(); };
+    for (int k = 0; k < idx.size();) {
+        const int first = idx[k];
+        int last = first;
+        while (k + 1 < idx.size() && idx[k + 1] == last + 1)
+            last = idx[++k];
+        ++k;
+        const auto a = static_cast<Micros>(wordAt(first).value("start").toDouble());
+        const auto b = static_cast<Micros>(last + 1 < m_transcript.size() ? wordAt(last + 1).value("start").toDouble()
+                                                                         : wordAt(last).value("end").toDouble());
+        ranges.emplace_back(a, std::max(a, b));
+    }
+    QVariantList rangeList;
+    for (const auto &[a, b] : ranges)
+        rangeList << QVariantMap{{"start", static_cast<double>(a)}, {"end", static_cast<double>(b)}};
+    if (!removeTimeRanges(rangeList, tr("Remove words")))
+        return false;
+
+    // Atualiza a transcrição sem transcrever de novo: tira as palavras e recua as seguintes.
+    QVariantList updated;
+    for (int i = 0; i < m_transcript.size(); ++i) {
+        if (idx.contains(i))
+            continue;
+        QVariantMap w = m_transcript.at(i).toMap();
+        Micros shift = 0;
+        for (const auto &[a, b] : ranges)
+            if (static_cast<Micros>(w.value("start").toDouble()) >= b)
+                shift += b - a;
+        w["start"] = w.value("start").toDouble() - static_cast<double>(shift);
+        w["end"] = w.value("end").toDouble() - static_cast<double>(shift);
+        updated << w;
+    }
+    m_transcript = updated;
+    m_transcriptRevision = m_revisionCounter;
+    emit transcriptChanged();
+    setStatus(tr("%n word(s) removed", nullptr, static_cast<int>(idx.size())));
+    return true;
+}
+
+QVariantList ProjectController::fillerWordIndices() const
+{
+    // Hesitações comuns em inglês, português e espanhol (sem pontuação, minúsculas).
+    static const QSet<QString> fillers{
+        QStringLiteral("um"),  QStringLiteral("uh"),  QStringLiteral("uhm"), QStringLiteral("umm"), QStringLiteral("uhh"),
+        QStringLiteral("er"),  QStringLiteral("erm"), QStringLiteral("ah"),  QStringLiteral("ahh"), QStringLiteral("eh"),
+        QStringLiteral("hmm"), QStringLiteral("hm"),  QStringLiteral("mm"),  QStringLiteral("mhm"), QStringLiteral("é"),
+        QStringLiteral("éé"),  QStringLiteral("ééé"), QStringLiteral("ã"),   QStringLiteral("ãh"),  QStringLiteral("ahn"),
+        QStringLiteral("hum"), QStringLiteral("eee"), QStringLiteral("ehh")};
+    QVariantList out;
+    for (int i = 0; i < m_transcript.size(); ++i) {
+        QString w = m_transcript.at(i).toMap().value("text").toString().toLower();
+        w.remove(QRegularExpression(QStringLiteral("[^\\p{L}]")));
+        if (fillers.contains(w))
+            out << i;
+    }
+    return out;
+}
+
+void ProjectController::clearTranscript()
+{
+    m_transcript.clear();
+    emit transcriptChanged();
 }
 
 // ---------------------------------------------------------------------------

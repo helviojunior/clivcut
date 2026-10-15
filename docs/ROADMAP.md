@@ -46,7 +46,7 @@
 | 7 | Object tracking | ⬜ | |
 | 8 | Stabilization (vid.stab) | ⬜ | |
 | 9 | Audio cleanup | 🟡 | noise reduction (afftdn), loudness normalization (EBU R128) and AI voice isolation (DeepFilterNet3) done; music/stem separation (Demucs) missing |
-| 10 | Transcript-based editing and silence removal | 🟡 | silence removal done (preview on the ruler, ripple cut across all tracks); transcript-based editing missing |
+| 10 | Transcript-based editing and silence removal | ✅ | word-level transcript panel (whisper.cpp) where deleting words cuts the video with ripple, filler-word selection, and silence removal with a preview on the ruler |
 | 11 | Local TTS (Piper) | ⬜ | |
 | 12 | Stickers and shapes, curved text, per-character styles | ⬜ | |
 | 13 | Shader-based video effects (glitch, shake, blur, VHS, glow, particles) and more transitions | ⬜ | |

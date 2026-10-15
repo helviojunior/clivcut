@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     // CLIVCUT_SCREENSHOT_PANEL=índice do painel lateral, CLIVCUT_SCREENSHOT_TAB=aba do inspetor,
     // CLIVCUT_SCREENSHOT_PALETTE=1 (abre a paleta de comandos), CLIVCUT_SCREENSHOT_EXPORT=aba do diálogo de exportação,
     // CLIVCUT_SCREENSHOT_SHORTCUTS=1 (abre o editor de atalhos), CLIVCUT_SCREENSHOT_RENDER=1 (renderiza a pré-visualização),
-    // CLIVCUT_SCREENSHOT_OPEN=objectName de um diálogo para abrir.
+    // CLIVCUT_SCREENSHOT_OPEN=objectName de um diálogo para abrir, CLIVCUT_SCREENSHOT_TRANSCRIBE=modelo (transcreve em inglês).
     const QString shot = qEnvironmentVariable("CLIVCUT_SCREENSHOT");
     if (!shot.isEmpty() && !engine.rootObjects().isEmpty()) {
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
@@ -84,6 +84,10 @@ int main(int argc, char **argv)
             delay = 2500;
         if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_SEEK"))
             controller.seek(qEnvironmentVariable("CLIVCUT_SCREENSHOT_SEEK").toDouble());
+        if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_TRANSCRIBE"))
+            QTimer::singleShot(500, &controller, [&controller] {
+                controller.generateTranscript(qEnvironmentVariable("CLIVCUT_SCREENSHOT_TRANSCRIBE"), QStringLiteral("en"));
+            });
         if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_RENDER"))
             QTimer::singleShot(500, &controller, [&controller] { controller.renderPreview(); });
         if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_SELECT")) {

@@ -29,7 +29,7 @@ Rectangle {
             Layout.bottomMargin: 4
             Text {
                 Layout.fillWidth: true
-                text: [qsTr("Media"), qsTr("Text"), qsTr("Captions"), qsTr("Filters"), qsTr("Transitions"), qsTr("Animations")][root.section]
+                text: [qsTr("Media"), qsTr("Text"), qsTr("Captions"), qsTr("Filters"), qsTr("Transitions"), qsTr("Animations"), qsTr("Transcript")][root.section]
                 color: Theme.text
                 font.pixelSize: Theme.fontLarge
                 font.bold: true
@@ -456,6 +456,9 @@ Rectangle {
                     }
                 }
             }
+        
+            // ---------------- Transcrição ----------------
+            TranscriptPanel {}
         }
     }
 }

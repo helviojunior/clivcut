@@ -28,6 +28,10 @@
         <translation>Animaciones</translation>
     </message>
     <message>
+        <source>Transcript</source>
+        <translation>Transcripción</translation>
+    </message>
+    <message>
         <source>Keyboard shortcuts</source>
         <translation>Atajos de teclado</translation>
     </message>
@@ -1427,6 +1431,10 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <translation>Panel: Animaciones</translation>
     </message>
     <message>
+        <source>Panel: Transcript</source>
+        <translation>Panel: Transcripción</translation>
+    </message>
+    <message>
         <source>File</source>
         <translation>Archivo</translation>
     </message>
@@ -1630,6 +1638,10 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Animations</source>
         <translation>Animaciones</translation>
+    </message>
+    <message>
+        <source>Transcript</source>
+        <translation>Transcripción</translation>
     </message>
     <message>
         <source>Import media</source>
@@ -2373,6 +2385,28 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <translation>Quitar tramos</translation>
     </message>
     <message>
+        <source>Download the model before transcribing</source>
+        <translation>Descarga el modelo antes de transcribir</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n word(s) transcribed</source>
+        <translation>
+            <numerusform>%n palabra transcrita</numerusform>
+            <numerusform>%n palabras transcritas</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Remove words</source>
+        <translation>Quitar palabras</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n word(s) removed</source>
+        <translation>
+            <numerusform>%n palabra quitada</numerusform>
+            <numerusform>%n palabras quitadas</numerusform>
+        </translation>
+    </message>
+    <message>
         <source>Isolating voice in %1…</source>
         <translation>Aislando la voz en %1…</translation>
     </message>
@@ -2800,6 +2834,72 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Captions</source>
         <translation>Subtítulos</translation>
+    </message>
+</context>
+<context>
+    <name>TranscriptPanel</name>
+    <message>
+        <source>Detect automatically</source>
+        <translation>Detectar automáticamente</translation>
+    </message>
+    <message>
+        <source>This build was compiled without whisper.cpp.</source>
+        <translation>Esta versión se compiló sin whisper.cpp.</translation>
+    </message>
+    <message>
+        <source>Transcribe the timeline to edit the video by its text: deleting words cuts that part of the video, with ripple.</source>
+        <translation>Transcribe la línea de tiempo para editar el vídeo por su texto: borrar palabras corta esa parte del vídeo y cierra el hueco.</translation>
+    </message>
+    <message>
+        <source>Click a word to jump to it; Shift and Ctrl select more. Delete removes the selected words from the video.</source>
+        <translation>Haz clic en una palabra para ir a ella; Mayús y Ctrl seleccionan más. Supr quita del vídeo las palabras seleccionadas.</translation>
+    </message>
+    <message>
+        <source>Language</source>
+        <translation>Idioma</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>Modelo</translation>
+    </message>
+    <message>
+        <source>No model installed</source>
+        <translation>Ningún modelo instalado</translation>
+    </message>
+    <message>
+        <source>Download a speech recognition model in the Captions panel first.</source>
+        <translation>Descarga primero un modelo de reconocimiento de voz en el panel Subtítulos.</translation>
+    </message>
+    <message>
+        <source>The timeline changed after the transcription. Transcribe again before cutting by text.</source>
+        <translation>La línea de tiempo cambió después de la transcripción. Vuelve a transcribir antes de cortar por texto.</translation>
+    </message>
+    <message>
+        <source>Transcribe timeline</source>
+        <translation>Transcribir la línea de tiempo</translation>
+    </message>
+    <message>
+        <source>Transcribe again</source>
+        <translation>Transcribir de nuevo</translation>
+    </message>
+    <message numerus="yes">
+        <source>Remove %n word(s)</source>
+        <translation>
+            <numerusform>Quitar %n palabra</numerusform>
+            <numerusform>Quitar %n palabras</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Quitar</translation>
+    </message>
+    <message>
+        <source>Select fillers</source>
+        <translation>Seleccionar muletillas</translation>
+    </message>
+    <message>
+        <source>Close transcript</source>
+        <translation>Cerrar transcripción</translation>
     </message>
 </context>
 <context>

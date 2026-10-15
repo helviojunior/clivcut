@@ -82,6 +82,10 @@ class ProjectController : public QObject {
     Q_PROPERTY(QVariantList silences READ silences NOTIFY silencesChanged)
     Q_PROPERTY(bool analyzingSilences READ analyzingSilences NOTIFY silencesChanged)
     Q_PROPERTY(double silenceProgress READ silenceProgress NOTIFY silencesChanged)
+    /// Transcrição palavra a palavra da timeline: [{start, end, text}] em µs.
+    Q_PROPERTY(QVariantList transcript READ transcript NOTIFY transcriptChanged)
+    /// O projeto mudou por outra edição depois da transcrição: os tempos podem não bater.
+    Q_PROPERTY(bool transcriptStale READ transcriptStale NOTIFY transcriptChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     // Legendas automáticas
     Q_PROPERTY(bool transcriptionAvailable READ transcriptionAvailable CONSTANT)
@@ -161,6 +165,8 @@ public:
     QVariantList silences() const { return m_silences; }
     bool analyzingSilences() const { return m_analyzingSilences; }
     double silenceProgress() const { return m_silenceProgress; }
+    QVariantList transcript() const { return m_transcript; }
+    bool transcriptStale() const { return !m_transcript.isEmpty() && m_transcriptRevision != m_revisionCounter; }
     /// Estado do cache lido pela pré-visualização (thread de renderização).
     std::shared_ptr<const clv::engine::RenderCacheView> renderCacheView() const;
     QStringList audioFormats() const;
@@ -287,6 +293,13 @@ public:
     Q_INVOKABLE void clearSilences();
     /// Remove trechos [{start, end}] de todas as faixas, com ripple (edição por transcrição).
     Q_INVOKABLE bool removeTimeRanges(const QVariantList &ranges, const QString &label = {});
+    /// Transcreve a timeline palavra a palavra (whisper.cpp) para editar pelo texto.
+    Q_INVOKABLE void generateTranscript(const QString &modelId, const QString &language);
+    /// Corta da timeline o trecho das palavras indicadas (índices em `transcript`), com ripple.
+    Q_INVOKABLE bool removeTranscriptWords(const QVariantList &indices);
+    /// Índices das palavras de hesitação ("hum", "é…", "uh", "um"...).
+    Q_INVOKABLE QVariantList fillerWordIndices() const;
+    Q_INVOKABLE void clearTranscript();
     Q_INVOKABLE void cancelExport();
 
     // --- legendas ---
@@ -356,6 +369,7 @@ signals:
     void languageChanged();
     void renderCacheChanged();
     void silencesChanged();
+    void transcriptChanged();
     void recentProjectsChanged();
 
 private:
@@ -424,6 +438,8 @@ private:
     std::shared_ptr<std::atomic<bool>> m_denoiseCancel = std::make_shared<std::atomic<bool>>(false);
     QQmlEngine *m_engine = nullptr;
     int m_previewResolution = 1280;
+    QVariantList m_transcript;
+    quint64 m_transcriptRevision = 0;
     QVariantList m_silences;
     quint64 m_silenceRevision = 0;
     bool m_analyzingSilences = false;
