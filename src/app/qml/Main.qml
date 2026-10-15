@@ -165,6 +165,7 @@ ApplicationWindow {
 
         Timeline {
             id: timeline
+            onSilencesRequested: silenceDialog.open()
             SplitView.preferredHeight: Math.max(220, window.height * 0.36)
             SplitView.minimumHeight: 160
         }
@@ -246,6 +247,7 @@ ApplicationWindow {
         zoomIn: () => timeline.zoomBy(1.25),
         zoomOut: () => timeline.zoomBy(0.8),
         zoomFit: () => { timeline.userZoomed = false; timeline.zoomToFit() },
+        removeSilences: () => silenceDialog.open(),
         renderPreview: () => Project.renderingPreview ? Project.cancelRenderPreview() : Project.renderPreview(),
         clearRenderCache: () => Project.clearRenderCache(),
         palette: () => commandPalette.open(),
@@ -270,7 +272,7 @@ ApplicationWindow {
         paste: "copy", group: "link", ungroup: "link", detachAudio: "audio-lines", freeze: "snowflake", addText: "type",
         selectAll: "layers", marker: "bookmark", markIn: "arrow-right-to-line", markOut: "arrow-left-to-line",
         clearInOut: "x", goIn: "skip-back", goOut: "skip-forward", snapping: "crosshair", magnet: "magnet",
-        zoomIn: "zoom-in", zoomOut: "zoom-out", zoomFit: "maximize-2", renderPreview: "zap", clearRenderCache: "trash-2", shortcuts: "keyboard", panel0: "image-play",
+        zoomIn: "zoom-in", zoomOut: "zoom-out", zoomFit: "maximize-2", renderPreview: "zap", removeSilences: "scissors-line-dashed", clearRenderCache: "trash-2", shortcuts: "keyboard", panel0: "image-play",
         panel1: "type", panel2: "captions", panel3: "palette", panel4: "arrow-right-left", panel5: "sparkles",
         newProject: "file-plus-2", open: "folder-open", save: "download", saveAs: "download", import: "plus", export: "upload"
     })
@@ -371,6 +373,7 @@ ApplicationWindow {
         ].concat(Project.languages.map(l => ({ name: qsTr("Language: %1").arg(l.name), shortcut: "", icon: "languages",
                                                 run: () => Project.language = l.code }))))
     }
+    SilenceDialog { id: silenceDialog; objectName: "silenceDialog"; parent: Overlay.overlay }
     ShortcutsDialog { id: shortcutsDialog; objectName: "shortcutsDialog"; parent: Overlay.overlay }
     NewProjectDialog { id: newDialog }
 

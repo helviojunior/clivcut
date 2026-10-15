@@ -73,7 +73,8 @@ int main(int argc, char **argv)
     // CLIVCUT_SCREENSHOT_DELAY=ms, CLIVCUT_SCREENSHOT_SEEK=µs, CLIVCUT_SCREENSHOT_SELECT=1 (seleciona 1º clipe),
     // CLIVCUT_SCREENSHOT_PANEL=índice do painel lateral, CLIVCUT_SCREENSHOT_TAB=aba do inspetor,
     // CLIVCUT_SCREENSHOT_PALETTE=1 (abre a paleta de comandos), CLIVCUT_SCREENSHOT_EXPORT=aba do diálogo de exportação,
-    // CLIVCUT_SCREENSHOT_SHORTCUTS=1 (abre o editor de atalhos), CLIVCUT_SCREENSHOT_RENDER=1 (renderiza a pré-visualização).
+    // CLIVCUT_SCREENSHOT_SHORTCUTS=1 (abre o editor de atalhos), CLIVCUT_SCREENSHOT_RENDER=1 (renderiza a pré-visualização),
+    // CLIVCUT_SCREENSHOT_OPEN=objectName de um diálogo para abrir.
     const QString shot = qEnvironmentVariable("CLIVCUT_SCREENSHOT");
     if (!shot.isEmpty() && !engine.rootObjects().isEmpty()) {
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
@@ -109,6 +110,10 @@ int main(int argc, char **argv)
             if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_PALETTE"))
                 if (auto *palette = window->findChild<QObject *>(QStringLiteral("commandPalette")))
                     QMetaObject::invokeMethod(palette, "open");
+            const QString openName = qEnvironmentVariable("CLIVCUT_SCREENSHOT_OPEN");
+            if (!openName.isEmpty())
+                if (auto *dialog = window->findChild<QObject *>(openName))
+                    QMetaObject::invokeMethod(dialog, "open");
             if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_SHORTCUTS"))
                 if (auto *dialog = window->findChild<QObject *>(QStringLiteral("shortcutsDialog")))
                     QMetaObject::invokeMethod(dialog, "open");

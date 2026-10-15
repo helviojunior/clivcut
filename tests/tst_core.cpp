@@ -38,6 +38,35 @@ class CoreTest : public QObject {
     Q_OBJECT
 
 private slots:
+    void removeRangesRipples()
+    {
+        // Vídeo de 10 s na principal, texto de 4 a 8 s em cima, marcador em 9 s.
+        Project p = createProject();
+        auto a = videoAsset(p);
+        edit::insertClip(p, createMediaClip(a, 0), 0);
+        auto t = createTextClip(QStringLiteral("x"), 4 * kSecond);
+        t.duration = 4 * kSecond;
+        edit::insertClip(p, t, -1);
+        p.markers.push_back({newId("mrk"), 9 * kSecond, {}, QStringLiteral("#fff")});
+        p.outPoint = 9 * kSecond;
+        // Dois cortes (fora de ordem e um vazio): 1–2 s e 5–6 s.
+        const Micros removed = edit::removeRanges(p, {{5 * kSecond, 6 * kSecond}, {1 * kSecond, 2 * kSecond}, {3 * kSecond, 3 * kSecond}});
+        QCOMPARE(removed, 2 * kSecond);
+        QCOMPARE(p.duration(), 8 * kSecond);
+        QCOMPARE(p.tracks[0].clips.size(), size_t(3)); // 0–1, 2–5, 6–10 da fonte
+        QCOMPARE(p.tracks[0].clips[1].sourceIn, 2 * kSecond);
+        QCOMPARE(p.tracks[0].clips[2].start, 4 * kSecond);
+        QCOMPARE(p.tracks[0].clips[2].sourceIn, 6 * kSecond);
+        // Texto 4–8 perde 5–6 e recua 1 s: 3–4 e 4–6.
+        Micros textLen = 0;
+        for (const auto &c : p.tracks[1].clips)
+            textLen += c.duration;
+        QCOMPARE(textLen, 3 * kSecond);
+        QCOMPARE(p.tracks[1].clips.front().start, 3 * kSecond);
+        QCOMPARE(p.markers.front().t, 7 * kSecond);
+        QCOMPARE(p.outPoint, 7 * kSecond);
+    }
+
     void keyframeInterpolation()
     {
         std::vector<Keyframe> k{{0, 0, Easing::Linear}, {kSecond, 10, Easing::Linear}};

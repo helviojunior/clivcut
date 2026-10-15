@@ -5,6 +5,7 @@
 #include "engine/AudioMixer.h"
 #include "engine/TimeStretch.h"
 #include "engine/VoiceIsolation.h"
+#include "engine/Silence.h"
 #include "media/AudioDecoder.h"
 #include "media/Loudness.h"
 #include "media/MediaProbe.h"
@@ -224,6 +225,29 @@ private slots:
         };
         QVERIFY2(level(0.2, 0.8) < 0.01, qPrintable(QString::number(level(0.2, 0.8))));
         QVERIFY2(level(1.2, 1.8) > 0.05, qPrintable(QString::number(level(1.2, 1.8)))); // seno do ffmpeg: amplitude 1/8
+    }
+
+    void silenceDetection()
+    {
+        // 16 kHz: 1 s de tom, 0,3 s de pausa curta, 1 s de tom, 1,5 s de silêncio, 1 s de tom.
+        std::vector<float> pcm;
+        auto tone = [&](double s) { for (int i = 0; i < s * 16000; ++i) pcm.push_back(0.3f * std::sin(i * 0.1f)); };
+        auto quiet = [&](double s) { for (int i = 0; i < s * 16000; ++i) pcm.push_back(0.001f); };
+        tone(1); quiet(0.3); tone(1); quiet(1.5); tone(1);
+        engine::SilenceOptions o;
+        o.minSilence = 500'000;
+        o.padding = 100'000;
+        const auto r = engine::detectSilencesPcm16k(pcm, 10 * kSecond, o);
+        QCOMPARE(r.size(), size_t(1)); // a pausa de 0,3 s fica
+        QVERIFY(std::abs(r[0].first - (10 * kSecond + 2'400'000)) <= 20'000);
+        QVERIFY(std::abs(r[0].second - (10 * kSecond + 3'700'000)) <= 20'000);
+        // Silêncio no começo e no fim é cortado inteiro (sem respiro na borda).
+        pcm.clear();
+        quiet(1); tone(1); quiet(1);
+        const auto edges = engine::detectSilencesPcm16k(pcm, 0, o);
+        QCOMPARE(edges.size(), size_t(2));
+        QCOMPARE(edges[0].first, Micros(0));
+        QVERIFY(std::abs(edges[1].second - 3 * kSecond) <= 20'000);
     }
 
     void voiceIsolation()

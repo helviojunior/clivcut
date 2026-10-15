@@ -530,6 +530,33 @@ private slots:
         QVERIFY(m_ctrl->cachedRanges().isEmpty());
     }
 
+    void silenceRemovalWorkflow()
+    {
+        // 6 s: tom de 0–2 s, silêncio de 2–4 s, tom de 4–6 s.
+        const QString file = m_dir.filePath(QStringLiteral("pausas.wav"));
+        QProcess p;
+        p.start(QStringLiteral("ffmpeg"), {"-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                                           "aevalsrc=0.3*sin(2*PI*220*t)*(1-between(t\\,2\\,4)):d=6:s=48000", "-ac", "2", file});
+        QVERIFY(p.waitForFinished(60000) && p.exitCode() == 0);
+        m_ctrl->newProject(1280, 720, 30);
+        m_ctrl->importMedia({QUrl::fromLocalFile(file)});
+        m_ctrl->addAssetToTimeline(m_ctrl->assets().first().toMap().value("id").toString());
+        QVERIFY(m_ctrl->duration() > 5e6);
+        const double before = m_ctrl->duration();
+
+        m_ctrl->analyzeSilences(-40, 500, 100);
+        QTRY_VERIFY_WITH_TIMEOUT(!m_ctrl->analyzingSilences(), 30000);
+        QCOMPARE(m_ctrl->silences().size(), 1);
+        const QVariantMap r = m_ctrl->silences().first().toMap();
+        QVERIFY(std::abs(r.value("start").toDouble() - 2.1e6) < 30'000);
+        QVERIFY(std::abs(r.value("end").toDouble() - 3.9e6) < 30'000);
+        m_ctrl->removeSilences();
+        QVERIFY(m_ctrl->silences().isEmpty());
+        QVERIFY(std::abs(m_ctrl->duration() - (before - 1.8e6)) < 50'000);
+        m_ctrl->undo();
+        QCOMPARE(m_ctrl->duration(), before);
+    }
+
     void captionsWorkflow()
     {
 #ifndef CLIVCUT_WHISPER_SAMPLES

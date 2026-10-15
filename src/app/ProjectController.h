@@ -78,6 +78,10 @@ class ProjectController : public QObject {
     Q_PROPERTY(QVariantList cachedRanges READ cachedRanges NOTIFY renderCacheChanged)
     Q_PROPERTY(bool renderingPreview READ renderingPreview NOTIFY renderCacheChanged)
     Q_PROPERTY(double renderProgress READ renderProgress NOTIFY renderCacheChanged)
+    /// Remoção de silêncios: pausas encontradas na última análise ([{start, end}] em µs).
+    Q_PROPERTY(QVariantList silences READ silences NOTIFY silencesChanged)
+    Q_PROPERTY(bool analyzingSilences READ analyzingSilences NOTIFY silencesChanged)
+    Q_PROPERTY(double silenceProgress READ silenceProgress NOTIFY silencesChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     // Legendas automáticas
     Q_PROPERTY(bool transcriptionAvailable READ transcriptionAvailable CONSTANT)
@@ -154,6 +158,9 @@ public:
     QVariantList cachedRanges() const;
     bool renderingPreview() const { return m_rendering; }
     double renderProgress() const { return m_renderProgress; }
+    QVariantList silences() const { return m_silences; }
+    bool analyzingSilences() const { return m_analyzingSilences; }
+    double silenceProgress() const { return m_silenceProgress; }
     /// Estado do cache lido pela pré-visualização (thread de renderização).
     std::shared_ptr<const clv::engine::RenderCacheView> renderCacheView() const;
     QStringList audioFormats() const;
@@ -273,6 +280,13 @@ public:
     Q_INVOKABLE void renderPreview();
     Q_INVOKABLE void cancelRenderPreview();
     Q_INVOKABLE void clearRenderCache();
+    /// Procura pausas na mixagem (no trecho de entrada/saída, se houver); o resultado vai para `silences`.
+    Q_INVOKABLE void analyzeSilences(double thresholdDb, double minPauseMs, double paddingMs);
+    /// Corta as pausas da última análise (se o projeto não mudou desde então).
+    Q_INVOKABLE void removeSilences();
+    Q_INVOKABLE void clearSilences();
+    /// Remove trechos [{start, end}] de todas as faixas, com ripple (edição por transcrição).
+    Q_INVOKABLE bool removeTimeRanges(const QVariantList &ranges, const QString &label = {});
     Q_INVOKABLE void cancelExport();
 
     // --- legendas ---
@@ -341,6 +355,7 @@ signals:
     void audioJobsChanged();
     void languageChanged();
     void renderCacheChanged();
+    void silencesChanged();
     void recentProjectsChanged();
 
 private:
@@ -409,6 +424,10 @@ private:
     std::shared_ptr<std::atomic<bool>> m_denoiseCancel = std::make_shared<std::atomic<bool>>(false);
     QQmlEngine *m_engine = nullptr;
     int m_previewResolution = 1280;
+    QVariantList m_silences;
+    quint64 m_silenceRevision = 0;
+    bool m_analyzingSilences = false;
+    double m_silenceProgress = 0;
     QTimer m_cacheTimer;               ///< agrupa as edições antes de recalcular as chaves do cache
     std::shared_ptr<const clv::engine::RenderCacheView> m_cacheView = std::make_shared<clv::engine::RenderCacheView>();
     QVariantList m_cachedRanges;

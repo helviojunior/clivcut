@@ -16,6 +16,7 @@
 #include "engine/AudioCleanup.h"
 #include "engine/Matting.h"
 #include "engine/VoiceIsolation.h"
+#include "engine/Silence.h"
 #include "engine/Exporter.h"
 #include "engine/Proxy.h"
 #include "engine/Transcriber.h"
@@ -2576,6 +2577,87 @@ void ProjectController::clearRenderCache()
     const qint64 freed = engine::clearRenderCache();
     refreshRenderCache();
     setStatus(tr("Render cache cleared (%1 MB)").arg(static_cast<double>(freed) / 1e6, 0, 'f', 1));
+}
+
+// ---------------------------------------------------------------------------
+// Remoção de silêncios e cortes por trecho de tempo
+
+void ProjectController::analyzeSilences(double thresholdDb, double minPauseMs, double paddingMs)
+{
+    if (m_analyzingSilences || m_project.duration() <= 0)
+        return;
+    engine::SilenceOptions opts;
+    opts.thresholdDb = std::clamp(thresholdDb, -80.0, -10.0);
+    opts.minSilence = static_cast<Micros>(std::max(50.0, minPauseMs) * 1000);
+    opts.padding = static_cast<Micros>(std::clamp(paddingMs, 0.0, 2000.0) * 1000);
+    if (m_project.hasRange()) {
+        opts.rangeStart = m_project.rangeStart();
+        opts.rangeEnd = m_project.rangeEnd();
+    }
+    m_analyzingSilences = true;
+    m_silenceProgress = 0;
+    m_silences.clear();
+    emit silencesChanged();
+    auto snap = snapshot();
+    const quint64 revision = m_revisionCounter;
+    std::thread([this, snap, opts, revision] {
+        const auto ranges = engine::detectSilences(*snap, opts, [this](double f) {
+            QMetaObject::invokeMethod(this, [this, f] {
+                m_silenceProgress = f;
+                emit silencesChanged();
+            }, Qt::QueuedConnection);
+            return true;
+        });
+        QVariantList list;
+        Micros total = 0;
+        for (const auto &[a, b] : ranges) {
+            list << QVariantMap{{"start", static_cast<double>(a)}, {"end", static_cast<double>(b)}};
+            total += b - a;
+        }
+        QMetaObject::invokeMethod(this, [this, list, total, revision] {
+            m_analyzingSilences = false;
+            m_silences = list;
+            m_silenceRevision = revision;
+            emit silencesChanged();
+            setStatus(list.isEmpty() ? tr("No pauses found")
+                                     : tr("%n pause(s) found (%1)", nullptr, static_cast<int>(list.size()))
+                                           .arg(formatTime(static_cast<double>(total))));
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+void ProjectController::removeSilences()
+{
+    if (m_silences.isEmpty() || m_analyzingSilences)
+        return;
+    // A análise vale para o projeto como estava; editado depois disso, os tempos não batem mais.
+    if (m_silenceRevision != m_revisionCounter) {
+        emit errorOccurred(tr("The project changed after the analysis; analyze again"));
+        return;
+    }
+    const int n = static_cast<int>(m_silences.size());
+    if (removeTimeRanges(m_silences, tr("Remove silences")))
+        setStatus(tr("%n pause(s) removed", nullptr, n));
+    clearSilences();
+}
+
+void ProjectController::clearSilences()
+{
+    if (m_silences.isEmpty())
+        return;
+    m_silences.clear();
+    emit silencesChanged();
+}
+
+bool ProjectController::removeTimeRanges(const QVariantList &ranges, const QString &label)
+{
+    std::vector<std::pair<Micros, Micros>> list;
+    for (const auto &v : ranges) {
+        const QVariantMap m = v.toMap();
+        list.emplace_back(static_cast<Micros>(m.value("start").toDouble()), static_cast<Micros>(m.value("end").toDouble()));
+    }
+    return edit(label.isEmpty() ? tr("Remove ranges") : label,
+                [&](Project &p) { return edit::removeRanges(p, list) > 0; });
 }
 
 // ---------------------------------------------------------------------------

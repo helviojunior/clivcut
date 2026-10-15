@@ -1379,6 +1379,10 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <translation>Ajustar la línea de tiempo a la ventana</translation>
     </message>
     <message>
+        <source>Remove silences</source>
+        <translation>Quitar silencios</translation>
+    </message>
+    <message>
         <source>Render preview</source>
         <translation>Renderizar vista previa</translation>
     </message>
@@ -2339,6 +2343,36 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <translation>Caché de renderizado borrada (%1 MB)</translation>
     </message>
     <message>
+        <source>No pauses found</source>
+        <translation>No se encontraron pausas</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n pause(s) found (%1)</source>
+        <translation>
+            <numerusform>%n pausa encontrada (%1)</numerusform>
+            <numerusform>%n pausas encontradas (%1)</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>The project changed after the analysis; analyze again</source>
+        <translation>El proyecto cambió después del análisis; vuelve a analizar</translation>
+    </message>
+    <message>
+        <source>Remove silences</source>
+        <translation>Quitar silencios</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n pause(s) removed</source>
+        <translation>
+            <numerusform>%n pausa quitada</numerusform>
+            <numerusform>%n pausas quitadas</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Remove ranges</source>
+        <translation>Quitar tramos</translation>
+    </message>
+    <message>
         <source>Isolating voice in %1…</source>
         <translation>Aislando la voz en %1…</translation>
     </message>
@@ -2452,6 +2486,56 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     </message>
 </context>
 <context>
+    <name>SilenceDialog</name>
+    <message>
+        <source>Remove silences</source>
+        <translation>Quitar silencios</translation>
+    </message>
+    <message>
+        <source>Only the in/out range is analyzed. Pauses are marked in red on the ruler; the margin keeps a little silence around each phrase so cuts do not sound abrupt.</source>
+        <translation>Solo se analiza el tramo de entrada/salida. Las pausas se marcan en rojo en la regla; el margen conserva un poco de silencio alrededor de cada frase para que los cortes no suenen bruscos.</translation>
+    </message>
+    <message>
+        <source>The whole timeline is analyzed. Pauses are marked in red on the ruler; the margin keeps a little silence around each phrase so cuts do not sound abrupt.</source>
+        <translation>Se analiza toda la línea de tiempo. Las pausas se marcan en rojo en la regla; el margen conserva un poco de silencio alrededor de cada frase para que los cortes no suenen bruscos.</translation>
+    </message>
+    <message>
+        <source>Silence below</source>
+        <translation>Silencio por debajo de</translation>
+    </message>
+    <message>
+        <source>Minimum pause</source>
+        <translation>Pausa mínima</translation>
+    </message>
+    <message>
+        <source>Margin</source>
+        <translation>Margen</translation>
+    </message>
+    <message>
+        <source>Analyzing the audio…</source>
+        <translation>Analizando el audio…</translation>
+    </message>
+    <message>
+        <source>No pauses found with these settings.</source>
+        <translation>No se encontraron pausas con estos ajustes.</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n pause(s) to remove, %1 in total.</source>
+        <translation>
+            <numerusform>%n pausa por quitar, %1 en total.</numerusform>
+            <numerusform>%n pausas por quitar, %1 en total.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Cerrar</translation>
+    </message>
+    <message>
+        <source>Remove pauses</source>
+        <translation>Quitar pausas</translation>
+    </message>
+</context>
+<context>
     <name>SpeedCurves</name>
     <message>
         <source>Montage</source>
@@ -2507,6 +2591,10 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Add marker</source>
         <translation>Añadir marcador</translation>
+    </message>
+    <message>
+        <source>Remove silences</source>
+        <translation>Quitar silencios</translation>
     </message>
     <message>
         <source>Rendering preview… %1% (click to cancel)</source>

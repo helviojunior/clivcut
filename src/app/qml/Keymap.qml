@@ -61,6 +61,7 @@ QtObject {
         { id: "zoomIn", group: qsTr("Timeline"), name: qsTr("Zoom in"), keys: ["Ctrl+=", "Ctrl++"], edit: true },
         { id: "zoomOut", group: qsTr("Timeline"), name: qsTr("Zoom out"), keys: ["Ctrl+-"], edit: true },
         { id: "zoomFit", group: qsTr("Timeline"), name: qsTr("Fit timeline to window"), keys: ["Shift+Z"], edit: true },
+        { id: "removeSilences", group: qsTr("Editing"), name: qsTr("Remove silences"), keys: ["Ctrl+Shift+R"], edit: true },
         { id: "renderPreview", group: qsTr("Timeline"), name: qsTr("Render preview"), keys: ["Ctrl+R"], edit: true },
         { id: "clearRenderCache", group: qsTr("Timeline"), name: qsTr("Clear render cache"), keys: [], edit: true },
 

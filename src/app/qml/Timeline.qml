@@ -5,6 +5,7 @@ import Clivcut
 
 Rectangle {
     id: root
+    signal silencesRequested()
     color: Theme.panel
 
     // --- escala de tempo ---
@@ -104,6 +105,12 @@ Rectangle {
                 IconButton { iconName: "snowflake"; tip: qsTr("Freeze frame"); shortcut: Keymap.label("freeze"); onClicked: Project.freezeFrame() }
                 IconButton { iconName: "bookmark"; tip: qsTr("Add marker"); shortcut: Keymap.label("marker"); onClicked: Project.addMarker() }
                 IconButton {
+                    iconName: "scissors-line-dashed"
+                    tip: qsTr("Remove silences")
+                    shortcut: Keymap.label("removeSilences")
+                    onClicked: root.silencesRequested()
+                }
+                IconButton {
                     iconName: "zap"
                     active: Project.renderingPreview
                     tip: Project.renderingPreview ? qsTr("Rendering preview… %1% (click to cancel)").arg(Math.round(Project.renderProgress * 100))
@@ -158,7 +165,9 @@ Rectangle {
                     property real inPoint: Project.inPoint
                     property real outPoint: Project.outPoint
                     property var cached: Project.cachedRanges
+                    property var silences: Project.silences
                     onCachedChanged: requestPaint()
+                    onSilencesChanged: requestPaint()
                     onInPointChanged: requestPaint()
                     onOutPointChanged: requestPaint()
                     onOffsetChanged: requestPaint()
@@ -177,6 +186,15 @@ Rectangle {
                             const xb = r.end / 1e6 * scale - offset;
                             ctx.fillRect(xa, 0, xb - xa, 3);
                         }
+                        // Pausas encontradas pela remoção de silêncios (prévia antes de cortar).
+                        ctx.fillStyle = Theme.danger;
+                        ctx.globalAlpha = 0.55;
+                        for (const r of silences) {
+                            const xa = r.start / 1e6 * scale - offset;
+                            const xb = r.end / 1e6 * scale - offset;
+                            ctx.fillRect(xa, 0, Math.max(1, xb - xa), height);
+                        }
+                        ctx.globalAlpha = 1;
                         // Trecho de entrada/saída (I/O): faixa destacada com colchetes nas pontas.
                         if (inPoint >= 0 || outPoint > 0) {
                             const xin = (inPoint >= 0 ? inPoint : 0) / 1e6 * scale - offset;
