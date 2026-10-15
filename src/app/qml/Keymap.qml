@@ -65,6 +65,7 @@ QtObject {
         { id: "renderPreview", group: qsTr("Timeline"), name: qsTr("Render preview"), keys: ["Ctrl+R"], edit: true },
         { id: "clearRenderCache", group: qsTr("Timeline"), name: qsTr("Clear render cache"), keys: [], edit: true },
 
+        { id: "scopes", group: qsTr("Interface"), name: qsTr("Show scopes"), keys: ["Ctrl+Shift+V"], edit: false },
         { id: "palette", group: qsTr("Interface"), name: qsTr("Command palette"), keys: ["Ctrl+K", "Ctrl+Shift+P"], edit: false },
         { id: "shortcuts", group: qsTr("Interface"), name: qsTr("Keyboard shortcuts"), keys: [], edit: false },
         { id: "panel0", group: qsTr("Interface"), name: qsTr("Panel: Media"), keys: ["Alt+1"], edit: false },

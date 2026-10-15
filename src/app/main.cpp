@@ -75,7 +75,7 @@ int main(int argc, char **argv)
     // CLIVCUT_SCREENSHOT_PALETTE=1 (abre a paleta de comandos), CLIVCUT_SCREENSHOT_EXPORT=aba do diálogo de exportação,
     // CLIVCUT_SCREENSHOT_SHORTCUTS=1 (abre o editor de atalhos), CLIVCUT_SCREENSHOT_RENDER=1 (renderiza a pré-visualização),
     // CLIVCUT_SCREENSHOT_OPEN=objectName de um diálogo para abrir, CLIVCUT_SCREENSHOT_TRANSCRIBE=modelo (transcreve em inglês),
-    // CLIVCUT_SCREENSHOT_SCROLL=px (rola o inspetor).
+    // CLIVCUT_SCREENSHOT_SCROLL=px (rola o inspetor), CLIVCUT_SCREENSHOT_SCOPES=modo (mostra os escopos).
     const QString shot = qEnvironmentVariable("CLIVCUT_SCREENSHOT");
     if (!shot.isEmpty() && !engine.rootObjects().isEmpty()) {
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
@@ -119,6 +119,13 @@ int main(int argc, char **argv)
             if (qEnvironmentVariableIsSet("CLIVCUT_SCREENSHOT_PALETTE"))
                 if (auto *palette = window->findChild<QObject *>(QStringLiteral("commandPalette")))
                     QMetaObject::invokeMethod(palette, "open");
+            const int scopeMode = qEnvironmentVariableIntValue("CLIVCUT_SCREENSHOT_SCOPES", &ok);
+            if (ok) {
+                if (auto *ctrl = ProjectController::instance())
+                    ctrl->setScopesEnabled(true);
+                if (auto *scope = window->findChild<QObject *>(QStringLiteral("scopeView")))
+                    scope->setProperty("mode", scopeMode);
+            }
             const QString openName = qEnvironmentVariable("CLIVCUT_SCREENSHOT_OPEN");
             if (!openName.isEmpty())
                 if (auto *dialog = window->findChild<QObject *>(openName))

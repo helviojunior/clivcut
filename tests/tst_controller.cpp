@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ProjectController.h"
+#include "Scopes.h"
 #include "engine/AudioMixer.h"
 #include "media/Loudness.h"
 #include "engine/WhisperModels.h"
@@ -528,6 +529,31 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!m_ctrl->renderCacheView()->fileAt(0).isEmpty(), 5000); // mesmo conteúdo, mesmo arquivo
         m_ctrl->clearRenderCache();
         QVERIFY(m_ctrl->cachedRanges().isEmpty());
+    }
+
+    void scopes()
+    {
+        // Meio quadro vermelho puro, meio cinza médio.
+        QImage img(64, 32, QImage::Format_RGBA8888);
+        img.fill(QColor(128, 128, 128));
+        for (int y = 0; y < 32; ++y)
+            for (int x = 0; x < 32; ++x)
+                img.setPixelColor(x, y, Qt::red);
+        const auto h = clv::app::histogram(img);
+        QCOMPARE(h[0][255], 32 * 32);
+        QCOMPARE(h[0][128], 32 * 32);
+        QCOMPARE(h[1][0], 32 * 32);
+        QCOMPARE(h[3][128], 32 * 32); // cinza: luminância = valor
+        QCOMPARE(h[3][54], 32 * 32);  // vermelho: 0,2126 × 255
+        for (int m = 0; m < 3; ++m) {
+            const QImage plot = clv::app::renderScope(img, static_cast<clv::app::ScopeMode>(m), QSize(200, 150));
+            QCOMPARE(plot.size(), QSize(200, 150));
+        }
+        // Forma de onda: o vermelho (luma 54) acende embaixo à esquerda, o cinza no meio à direita.
+        const QImage wf = clv::app::renderScope(img, clv::app::ScopeMode::Waveform, QSize(64, 256));
+        QVERIFY(qAlpha(wf.pixel(10, 255 - 54)) > 200);
+        QVERIFY(qAlpha(wf.pixel(50, 255 - 128)) > 200);
+        QCOMPARE(qAlpha(wf.pixel(10, 255 - 128)), 0);
     }
 
     void colorGradingApi()

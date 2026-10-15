@@ -16,6 +16,8 @@ qt_add_executable(clivcut
     ImageProviders.h ImageProviders.cpp
     AudioOutput.h AudioOutput.cpp
     Language.h Language.cpp
+    Scopes.h Scopes.cpp
+    ScopeItem.h ScopeItem.cpp
 )
 
 set_source_files_properties(qml/Theme.qml qml/Keymap.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)

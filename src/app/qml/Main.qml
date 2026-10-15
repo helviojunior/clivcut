@@ -251,6 +251,7 @@ ApplicationWindow {
         renderPreview: () => Project.renderingPreview ? Project.cancelRenderPreview() : Project.renderPreview(),
         clearRenderCache: () => Project.clearRenderCache(),
         palette: () => commandPalette.open(),
+        scopes: () => Project.scopesEnabled = !Project.scopesEnabled,
         shortcuts: () => shortcutsDialog.open(),
         panel0: () => rail.activate(0),
         panel1: () => rail.activate(1),
@@ -273,7 +274,7 @@ ApplicationWindow {
         paste: "copy", group: "link", ungroup: "link", detachAudio: "audio-lines", freeze: "snowflake", addText: "type",
         selectAll: "layers", marker: "bookmark", markIn: "arrow-right-to-line", markOut: "arrow-left-to-line",
         clearInOut: "x", goIn: "skip-back", goOut: "skip-forward", snapping: "crosshair", magnet: "magnet",
-        zoomIn: "zoom-in", zoomOut: "zoom-out", zoomFit: "maximize-2", renderPreview: "zap", removeSilences: "scissors-line-dashed", clearRenderCache: "trash-2", shortcuts: "keyboard", panel0: "image-play",
+        zoomIn: "zoom-in", zoomOut: "zoom-out", zoomFit: "maximize-2", renderPreview: "zap", removeSilences: "scissors-line-dashed", clearRenderCache: "trash-2", shortcuts: "keyboard", scopes: "activity", panel0: "image-play",
         panel1: "type", panel2: "captions", panel3: "palette", panel4: "arrow-right-left", panel5: "sparkles", panel6: "file-text",
         newProject: "file-plus-2", open: "folder-open", save: "download", saveAs: "download", import: "plus", export: "upload"
     })

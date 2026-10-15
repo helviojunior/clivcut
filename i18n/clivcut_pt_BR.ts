@@ -1470,6 +1470,10 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
         <translation>Interface</translation>
     </message>
     <message>
+        <source>Show scopes</source>
+        <translation>Mostrar escopos</translation>
+    </message>
+    <message>
         <source>Command palette</source>
         <translation>Paleta de comandos</translation>
     </message>
@@ -1937,6 +1941,30 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
         <translation>Player</translation>
     </message>
     <message>
+        <source>Scopes: histogram, waveform and vectorscope</source>
+        <translation>Escopos: histograma, forma de onda e vetorscópio</translation>
+    </message>
+    <message>
+        <source>Landscape</source>
+        <translation>Paisagem</translation>
+    </message>
+    <message>
+        <source>Vertical</source>
+        <translation>Vertical</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>Quadrado</translation>
+    </message>
+    <message>
+        <source>Feed</source>
+        <translation>Feed</translation>
+    </message>
+    <message>
+        <source>Cinema</source>
+        <translation>Cinema</translation>
+    </message>
+    <message>
         <source>Playing with proxies (lightweight copies of large videos). Click to use the originals.</source>
         <translation>Reprodução com proxies (cópias leves de vídeos grandes). Clique para usar os originais.</translation>
     </message>
@@ -1959,6 +1987,22 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
     <message>
         <source>Playback resolution (does not affect export)</source>
         <translation>Resolução de reprodução (não afeta a exportação)</translation>
+    </message>
+    <message>
+        <source>Histogram</source>
+        <translation>Histograma</translation>
+    </message>
+    <message>
+        <source>Waveform</source>
+        <translation>Forma de onda</translation>
+    </message>
+    <message>
+        <source>Vectorscope</source>
+        <translation>Vetorscópio</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Fechar</translation>
     </message>
     <message>
         <source>Import media and drag it to the timeline</source>

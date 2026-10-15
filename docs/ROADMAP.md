@@ -41,7 +41,7 @@
 | 2 | Compound clips | ⬜ | |
 | 3 | Speed curves and smooth slow motion | 🟡 | speed curves done (MVP #12); frame interpolation (RIFE) missing |
 | 4 | Advanced color: curves, HSL, color wheels, adjustment layers | ✅ | grading baked into a per-clip 3D LUT (also on adjustment layers); keyframing grading values missing |
-| 5 | Scopes (histogram, waveform, vectorscope) | ⬜ | |
+| 5 | Scopes (histogram, waveform, vectorscope) | ✅ | read back from the composited frame (what gets exported), up to 10 times per second; RGB parade missing |
 | 6 | Local background removal | 🟡 | RobustVideoMatting on ONNX Runtime: matte generated in the background, cached and applied as clip alpha in preview and export; model downloaded on demand from the Inspector. Interactive cutout (SAM 2) missing |
 | 7 | Object tracking | ⬜ | |
 | 8 | Stabilization (vid.stab) | ⬜ | |

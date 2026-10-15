@@ -1470,6 +1470,10 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <translation>Interfaz</translation>
     </message>
     <message>
+        <source>Show scopes</source>
+        <translation>Mostrar escopios</translation>
+    </message>
+    <message>
         <source>Command palette</source>
         <translation>Paleta de comandos</translation>
     </message>
@@ -1937,6 +1941,30 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
         <translation>Reproductor</translation>
     </message>
     <message>
+        <source>Scopes: histogram, waveform and vectorscope</source>
+        <translation>Escopios: histograma, forma de onda y vectorscopio</translation>
+    </message>
+    <message>
+        <source>Landscape</source>
+        <translation>Horizontal</translation>
+    </message>
+    <message>
+        <source>Vertical</source>
+        <translation>Vertical</translation>
+    </message>
+    <message>
+        <source>Square</source>
+        <translation>Cuadrado</translation>
+    </message>
+    <message>
+        <source>Feed</source>
+        <translation>Feed</translation>
+    </message>
+    <message>
+        <source>Cinema</source>
+        <translation>Cine</translation>
+    </message>
+    <message>
         <source>Playing with proxies (lightweight copies of large videos). Click to use the originals.</source>
         <translation>Reproducción con proxies (copias ligeras de vídeos grandes). Haz clic para usar los originales.</translation>
     </message>
@@ -1959,6 +1987,22 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Playback resolution (does not affect export)</source>
         <translation>Resolución de reproducción (no afecta a la exportación)</translation>
+    </message>
+    <message>
+        <source>Histogram</source>
+        <translation>Histograma</translation>
+    </message>
+    <message>
+        <source>Waveform</source>
+        <translation>Forma de onda</translation>
+    </message>
+    <message>
+        <source>Vectorscope</source>
+        <translation>Vectorscopio</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Cerrar</translation>
     </message>
     <message>
         <source>Import media and drag it to the timeline</source>

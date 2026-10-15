@@ -8,6 +8,7 @@
 #include "engine/RenderCache.h"
 
 #include <QElapsedTimer>
+#include <QImage>
 #include <QObject>
 #include <QStringList>
 #include <QTimer>
@@ -86,6 +87,8 @@ class ProjectController : public QObject {
     Q_PROPERTY(QVariantList transcript READ transcript NOTIFY transcriptChanged)
     /// O projeto mudou por outra edição depois da transcrição: os tempos podem não bater.
     Q_PROPERTY(bool transcriptStale READ transcriptStale NOTIFY transcriptChanged)
+    /// Escopos visíveis: o player passa a enviar quadros reduzidos (scopeFrame).
+    Q_PROPERTY(bool scopesEnabled READ scopesEnabled WRITE setScopesEnabled NOTIFY scopesChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     // Legendas automáticas
     Q_PROPERTY(bool transcriptionAvailable READ transcriptionAvailable CONSTANT)
@@ -166,6 +169,11 @@ public:
     bool analyzingSilences() const { return m_analyzingSilences; }
     double silenceProgress() const { return m_silenceProgress; }
     QVariantList transcript() const { return m_transcript; }
+    bool scopesEnabled() const { return m_scopesEnabled; }
+    void setScopesEnabled(bool on);
+    /// Chamado pela thread de renderização com o quadro composto reduzido.
+    void setScopeFrame(const QImage &img);
+    QImage scopeFrame() const;
     bool transcriptStale() const { return !m_transcript.isEmpty() && m_transcriptRevision != m_revisionCounter; }
     /// Estado do cache lido pela pré-visualização (thread de renderização).
     std::shared_ptr<const clv::engine::RenderCacheView> renderCacheView() const;
@@ -377,6 +385,8 @@ signals:
     void renderCacheChanged();
     void silencesChanged();
     void transcriptChanged();
+    void scopesChanged();
+    void scopeFrameChanged();
     void recentProjectsChanged();
 
 private:
@@ -445,6 +455,9 @@ private:
     std::shared_ptr<std::atomic<bool>> m_denoiseCancel = std::make_shared<std::atomic<bool>>(false);
     QQmlEngine *m_engine = nullptr;
     int m_previewResolution = 1280;
+    bool m_scopesEnabled = false;
+    mutable std::mutex m_scopeMutex;
+    QImage m_scopeFrame;
     QVariantList m_transcript;
     quint64 m_transcriptRevision = 0;
     QVariantList m_silences;

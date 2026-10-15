@@ -2900,6 +2900,32 @@ void ProjectController::resetGrade(const QString &clipId)
 }
 
 // ---------------------------------------------------------------------------
+// Escopos
+
+void ProjectController::setScopesEnabled(bool on)
+{
+    if (on == m_scopesEnabled)
+        return;
+    m_scopesEnabled = on;
+    emit scopesChanged();
+}
+
+void ProjectController::setScopeFrame(const QImage &img)
+{
+    {
+        std::lock_guard lock(m_scopeMutex);
+        m_scopeFrame = img;
+    }
+    QMetaObject::invokeMethod(this, &ProjectController::scopeFrameChanged, Qt::QueuedConnection);
+}
+
+QImage ProjectController::scopeFrame() const
+{
+    std::lock_guard lock(m_scopeMutex);
+    return m_scopeFrame;
+}
+
+// ---------------------------------------------------------------------------
 // Atalhos
 
 QString ProjectController::keySequence(int key, int modifiers) const

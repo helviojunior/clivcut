@@ -8,6 +8,7 @@
 #include "media/VideoDecoder.h"
 #include "render/Compositor.h"
 
+#include <QElapsedTimer>
 #include <QSet>
 
 #include <algorithm>
@@ -53,6 +54,26 @@ public:
         m_playing = ctrl->playing();
         m_frames.setPreferProxy(ctrl->useProxies());
         m_cache = ctrl->renderCacheView();
+        m_scopes = ctrl->scopesEnabled();
+    }
+
+    // Escopos: no máximo 10 leituras por segundo do quadro composto, reduzido para 320 px de largura.
+    void maybeReadScopes(QRhiCommandBuffer *cb)
+    {
+        if (!m_scopes || m_scopePending || (m_scopeTimer.isValid() && m_scopeTimer.elapsed() < 100))
+            return;
+        m_scopePending = true;
+        m_scopeTimer.start();
+        m_scopeRb = std::make_unique<QRhiReadbackResult>();
+        m_scopeRb->completed = [this] {
+            QImage img = m_compositor->imageFromReadback(*m_scopeRb);
+            if (img.width() > 320)
+                img = img.scaledToWidth(320, Qt::FastTransformation);
+            if (auto *ctrl = ProjectController::instance())
+                ctrl->setScopeFrame(img.convertToFormat(QImage::Format_RGBA8888));
+            m_scopePending = false;
+        };
+        m_compositor->readback(cb, m_scopeRb.get());
     }
 
     // Quadro do cache de renderização no tempo atual, ou nulo se o trecho não estiver renderizado.
@@ -109,6 +130,7 @@ public:
             ImageSource src;
             src.image = cached;
             m_compositor->composite(cb, *m_project, desc, src);
+            maybeReadScopes(cb);
             m_compositor->blitTo(cb, rt, vp, QColor(0x14, 0x14, 0x17));
             return;
         }
@@ -122,6 +144,7 @@ public:
             m_frames.prune(live);
         }
         m_compositor->composite(cb, *m_project, frame, m_frames);
+        maybeReadScopes(cb);
         m_compositor->blitTo(cb, rt, vp, QColor(0x14, 0x14, 0x17));
     }
 
@@ -137,6 +160,10 @@ private:
     std::shared_ptr<const clv::engine::RenderCacheView> m_cache;
     std::unordered_map<QString, std::unique_ptr<clv::media::VideoDecoder>> m_cacheDecoders;
     clv::Clip m_cacheClip;
+    bool m_scopes = false;
+    bool m_scopePending = false;
+    QElapsedTimer m_scopeTimer;
+    std::unique_ptr<QRhiReadbackResult> m_scopeRb;
     clv::MediaAsset m_cacheAsset;
 };
 
@@ -148,6 +175,7 @@ PreviewItem::PreviewItem(QQuickItem *parent) : QQuickRhiItem(parent)
         connect(ctrl, &ProjectController::revisionChanged, this, &QQuickItem::update);
         connect(ctrl, &ProjectController::playheadChanged, this, &QQuickItem::update);
         connect(ctrl, &ProjectController::renderCacheChanged, this, &QQuickItem::update);
+        connect(ctrl, &ProjectController::scopesChanged, this, &QQuickItem::update);
         connect(ctrl, &ProjectController::projectChanged, this, &PreviewItem::canvasRectChanged);
     }
 }
