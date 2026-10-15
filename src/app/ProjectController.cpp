@@ -426,6 +426,27 @@ QVariantMap ProjectController::selectedClip() const
         return m;
     }
     const ColorAdjust &col = c->color;
+    m.insert({{"curves", [&] {
+                   QVariantList out;
+                   for (const auto &curve : col.curves) {
+                       QVariantList pts;
+                       for (const auto &p : curve)
+                           pts << QVariantMap{{"x", p.x}, {"y", p.y}};
+                       out << QVariant(pts);
+                   }
+                   return out;
+               }()},
+              {"hsl", [&] {
+                   QVariantList out;
+                   for (const auto &b : col.hsl)
+                       out << QVariantMap{{"hue", b.hue}, {"saturation", b.saturation}, {"luminance", b.luminance}};
+                   return out;
+               }()},
+              {"wheels", QVariantMap{
+                   {"lift", QVariantMap{{"x", col.lift.x}, {"y", col.lift.y}, {"luma", col.lift.luma}}},
+                   {"gamma", QVariantMap{{"x", col.gamma.x}, {"y", col.gamma.y}, {"luma", col.gamma.luma}}},
+                   {"gain", QVariantMap{{"x", col.gain.x}, {"y", col.gain.y}, {"luma", col.gain.luma}}}}},
+              {"hasGrade", col.hasGrade()}});
     m.insert({{"temperature", col.temperature},
               {"exposure", col.exposure},
               {"tint", col.tint},
@@ -2800,6 +2821,82 @@ void ProjectController::clearTranscript()
 {
     m_transcript.clear();
     emit transcriptChanged();
+}
+
+// ---------------------------------------------------------------------------
+// Correção de cor avançada (curvas, HSL, rodas)
+
+void ProjectController::setCurve(const QString &clipId, int channel, const QVariantList &points)
+{
+    if (channel < 0 || channel > 3)
+        return;
+    std::vector<CurvePoint> pts;
+    for (const auto &v : points) {
+        const QVariantMap m = v.toMap();
+        pts.push_back({std::clamp(m.value("x").toDouble(), 0.0, 1.0), std::clamp(m.value("y").toDouble(), 0.0, 1.0)});
+    }
+    std::sort(pts.begin(), pts.end(), [](const CurvePoint &a, const CurvePoint &b) { return a.x < b.x; });
+    // Só os cantos na identidade = curva vazia (neutra).
+    if (pts.size() <= 2 && std::all_of(pts.begin(), pts.end(), [](const CurvePoint &p) { return p.x == p.y && (p.x == 0 || p.x == 1); }))
+        pts.clear();
+    edit(tr("Curves"), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c || c->color.curves[channel] == pts)
+            return false;
+        c->color.curves[channel] = pts;
+        return true;
+    }, QStringLiteral("curve:%1:%2").arg(clipId).arg(channel));
+}
+
+void ProjectController::setHsl(const QString &clipId, int band, double hue, double saturation, double luminance)
+{
+    if (band < 0 || band >= kHslBands)
+        return;
+    const HslAdjust value{std::clamp(hue, -1.0, 1.0), std::clamp(saturation, -1.0, 1.0), std::clamp(luminance, -1.0, 1.0)};
+    edit(tr("HSL"), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c || c->color.hsl[band] == value)
+            return false;
+        c->color.hsl[band] = value;
+        return true;
+    }, QStringLiteral("hsl:%1:%2").arg(clipId).arg(band));
+}
+
+void ProjectController::setColorWheel(const QString &clipId, const QString &which, double x, double y, double luma)
+{
+    // Ponto fora do disco volta para a borda.
+    const double r = std::hypot(x, y);
+    if (r > 1) {
+        x /= r;
+        y /= r;
+    }
+    const ColorWheel value{x, y, std::clamp(luma, -1.0, 1.0)};
+    edit(tr("Color wheels"), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c)
+            return false;
+        ColorWheel *w = which == QLatin1String("lift") ? &c->color.lift
+                        : which == QLatin1String("gamma") ? &c->color.gamma
+                        : which == QLatin1String("gain") ? &c->color.gain : nullptr;
+        if (!w || *w == value)
+            return false;
+        *w = value;
+        return true;
+    }, QStringLiteral("wheel:%1:%2").arg(clipId, which));
+}
+
+void ProjectController::resetGrade(const QString &clipId)
+{
+    edit(tr("Reset color grading"), [&](Project &p) {
+        Clip *c = edit::clipById(p, clipId);
+        if (!c || !c->color.hasGrade())
+            return false;
+        for (auto &curve : c->color.curves)
+            curve.clear();
+        c->color.hsl = {};
+        c->color.lift = c->color.gamma = c->color.gain = {};
+        return true;
+    });
 }
 
 // ---------------------------------------------------------------------------

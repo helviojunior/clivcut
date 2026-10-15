@@ -57,6 +57,8 @@ qt_add_qml_module(clivcut
         qml/components/TileButton.qml
         qml/components/CurveEditor.qml
         qml/components/KeyframeGraph.qml
+        qml/components/ToneCurveEditor.qml
+        qml/components/ColorWheelPad.qml
     RESOURCES
         icons/clivcut.svg
         ${CLIVCUT_UI_ICONS}

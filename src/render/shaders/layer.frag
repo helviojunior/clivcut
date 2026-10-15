@@ -17,12 +17,14 @@ layout(std140, binding = 0) uniform buf {
     vec4 clipMask;     // forma, inverter, suavização, arredondamento
     vec4 clipMaskGeom; // centro x, centro y, largura, altura (frações do quadro)
     vec4 clipMaskExtra; // rotação (rad), proporção do quadro
+    vec4 grade;        // correção avançada (curvas/HSL/rodas) ativa
 } ubuf;
 
 layout(binding = 1) uniform sampler2D layerTex;
 layout(binding = 2) uniform sampler2D backdropTex;
 layout(binding = 3) uniform sampler3D filterLut;
 layout(binding = 4) uniform sampler3D userLut;
+layout(binding = 5) uniform sampler3D gradeLut; // curvas, HSL e rodas de cor (gerado em core/Lut.cpp)
 
 const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
 
@@ -56,6 +58,9 @@ vec3 grade(vec3 c, vec2 uv)
     c += ubuf.adjust2.z * 0.35 * smoothstep(0.45, 1.0, l);
     c += ubuf.adjust2.w * 0.35 * (1.0 - smoothstep(0.0, 0.55, l));
     c = clamp(c, 0.0, 1.0);
+    // Correção avançada: rodas de cor, HSL e curvas, juntas num LUT.
+    if (ubuf.grade.x > 0.5)
+        c = applyLut(gradeLut, c);
     // Filtro (LUT embutido) e LUT do usuário, com intensidade.
     if (ubuf.adjust3.z > 0.0)
         c = mix(c, applyLut(filterLut, c), ubuf.adjust3.z);

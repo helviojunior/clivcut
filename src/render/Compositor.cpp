@@ -51,6 +51,7 @@ struct Compositor::LayerUbo {
     float clipMask[4];
     float clipMaskGeom[4];
     float clipMaskExtra[4];
+    float grade[4];
 };
 
 struct Compositor::Slot {
@@ -58,6 +59,7 @@ struct Compositor::Slot {
     std::unique_ptr<QRhiShaderResourceBindings> srb;
     QRhiTexture *filterLut = nullptr;
     QRhiTexture *userLut = nullptr;
+    QRhiTexture *gradeLut = nullptr;
     bool usesBackdrop = false;
     QSize size;
     qint64 imageKey = -1;
@@ -83,8 +85,27 @@ QRhiTexture *Compositor::lutTexture(const QString &key, QRhiResourceUpdateBatch 
 {
     if (key.isEmpty() || !m_rhi->isFeatureSupported(QRhi::ThreeDimensionalTextures))
         return m_identityLut.get();
+    const bool grade = key.startsWith(QLatin1String("grade:"));
+    if (grade)
+        m_lutUsed[key] = m_frameCounter;
     if (auto it = m_luts.find(key); it != m_luts.end())
         return it->second.get();
+    // LUTs de correção mudam a cada ajuste dos controles: libera os que saíram de uso
+    // (nem neste quadro nem no anterior) e invalida os slots que ainda os referenciam.
+    if (grade) {
+        for (auto it = m_luts.begin(); it != m_luts.end();) {
+            const auto used = m_lutUsed.find(it->first);
+            if (used == m_lutUsed.end() || used->second + 1 >= m_frameCounter) {
+                ++it;
+                continue;
+            }
+            for (auto &slot : m_slots)
+                if (slot->gradeLut == it->second.get())
+                    slot->srb.reset();
+            m_lutUsed.erase(used);
+            it = m_luts.erase(it);
+        }
+    }
     const auto lut = lutForKey(key);
     if (!lut) {
         m_luts[key] = nullptr;
@@ -174,6 +195,8 @@ void Compositor::ensureResources(QRhiResourceUpdateBatch *u)
                                                   m_sampler.get()),
         QRhiShaderResourceBinding::sampledTexture(4, QRhiShaderResourceBinding::FragmentStage, m_identityLut.get(),
                                                   m_sampler.get()),
+        QRhiShaderResourceBinding::sampledTexture(5, QRhiShaderResourceBinding::FragmentStage, m_identityLut.get(),
+                                                  m_sampler.get()),
     });
     m_layoutSrb->create();
 
@@ -206,13 +229,14 @@ void Compositor::ensureResources(QRhiResourceUpdateBatch *u)
 }
 
 Compositor::Slot &Compositor::slotFor(const QString &key, QSize texSize, QRhiTexture *filterLut, QRhiTexture *userLut,
-                                      bool usesBackdrop)
+                                      QRhiTexture *gradeLut, bool usesBackdrop)
 {
     auto &ptr = m_slots[key];
     if (!ptr)
         ptr = std::make_shared<Slot>();
     Slot &s = *ptr;
-    bool rebuild = !s.srb || s.filterLut != filterLut || s.userLut != userLut || s.usesBackdrop != usesBackdrop;
+    bool rebuild = !s.srb || s.filterLut != filterLut || s.userLut != userLut || s.gradeLut != gradeLut
+                   || s.usesBackdrop != usesBackdrop;
     if (!usesBackdrop && (!s.tex || s.size != texSize)) {
         s.tex.reset(m_rhi->newTexture(QRhiTexture::RGBA8, texSize));
         s.tex->create();
@@ -225,6 +249,7 @@ Compositor::Slot &Compositor::slotFor(const QString &key, QSize texSize, QRhiTex
     if (rebuild) {
         s.filterLut = filterLut;
         s.userLut = userLut;
+        s.gradeLut = gradeLut;
         s.usesBackdrop = usesBackdrop;
         QRhiTexture *layerTex = usesBackdrop ? m_backdrop.get() : s.tex.get();
         s.srb.reset(m_rhi->newShaderResourceBindings());
@@ -239,6 +264,8 @@ Compositor::Slot &Compositor::slotFor(const QString &key, QSize texSize, QRhiTex
             QRhiShaderResourceBinding::sampledTexture(3, QRhiShaderResourceBinding::FragmentStage, filterLut,
                                                       m_sampler.get()),
             QRhiShaderResourceBinding::sampledTexture(4, QRhiShaderResourceBinding::FragmentStage, userLut,
+                                                      m_sampler.get()),
+            QRhiShaderResourceBinding::sampledTexture(5, QRhiShaderResourceBinding::FragmentStage, gradeLut,
                                                       m_sampler.get()),
         });
         s.srb->create();
@@ -285,6 +312,7 @@ void Compositor::fillUbo(LayerUbo &u, const VisualLayer &l, const Project &p, do
         const bool lut3d = m_rhi->isFeatureSupported(QRhi::ThreeDimensionalTextures);
         u.adjust3[2] = lut3d && c.hasFilter() ? static_cast<float>(c.filterIntensity) : 0.f;
         u.adjust3[3] = lut3d && c.hasLut() ? static_cast<float>(c.lutIntensity) : 0.f;
+        u.grade[0] = lut3d && c.hasGrade() ? 1.f : 0.f;
         u.misc[3] = l.clip->isAdjust() ? 1.f : 0.f;
     }
     if (l.clip && l.clip->mask.active() && !l.clip->isText()) {
@@ -366,7 +394,8 @@ void Compositor::composite(QRhiCommandBuffer *cb, const Project &p, const FrameD
         const QImage src = main != frame.layers.end() ? source.frameFor(*main) : QImage();
         if (!src.isNull()) {
             const QImage &bg = blurredBackground(src, p.backgroundBlur);
-            Slot &slot = slotFor(QStringLiteral("#background"), bg.size(), m_identityLut.get(), m_identityLut.get(), false);
+            Slot &slot = slotFor(QStringLiteral("#background"), bg.size(), m_identityLut.get(), m_identityLut.get(),
+                                 m_identityLut.get(), false);
             if (slot.imageKey != bg.cacheKey()) {
                 u->uploadTexture(slot.tex.get(), bg);
                 slot.imageKey = bg.cacheKey();
@@ -395,10 +424,11 @@ void Compositor::composite(QRhiCommandBuffer *cb, const Project &p, const FrameD
         const ColorAdjust &color = l.clip->color;
         QRhiTexture *filterLut = l.clip->isText() || !color.hasFilter() ? m_identityLut.get() : lutTexture(color.filter, u);
         QRhiTexture *userLut = l.clip->isText() || !color.hasLut() ? m_identityLut.get() : lutTexture(color.lutPath, u);
+        QRhiTexture *gradeLut = l.clip->isText() || !color.hasGrade() ? m_identityLut.get() : lutTexture(color.gradeKey(), u);
 
         if (l.clip->isAdjust()) {
             // Camada de ajuste: quadro inteiro, amostrando o fundo já composto.
-            Slot &slot = slotFor(l.clip->id, {}, filterLut, userLut, true);
+            Slot &slot = slotFor(l.clip->id, {}, filterLut, userLut, gradeLut, true);
             const bool flipV = m_rhi->isYUpInFramebuffer();
             const float W = m_size.width(), H = m_size.height();
             const float t0 = flipV ? 1.f : 0.f, t1 = flipV ? 0.f : 1.f;
@@ -440,7 +470,7 @@ void Compositor::composite(QRhiCommandBuffer *cb, const Project &p, const FrameD
         }
 
         const QSize texSize = img.isNull() ? m_slots[key]->size : img.size();
-        Slot &slot = slotFor(key, texSize, filterLut, userLut, false);
+        Slot &slot = slotFor(key, texSize, filterLut, userLut, gradeLut, false);
         if (!img.isNull() && slot.imageKey != imageKey) {
             u->uploadTexture(slot.tex.get(), img);
             slot.imageKey = imageKey;

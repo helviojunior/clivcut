@@ -68,6 +68,29 @@ struct Crop {
     bool isIdentity() const { return left == 0 && top == 0 && right == 0 && bottom == 0; }
 };
 
+/// Ponto de curva de tons (entrada x → saída y, ambos 0..1).
+struct CurvePoint {
+    double x = 0, y = 0;
+    bool operator==(const CurvePoint &o) const { return x == o.x && y == o.y; }
+};
+
+/// Ajuste de uma faixa de cor do HSL (todos -1..1).
+struct HslAdjust {
+    double hue = 0, saturation = 0, luminance = 0;
+    bool isZero() const { return hue == 0 && saturation == 0 && luminance == 0; }
+    bool operator==(const HslAdjust &o) const = default;
+};
+
+/// Roda de cor: deslocamento de cor (x, y no disco unitário) e de luminância (-1..1).
+struct ColorWheel {
+    double x = 0, y = 0, luma = 0;
+    bool isZero() const { return x == 0 && y == 0 && luma == 0; }
+    bool operator==(const ColorWheel &o) const = default;
+};
+
+/// Faixas do HSL: vermelho, laranja, amarelo, verde, ciano, azul, roxo, magenta.
+constexpr int kHslBands = 8;
+
 struct ColorAdjust {
     double brightness = 0;  ///< -1..1
     double contrast = 0;    ///< -1..1
@@ -84,7 +107,16 @@ struct ColorAdjust {
     QString lutPath;        ///< LUT .cube do usuário
     double lutIntensity = 1;
 
+    /// Curvas de tons: 0 = mestre (luminância), 1..3 = R, G, B. Vazia = identidade.
+    std::array<std::vector<CurvePoint>, 4> curves;
+    std::array<HslAdjust, kHslBands> hsl{};
+    ColorWheel lift, gamma, gain; ///< sombras, meios-tons, realces
+
     bool hasFilter() const { return !filter.isEmpty() && filterIntensity > 0; }
+    /// Curvas, HSL ou rodas fora do neutro (viram um LUT gerado; ver core/Lut.h).
+    bool hasGrade() const;
+    /// Chave estável do LUT gerado ("grade:{...}"), vazia se neutro.
+    QString gradeKey() const;
     bool hasLut() const { return !lutPath.isEmpty() && lutIntensity > 0; }
 };
 

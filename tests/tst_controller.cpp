@@ -530,6 +530,30 @@ private slots:
         QVERIFY(m_ctrl->cachedRanges().isEmpty());
     }
 
+    void colorGradingApi()
+    {
+        QVERIFY(m_ctrl->openProject(QUrl::fromLocalFile(m_dir.filePath(QStringLiteral("p.clivcut")))));
+        const QString clip = clipsOf(0).first().toMap().value("id").toString();
+        m_ctrl->select(clip);
+        QVERIFY(!m_ctrl->selectedClip().value("hasGrade").toBool());
+        m_ctrl->setCurve(clip, 0, {QVariantMap{{"x", 0.5}, {"y", 0.7}}});
+        m_ctrl->setHsl(clip, 5, 0.2, -0.5, 0);
+        m_ctrl->setColorWheel(clip, QStringLiteral("gain"), 3, 4, 0.5); // fora do disco: volta à borda
+        const QVariantMap c = m_ctrl->selectedClip();
+        QVERIFY(c.value("hasGrade").toBool());
+        QCOMPARE(c.value("curves").toList().at(0).toList().size(), 1);
+        QCOMPARE(c.value("hsl").toList().at(5).toMap().value("saturation").toDouble(), -0.5);
+        const QVariantMap gain = c.value("wheels").toMap().value("gain").toMap();
+        QVERIFY(std::abs(gain.value("x").toDouble() - 0.6) < 1e-9 && std::abs(gain.value("y").toDouble() - 0.8) < 1e-9);
+        // Curva identidade conta como "sem curva".
+        m_ctrl->setCurve(clip, 0, {QVariantMap{{"x", 0.0}, {"y", 0.0}}, QVariantMap{{"x", 1.0}, {"y", 1.0}}});
+        QCOMPARE(m_ctrl->selectedClip().value("curves").toList().at(0).toList().size(), 0);
+        m_ctrl->resetGrade(clip);
+        QVERIFY(!m_ctrl->selectedClip().value("hasGrade").toBool());
+        m_ctrl->undo();
+        QVERIFY(m_ctrl->selectedClip().value("hasGrade").toBool());
+    }
+
     void silenceRemovalWorkflow()
     {
         // 6 s: tom de 0–2 s, silêncio de 2–4 s, tom de 4–6 s.

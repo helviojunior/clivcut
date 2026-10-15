@@ -152,6 +152,13 @@
     </message>
 </context>
 <context>
+    <name>ColorWheelPad</name>
+    <message>
+        <source>Luminance %1</source>
+        <translation>Luminancia %1</translation>
+    </message>
+</context>
+<context>
     <name>CommandPalette</name>
     <message>
         <source>What do you want to do? (e.g. split, export, captions)</source>
@@ -874,6 +881,70 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
     <message>
         <source>Load…</source>
         <translation>Cargar…</translation>
+    </message>
+    <message>
+        <source>Curves</source>
+        <translation>Curvas</translation>
+    </message>
+    <message>
+        <source>Luma</source>
+        <translation>Luma</translation>
+    </message>
+    <message>
+        <source>HSL</source>
+        <translation>HSL</translation>
+    </message>
+    <message>
+        <source>Reds</source>
+        <translation>Rojos</translation>
+    </message>
+    <message>
+        <source>Oranges</source>
+        <translation>Naranjas</translation>
+    </message>
+    <message>
+        <source>Yellows</source>
+        <translation>Amarillos</translation>
+    </message>
+    <message>
+        <source>Greens</source>
+        <translation>Verdes</translation>
+    </message>
+    <message>
+        <source>Cyans</source>
+        <translation>Cianes</translation>
+    </message>
+    <message>
+        <source>Blues</source>
+        <translation>Azules</translation>
+    </message>
+    <message>
+        <source>Purples</source>
+        <translation>Morados</translation>
+    </message>
+    <message>
+        <source>Magentas</source>
+        <translation>Magentas</translation>
+    </message>
+    <message>
+        <source>Hue</source>
+        <translation>Tono</translation>
+    </message>
+    <message>
+        <source>Luminance</source>
+        <translation>Luminancia</translation>
+    </message>
+    <message>
+        <source>Color wheels</source>
+        <translation>Ruedas de color</translation>
+    </message>
+    <message>
+        <source>Reset all grading</source>
+        <translation>Restablecer toda la corrección</translation>
+    </message>
+    <message>
+        <source>Midtones</source>
+        <translation>Medios tonos</translation>
     </message>
     <message>
         <source>None</source>
@@ -2405,6 +2476,22 @@ Atajos: Espacio reproduce · Ctrl+B divide · Q/W eliminan a la izquierda/derech
             <numerusform>%n palabra quitada</numerusform>
             <numerusform>%n palabras quitadas</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>Curves</source>
+        <translation>Curvas</translation>
+    </message>
+    <message>
+        <source>HSL</source>
+        <translation>HSL</translation>
+    </message>
+    <message>
+        <source>Color wheels</source>
+        <translation>Ruedas de color</translation>
+    </message>
+    <message>
+        <source>Reset color grading</source>
+        <translation>Restablecer corrección de color</translation>
     </message>
     <message>
         <source>Isolating voice in %1…</source>

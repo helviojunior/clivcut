@@ -74,6 +74,7 @@ Rectangle {
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
 
         Flickable {
+            objectName: "inspectorScroll"
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentHeight: content.implicitHeight + 24
@@ -377,6 +378,128 @@ Rectangle {
                         from: 0; to: 1; displayScale: 100; decimals: 0; suffix: "%"
                         value: root.hasColor ? root.sel.lutIntensity : 1
                         onMoved: (v) => root.setProp("lutIntensity", v)
+                    }
+
+                    // Curvas de tons
+                    SectionLabel {
+                        id: curvesLabel
+                        property int channel: 0 // 0 mestre, 1 R, 2 G, 3 B
+                        text: qsTr("Curves")
+                        actionText: root.hasColor && root.sel.curves && root.sel.curves[channel].length > 0 ? qsTr("Reset") : ""
+                        onActionClicked: Project.setCurve(root.sel.id, channel, [])
+                    }
+                    RowLayout {
+                        spacing: 4
+                        Repeater {
+                            model: [{ name: qsTr("Luma"), color: Theme.text }, { name: "R", color: "#ff5a5a" },
+                                    { name: "G", color: "#4fd17a" }, { name: "B", color: "#5a9bff" }]
+                            Rectangle {
+                                id: chip
+                                required property var modelData
+                                required property int index
+                                readonly property bool on: curvesLabel.channel === index
+                                implicitWidth: chipText.implicitWidth + 16
+                                implicitHeight: 24
+                                radius: 12
+                                color: on ? Theme.accentSoft : Theme.surface
+                                border.color: on ? Theme.accent : "transparent"
+                                Text {
+                                    id: chipText
+                                    anchors.centerIn: parent
+                                    text: chip.modelData.name
+                                    color: chip.modelData.color
+                                    font.pixelSize: Theme.fontSmall
+                                    font.bold: chip.on
+                                }
+                                TapHandler { onTapped: curvesLabel.channel = chip.index }
+                            }
+                        }
+                    }
+                    ToneCurveEditor {
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: 280
+                        Layout.preferredHeight: width
+                        points: root.hasColor && root.sel.curves ? root.sel.curves[curvesLabel.channel] : []
+                        lineColor: ["#e8e8ea", "#ff5a5a", "#4fd17a", "#5a9bff"][curvesLabel.channel]
+                        onEdited: (pts) => Project.setCurve(root.sel.id, curvesLabel.channel, pts)
+                    }
+
+                    // HSL por faixa de cor
+                    SectionLabel {
+                        id: hslLabel
+                        property int band: 0
+                        readonly property var value: root.hasColor && root.sel.hsl ? root.sel.hsl[band] : ({ hue: 0, saturation: 0, luminance: 0 })
+                        text: qsTr("HSL")
+                        actionText: value.hue !== 0 || value.saturation !== 0 || value.luminance !== 0 ? qsTr("Reset") : ""
+                        onActionClicked: Project.setHsl(root.sel.id, band, 0, 0, 0)
+                    }
+                    RowLayout {
+                        spacing: 6
+                        Repeater {
+                            model: ["#ff3b3b", "#ff9a2e", "#ffe03b", "#3bd16a", "#3be0e0", "#3b7bff", "#9a5bff", "#ff4fd8"]
+                            Rectangle {
+                                id: dot
+                                required property string modelData
+                                required property int index
+                                readonly property var v: root.hasColor && root.sel.hsl ? root.sel.hsl[index] : null
+                                readonly property bool changed: v && (v.hue !== 0 || v.saturation !== 0 || v.luminance !== 0)
+                                implicitWidth: 22
+                                implicitHeight: 22
+                                radius: 11
+                                color: modelData
+                                border.width: hslLabel.band === index ? 3 : (changed ? 2 : 0)
+                                border.color: hslLabel.band === index ? Theme.text : Theme.textDim
+                                TapHandler { onTapped: hslLabel.band = dot.index }
+                                ToolTip.visible: dotHover.hovered
+                                ToolTip.text: [qsTr("Reds"), qsTr("Oranges"), qsTr("Yellows"), qsTr("Greens"), qsTr("Cyans"),
+                                               qsTr("Blues"), qsTr("Purples"), qsTr("Magentas")][dot.index]
+                                HoverHandler { id: dotHover }
+                            }
+                        }
+                    }
+                    PropSlider {
+                        label: qsTr("Hue")
+                        from: -1; to: 1; displayScale: 100; decimals: 0
+                        value: hslLabel.value.hue
+                        onMoved: (v) => Project.setHsl(root.sel.id, hslLabel.band, v, hslLabel.value.saturation, hslLabel.value.luminance)
+                    }
+                    PropSlider {
+                        label: qsTr("Saturation")
+                        from: -1; to: 1; displayScale: 100; decimals: 0
+                        value: hslLabel.value.saturation
+                        onMoved: (v) => Project.setHsl(root.sel.id, hslLabel.band, hslLabel.value.hue, v, hslLabel.value.luminance)
+                    }
+                    PropSlider {
+                        label: qsTr("Luminance")
+                        from: -1; to: 1; displayScale: 100; decimals: 0
+                        value: hslLabel.value.luminance
+                        onMoved: (v) => Project.setHsl(root.sel.id, hslLabel.band, hslLabel.value.hue, hslLabel.value.saturation, v)
+                    }
+
+                    // Rodas de cor
+                    SectionLabel {
+                        text: qsTr("Color wheels")
+                        actionText: root.hasColor && root.sel.hasGrade ? qsTr("Reset all grading") : ""
+                        onActionClicked: Project.resetGrade(root.sel.id)
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Repeater {
+                            model: [{ key: "lift", name: qsTr("Shadows") }, { key: "gamma", name: qsTr("Midtones") },
+                                    { key: "gain", name: qsTr("Highlights") }]
+                            ColorWheelPad {
+                                required property var modelData
+                                readonly property var w: root.hasColor && root.sel.wheels ? root.sel.wheels[modelData.key] : ({ x: 0, y: 0, luma: 0 })
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 1
+                                label: modelData.name
+                                wx: w.x
+                                wy: w.y
+                                luma: w.luma
+                                onEdited: (x, y, l) => Project.setColorWheel(root.sel.id, modelData.key, x, y, l)
+                            }
+                        }
                     }
                 }
 

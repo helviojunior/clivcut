@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "Model.h"
+
 #include <QImage>
 #include <QString>
 
@@ -26,6 +28,15 @@ struct Lut3D {
     /** Consulta com interpolação trilinear (entrada e saída 0..1). */
     std::array<float, 3> sample(float r, float g, float b) const;
 };
+
+/**
+ * LUT da correção de cor avançada de um clipe: rodas de cor (lift/gamma/gain),
+ * HSL por faixa de cor e curvas de tons (mestre, depois R/G/B), nessa ordem.
+ */
+Lut3D buildGradeLut(const ColorAdjust &c, int size = 33);
+
+/** Curva monotônica (Fritsch–Carlson) pelos pontos, amostrada em `samples` valores de 0 a 1. */
+std::vector<float> sampleCurve(std::vector<CurvePoint> points, int samples = 1024);
 
 /** Lê um .cube (3D; LUTs 1D são convertidos para 3D). Em erro retorna inválido e preenche `error`. */
 Lut3D parseCube(const QByteArray &data, QString *error = nullptr);

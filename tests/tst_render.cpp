@@ -132,6 +132,23 @@ private slots:
         QVERIFY(near(px(img, 160, 90), Qt::blue));
     }
 
+    void colorGradeLut()
+    {
+        Project p = createProject(QStringLiteral("t"), 160, 90, 30);
+        auto a = imageAsset(p);
+        auto c = createMediaClip(a, 0);
+        c.color.curves[0] = {{0.5, 0.8}}; // clareia os meios-tons
+        edit::insertClip(p, c, 0);
+        SolidSource src;
+        src.images[a.id] = solid(QColor(128, 128, 128));
+        const QImage img = renderAt(p, 0, src);
+        QVERIFY2(px(img, 80, 45).red() > 185, qPrintable(px(img, 80, 45).name()));
+        // Outra curva: novo LUT; a anterior sai de uso sem quebrar nada.
+        p.tracks[0].clips[0].color.curves[0] = {{0.5, 0.3}};
+        const QImage darker = renderAt(p, 0, src);
+        QVERIFY2(px(darker, 80, 45).red() < 90, qPrintable(px(darker, 80, 45).name()));
+    }
+
     void opacityAndMultiply()
     {
         Project p = createProject(QStringLiteral("t"), 320, 180, 30);

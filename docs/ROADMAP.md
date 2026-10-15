@@ -40,7 +40,7 @@
 | 1 | Zero-copy hardware decoding and frame prefetching | 🟡 | VA-API decoding done (MVP #24); zero-copy (VA-API → dmabuf → Vulkan/GL texture) and prefetching on a thread missing |
 | 2 | Compound clips | ⬜ | |
 | 3 | Speed curves and smooth slow motion | 🟡 | speed curves done (MVP #12); frame interpolation (RIFE) missing |
-| 4 | Advanced color: curves, HSL, color wheels, adjustment layers | 🟡 | adjustment layers done; curves, HSL and color wheels missing |
+| 4 | Advanced color: curves, HSL, color wheels, adjustment layers | ✅ | grading baked into a per-clip 3D LUT (also on adjustment layers); keyframing grading values missing |
 | 5 | Scopes (histogram, waveform, vectorscope) | ⬜ | |
 | 6 | Local background removal | 🟡 | RobustVideoMatting on ONNX Runtime: matte generated in the background, cached and applied as clip alpha in preview and export; model downloaded on demand from the Inspector. Interactive cutout (SAM 2) missing |
 | 7 | Object tracking | ⬜ | |

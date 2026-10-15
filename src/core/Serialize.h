@@ -11,6 +11,9 @@ namespace clv {
 
 QJsonObject toJson(const Project &p);
 QJsonObject clipToJson(const Clip &c);
+/// Curvas, HSL e rodas de cor (vazio se tudo neutro).
+QJsonObject gradeToJson(const ColorAdjust &c);
+void gradeFromJson(const QJsonObject &o, ColorAdjust &c);
 Clip clipFromJson(const QJsonObject &o);
 QJsonObject assetToJson(const MediaAsset &a);
 MediaAsset assetFromJson(const QJsonObject &o);

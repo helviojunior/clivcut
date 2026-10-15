@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "Model.h"
 
+#include "Serialize.h"
+
+#include <QJsonDocument>
+
 #include <QCoreApplication>
 
 #include <QRandomGenerator>
@@ -103,6 +107,24 @@ Clip createAdjustClip(Micros start, Micros duration, const QString &filter)
     c.duration = duration;
     c.color.filter = filter;
     return c;
+}
+
+bool ColorAdjust::hasGrade() const
+{
+    for (const auto &c : curves)
+        if (!c.empty())
+            return true;
+    for (const auto &b : hsl)
+        if (!b.isZero())
+            return true;
+    return !lift.isZero() || !gamma.isZero() || !gain.isZero();
+}
+
+QString ColorAdjust::gradeKey() const
+{
+    if (!hasGrade())
+        return {};
+    return QStringLiteral("grade:") + QString::fromUtf8(QJsonDocument(gradeToJson(*this)).toJson(QJsonDocument::Compact));
 }
 
 } // namespace clv

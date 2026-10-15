@@ -126,6 +126,68 @@ Mask maskFromJson(const QJsonObject &o)
     return m;
 }
 
+} // namespace
+
+QJsonObject gradeToJson(const ColorAdjust &c)
+{
+    QJsonObject o;
+    static const char *names[] = {"master", "red", "green", "blue"};
+    QJsonObject curves;
+    for (int ch = 0; ch < 4; ++ch) {
+        if (c.curves[ch].empty())
+            continue;
+        QJsonArray pts;
+        for (const auto &p : c.curves[ch])
+            pts.append(QJsonArray{p.x, p.y});
+        curves.insert(QLatin1String(names[ch]), pts);
+    }
+    if (!curves.isEmpty())
+        o.insert("curves", curves);
+    bool anyHsl = false;
+    QJsonArray hsl;
+    for (const auto &b : c.hsl) {
+        hsl.append(QJsonArray{b.hue, b.saturation, b.luminance});
+        anyHsl = anyHsl || !b.isZero();
+    }
+    if (anyHsl)
+        o.insert("hsl", hsl);
+    QJsonObject wheels;
+    const std::pair<const char *, const ColorWheel *> ws[] = {{"lift", &c.lift}, {"gamma", &c.gamma}, {"gain", &c.gain}};
+    for (const auto &[name, w] : ws)
+        if (!w->isZero())
+            wheels.insert(QLatin1String(name), QJsonArray{w->x, w->y, w->luma});
+    if (!wheels.isEmpty())
+        o.insert("wheels", wheels);
+    return o;
+}
+
+void gradeFromJson(const QJsonObject &o, ColorAdjust &c)
+{
+    static const char *names[] = {"master", "red", "green", "blue"};
+    const QJsonObject curves = o.value("curves").toObject();
+    for (int ch = 0; ch < 4; ++ch) {
+        c.curves[ch].clear();
+        for (const auto &v : curves.value(QLatin1String(names[ch])).toArray()) {
+            const QJsonArray p = v.toArray();
+            c.curves[ch].push_back({std::clamp(p.at(0).toDouble(), 0.0, 1.0), std::clamp(p.at(1).toDouble(), 0.0, 1.0)});
+        }
+    }
+    const QJsonArray hsl = o.value("hsl").toArray();
+    for (int i = 0; i < kHslBands; ++i) {
+        const QJsonArray b = hsl.at(i).toArray();
+        c.hsl[i] = {std::clamp(b.at(0).toDouble(), -1.0, 1.0), std::clamp(b.at(1).toDouble(), -1.0, 1.0),
+                    std::clamp(b.at(2).toDouble(), -1.0, 1.0)};
+    }
+    const QJsonObject wheels = o.value("wheels").toObject();
+    const std::pair<const char *, ColorWheel *> ws[] = {{"lift", &c.lift}, {"gamma", &c.gamma}, {"gain", &c.gain}};
+    for (const auto &[name, w] : ws) {
+        const QJsonArray a = wheels.value(QLatin1String(name)).toArray();
+        *w = {a.at(0).toDouble(), a.at(1).toDouble(), std::clamp(a.at(2).toDouble(), -1.0, 1.0)};
+    }
+}
+
+namespace {
+
 QJsonObject colorToJson(const ColorAdjust &c)
 {
     QJsonObject o{{"brightness", c.brightness}, {"contrast", c.contrast}, {"saturation", c.saturation},
@@ -140,6 +202,9 @@ QJsonObject colorToJson(const ColorAdjust &c)
         o.insert("lut", c.lutPath);
         o.insert("lutIntensity", c.lutIntensity);
     }
+    const QJsonObject grade = gradeToJson(c);
+    for (auto it = grade.begin(); it != grade.end(); ++it)
+        o.insert(it.key(), it.value());
     return o;
 }
 
@@ -160,6 +225,7 @@ ColorAdjust colorFromJson(const QJsonObject &col)
     c.filterIntensity = col.value("filterIntensity").toDouble(0.8);
     c.lutPath = col.value("lut").toString();
     c.lutIntensity = col.value("lutIntensity").toDouble(1);
+    gradeFromJson(col, c);
     return c;
 }
 

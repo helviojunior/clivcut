@@ -38,6 +38,7 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
   - 16 built-in filters (Vivid, Teal & Orange, Vintage, Noir…), previewed on the current frame, with intensity.
   - `.cube` LUTs with intensity.
   - Exposure, brightness, contrast, saturation, highlights, shadows, temperature, tint, vignette and sharpness.
+  - **Advanced grading:** tone curves (luma, R, G, B), HSL per color range (8 ranges) and lift/gamma/gain color wheels, baked into a LUT on the GPU.
   - **Adjustment/filter layers** on the timeline that affect everything below them.
 - **Compositing:**
   - 10 blend modes and chroma key.

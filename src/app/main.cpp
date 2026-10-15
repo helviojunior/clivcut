@@ -74,7 +74,8 @@ int main(int argc, char **argv)
     // CLIVCUT_SCREENSHOT_PANEL=índice do painel lateral, CLIVCUT_SCREENSHOT_TAB=aba do inspetor,
     // CLIVCUT_SCREENSHOT_PALETTE=1 (abre a paleta de comandos), CLIVCUT_SCREENSHOT_EXPORT=aba do diálogo de exportação,
     // CLIVCUT_SCREENSHOT_SHORTCUTS=1 (abre o editor de atalhos), CLIVCUT_SCREENSHOT_RENDER=1 (renderiza a pré-visualização),
-    // CLIVCUT_SCREENSHOT_OPEN=objectName de um diálogo para abrir, CLIVCUT_SCREENSHOT_TRANSCRIBE=modelo (transcreve em inglês).
+    // CLIVCUT_SCREENSHOT_OPEN=objectName de um diálogo para abrir, CLIVCUT_SCREENSHOT_TRANSCRIBE=modelo (transcreve em inglês),
+    // CLIVCUT_SCREENSHOT_SCROLL=px (rola o inspetor).
     const QString shot = qEnvironmentVariable("CLIVCUT_SCREENSHOT");
     if (!shot.isEmpty() && !engine.rootObjects().isEmpty()) {
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst());
@@ -107,6 +108,10 @@ int main(int argc, char **argv)
             if (ok)
                 if (auto *rail = window->findChild<QObject *>(QStringLiteral("rail")))
                     QMetaObject::invokeMethod(rail, "activate", Q_ARG(QVariant, panel));
+            const int scroll = qEnvironmentVariableIntValue("CLIVCUT_SCREENSHOT_SCROLL", &ok);
+            if (ok)
+                if (auto *flick = window->findChild<QObject *>(QStringLiteral("inspectorScroll")))
+                    QTimer::singleShot(300, flick, [flick, scroll] { flick->setProperty("contentY", scroll); });
             const QString tab = qEnvironmentVariable("CLIVCUT_SCREENSHOT_TAB");
             if (!tab.isEmpty())
                 if (auto *inspector = window->findChild<QObject *>(QStringLiteral("inspector")))

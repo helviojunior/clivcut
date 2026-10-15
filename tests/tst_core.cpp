@@ -38,6 +38,63 @@ class CoreTest : public QObject {
     Q_OBJECT
 
 private slots:
+    void colorGrading()
+    {
+        ColorAdjust c;
+        QVERIFY(!c.hasGrade());
+        QVERIFY(c.gradeKey().isEmpty());
+        // Neutro: LUT identidade.
+        Lut3D id = buildGradeLut(c, 9);
+        auto near = [](std::array<float, 3> a, std::array<float, 3> b, float tol = 0.01f) {
+            return std::abs(a[0] - b[0]) < tol && std::abs(a[1] - b[1]) < tol && std::abs(a[2] - b[2]) < tol;
+        };
+        QVERIFY(near(id.sample(0.3f, 0.6f, 0.9f), {0.3f, 0.6f, 0.9f}));
+
+        // Curva mestre levantando os meios-tons: monotônica, passa pelos pontos.
+        const auto curve = sampleCurve({{0.5, 0.7}});
+        QCOMPARE(curve.size(), size_t(1024));
+        QVERIFY(std::abs(curve[512] - 0.7f) < 0.01f);
+        for (size_t i = 1; i < curve.size(); ++i)
+            QVERIFY(curve[i] >= curve[i - 1]);
+        c.curves[0] = {{0.5, 0.7}};
+        QVERIFY(c.hasGrade());
+        Lut3D lifted = buildGradeLut(c, 17);
+        QVERIFY(lifted.sample(0.5f, 0.5f, 0.5f)[0] > 0.65f);
+        QVERIFY(near(lifted.sample(0, 0, 0), {0, 0, 0}));
+
+        // HSL: tira a saturação dos vermelhos e deixa o azul em paz.
+        ColorAdjust h;
+        h.hsl[0].saturation = -1;
+        Lut3D hsl = buildGradeLut(h, 17);
+        const auto red = hsl.sample(0.9f, 0.1f, 0.1f);
+        QVERIFY(std::abs(red[0] - red[1]) < 0.05f);
+        QVERIFY(near(hsl.sample(0.1f, 0.1f, 0.9f), {0.1f, 0.1f, 0.9f}, 0.03f));
+
+        // Roda de ganho para o azul deixa os realces azulados; o preto não muda.
+        ColorAdjust w;
+        w.gain = {std::cos(4.18879), std::sin(4.18879), 0}; // 240° = azul
+        Lut3D wheel = buildGradeLut(w, 17);
+        const auto white = wheel.sample(0.8f, 0.8f, 0.8f);
+        QVERIFY(white[2] > white[0] + 0.1f);
+        QVERIFY(near(wheel.sample(0, 0, 0), {0, 0, 0}));
+
+        // Serialização e chave estável.
+        Project p = createProject();
+        auto a = videoAsset(p);
+        Clip clip = createMediaClip(a, 0);
+        clip.color = c;
+        clip.color.hsl = h.hsl;
+        clip.color.gain = w.gain;
+        edit::insertClip(p, clip, 0);
+        Project q;
+        QVERIFY(parseProject(serializeProject(p), q));
+        const ColorAdjust &back = q.tracks[0].clips[0].color;
+        QCOMPARE(back.curves[0].size(), size_t(1));
+        QCOMPARE(back.hsl[0].saturation, -1.0);
+        QVERIFY(std::abs(back.gain.x - w.gain.x) < 1e-9);
+        QCOMPARE(back.gradeKey(), clip.color.gradeKey());
+    }
+
     void removeRangesRipples()
     {
         // Vídeo de 10 s na principal, texto de 4 a 8 s em cima, marcador em 9 s.

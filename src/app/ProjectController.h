@@ -243,6 +243,13 @@ public:
     Q_INVOKABLE void select(const QString &clipId, bool additive = false);
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void setClipProperty(const QString &clipId, const QString &key, const QVariant &value);
+    /// Correção de cor avançada. Curva: canal 0 = mestre, 1..3 = R, G, B; pontos [{x, y}] (0..1).
+    Q_INVOKABLE void setCurve(const QString &clipId, int channel, const QVariantList &points);
+    /// HSL da faixa `band` (0 vermelho … 7 magenta); valores -1..1.
+    Q_INVOKABLE void setHsl(const QString &clipId, int band, double hue, double saturation, double luminance);
+    /// Roda "lift", "gamma" ou "gain": cor (x, y no disco) e luminância (-1..1).
+    Q_INVOKABLE void setColorWheel(const QString &clipId, const QString &which, double x, double y, double luma);
+    Q_INVOKABLE void resetGrade(const QString &clipId);
     /// Várias propriedades numa única edição (um passo de desfazer).
     Q_INVOKABLE void setClipProperties(const QString &clipId, const QVariantMap &values);
     Q_INVOKABLE void toggleKeyframe(const QString &clipId, const QString &prop);
