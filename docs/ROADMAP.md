@@ -50,7 +50,7 @@
 | 11 | Local TTS (Piper) | ⬜ | |
 | 12 | Stickers and shapes, curved text, per-character styles | ⬜ | |
 | 13 | Shader-based video effects (glitch, shake, blur, VHS, glow, particles) and more transitions | ⬜ | |
-| 14 | Audio: music ducking under voice, voice effects (echo, reverb, voice changer), voiceover recording | 🟡 | ducking (real time in the mixer) and voice effects (offline FFmpeg filter chains, cached) done; voiceover recording missing |
+| 14 | Audio: music ducking under voice, voice effects (echo, reverb, voice changer), voiceover recording | ✅ | ducking in real time in the mixer, voice effects as cached FFmpeg filter chains, voiceover recorded with SDL capture |
 | 15 | Music beat detection with automatic markers | ⬜ | |
 | 16 | Project templates with media slots and ready-made text templates | ⬜ | |
 | 17 | Packaging: AppImage | ✅ | tested |

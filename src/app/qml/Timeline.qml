@@ -6,6 +6,7 @@ import Clivcut
 Rectangle {
     id: root
     signal silencesRequested()
+    signal voiceoverRequested()
     color: Theme.panel
 
     // --- escala de tempo ---
@@ -104,6 +105,13 @@ Rectangle {
                 IconButton { iconName: "copy"; tip: qsTr("Duplicate"); shortcut: Keymap.label("duplicate"); enabled: Project.selection.length > 0; onClicked: Project.duplicateSelection() }
                 IconButton { iconName: "snowflake"; tip: qsTr("Freeze frame"); shortcut: Keymap.label("freeze"); onClicked: Project.freezeFrame() }
                 IconButton { iconName: "bookmark"; tip: qsTr("Add marker"); shortcut: Keymap.label("marker"); onClicked: Project.addMarker() }
+                IconButton {
+                    iconName: "mic"
+                    active: Project.recording
+                    tip: qsTr("Record voiceover")
+                    shortcut: Keymap.label("recordVoiceover")
+                    onClicked: root.voiceoverRequested()
+                }
                 IconButton {
                     iconName: "scissors-line-dashed"
                     tip: qsTr("Remove silences")

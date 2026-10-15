@@ -6,6 +6,7 @@ import Clivcut
 
 Rectangle {
     id: root
+    function openVoiceover() { voiceover.armed ? voiceover.stop() : voiceover.open() }
     color: Theme.bg
 
     readonly property var sel: Project.selectedClip
@@ -80,6 +81,16 @@ Rectangle {
                 id: preview
                 anchors.fill: parent
                 maxResolution: Project.previewResolution
+            }
+
+            VoiceoverPanel {
+                id: voiceover
+                objectName: "voiceoverPanel"
+                z: 6
+                anchors.left: parent.left
+                anchors.bottom: parent.bottom
+                anchors.margins: 10
+                width: Math.min(implicitWidth, parent.width - 20)
             }
 
             // Escopos do quadro atual (o mesmo que vai para o export).

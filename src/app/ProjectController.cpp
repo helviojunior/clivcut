@@ -11,8 +11,10 @@
 #include "core/Lut.h"
 #include "core/Serialize.h"
 #include "core/SpeedCurve.h"
+#include "AudioRecorder.h"
 #include "Language.h"
 #include "engine/AiModels.h"
+#include "media/AudioDecoder.h"
 #include "engine/AudioCleanup.h"
 #include "engine/Matting.h"
 #include "engine/VoiceEffects.h"
@@ -112,6 +114,15 @@ ProjectController::ProjectController(QObject *parent) : QObject(parent)
     m_ticker.setInterval(15);
     m_ticker.setTimerType(Qt::PreciseTimer);
     connect(&m_ticker, &QTimer::timeout, this, &ProjectController::tick);
+    m_recordTimer.setInterval(100);
+    connect(&m_recordTimer, &QTimer::timeout, this, [this] {
+        if (!m_recorder)
+            return;
+        m_recorder->flush();
+        // Nível com queda suave, para o medidor não piscar.
+        m_recordLevel = std::max(static_cast<double>(m_recorder->takePeak()), m_recordLevel * 0.7);
+        emit recordLevelChanged();
+    });
     m_cacheTimer.setSingleShot(true);
     m_cacheTimer.setInterval(300);
     connect(&m_cacheTimer, &QTimer::timeout, this, &ProjectController::refreshRenderCache);
@@ -2996,6 +3007,72 @@ QString ProjectController::activeLanguage() const
 QVariantList ProjectController::languages() const
 {
     return app::availableLanguages();
+}
+
+// ---------------------------------------------------------------------------
+// Narração (gravação do microfone)
+
+bool ProjectController::recording() const
+{
+    return m_recorder && m_recorder->recording();
+}
+
+double ProjectController::recordElapsed() const
+{
+    return m_recorder ? static_cast<double>(m_recorder->frames()) * kSecond / media::kSampleRate : 0.0;
+}
+
+QStringList ProjectController::inputDevices() const
+{
+    return AudioRecorder::devices();
+}
+
+bool ProjectController::startRecording(const QString &device)
+{
+    if (recording())
+        return false;
+    // Ao lado do projeto salvo; sem projeto salvo, na pasta de dados do app.
+    const QString dir = m_filePath.isEmpty()
+                            ? QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath(QStringLiteral("recordings"))
+                            : QDir(QFileInfo(m_filePath).absolutePath()).filePath(QFileInfo(m_filePath).completeBaseName() + QStringLiteral(" recordings"));
+    m_recordPath = QDir(dir).filePath(QStringLiteral("voiceover-%1.wav").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss"))));
+    if (!m_recorder)
+        m_recorder = std::make_unique<AudioRecorder>();
+    QString err;
+    if (!m_recorder->start(m_recordPath, device, &err)) {
+        emit errorOccurred(err);
+        return false;
+    }
+    m_recordStart = m_project.snapToFrame(m_playhead);
+    m_recordLevel = 0;
+    m_recordTimer.start();
+    emit recordingChanged();
+    play(); // narra por cima do vídeo
+    setStatus(tr("Recording voiceover…"));
+    return true;
+}
+
+void ProjectController::stopRecording()
+{
+    if (!recording())
+        return;
+    m_recordTimer.stop();
+    const std::int64_t frames = m_recorder->stop();
+    pause();
+    m_recordLevel = 0;
+    emit recordingChanged();
+    emit recordLevelChanged();
+    if (frames < media::kSampleRate / 10) { // menos de 0,1 s: descarta
+        QFile::remove(m_recordPath);
+        return;
+    }
+    importMedia({QUrl::fromLocalFile(m_recordPath)});
+    for (const auto &[id, a] : m_project.assets)
+        if (a.path == m_recordPath) {
+            addAssetToTimeline(id, -1, static_cast<double>(m_recordStart));
+            break;
+        }
+    setStatus(tr("Voiceover recorded (%1)").arg(formatTime(static_cast<double>(frames) * kSecond / media::kSampleRate)));
 }
 
 // ---------------------------------------------------------------------------

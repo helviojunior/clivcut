@@ -15,6 +15,7 @@ qt_add_executable(clivcut
     PreviewItem.h PreviewItem.cpp
     ImageProviders.h ImageProviders.cpp
     AudioOutput.h AudioOutput.cpp
+    AudioRecorder.h AudioRecorder.cpp
     Language.h Language.cpp
     Scopes.h Scopes.cpp
     ScopeItem.h ScopeItem.cpp
@@ -35,6 +36,7 @@ qt_add_qml_module(clivcut
         qml/ShortcutsDialog.qml
         qml/SilenceDialog.qml
         qml/TranscriptPanel.qml
+        qml/VoiceoverPanel.qml
         qml/TopBar.qml
         qml/MediaPanel.qml
         qml/CaptionsPanel.qml

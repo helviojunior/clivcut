@@ -45,6 +45,13 @@
     </message>
 </context>
 <context>
+    <name>AudioRecorder</name>
+    <message>
+        <source>Could not open the microphone: %1</source>
+        <translation>Não foi possível abrir o microfone: %1</translation>
+    </message>
+</context>
+<context>
     <name>CaptionsPanel</name>
     <message>
         <source>Detect automatically</source>
@@ -1486,6 +1493,10 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
         <translation>Ajustar timeline à janela</translation>
     </message>
     <message>
+        <source>Record voiceover</source>
+        <translation>Gravar narração</translation>
+    </message>
+    <message>
         <source>Remove silences</source>
         <translation>Remover silêncios</translation>
     </message>
@@ -2570,6 +2581,14 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
         <translation>Zerar correção de cor</translation>
     </message>
     <message>
+        <source>Recording voiceover…</source>
+        <translation>Gravando narração…</translation>
+    </message>
+    <message>
+        <source>Voiceover recorded (%1)</source>
+        <translation>Narração gravada (%1)</translation>
+    </message>
+    <message>
         <source>Voice effect failed: %1</source>
         <translation>Falha no efeito de voz: %1</translation>
     </message>
@@ -2792,6 +2811,10 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
     <message>
         <source>Add marker</source>
         <translation>Adicionar marcador</translation>
+    </message>
+    <message>
+        <source>Record voiceover</source>
+        <translation>Gravar narração</translation>
     </message>
     <message>
         <source>Remove silences</source>
@@ -3121,6 +3144,41 @@ Atalhos: Espaço reproduz · Ctrl+B divide · Q/W exclui à esquerda/direita · 
     <message>
         <source>Old radio</source>
         <translation>Rádio antigo</translation>
+    </message>
+</context>
+<context>
+    <name>VoiceoverPanel</name>
+    <message>
+        <source>System default</source>
+        <translation>Padrão do sistema</translation>
+    </message>
+    <message>
+        <source>Recording %1</source>
+        <translation>Gravando %1</translation>
+    </message>
+    <message>
+        <source>Starting in %1…</source>
+        <translation>Começando em %1…</translation>
+    </message>
+    <message>
+        <source>Voiceover</source>
+        <translation>Narração</translation>
+    </message>
+    <message>
+        <source>Records from the playhead while the timeline plays. Use headphones so the microphone does not pick up the video&apos;s sound.</source>
+        <translation>Grava a partir do cursor enquanto a timeline toca. Use fones de ouvido para o microfone não captar o som do vídeo.</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Parar</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Record</source>
+        <translation>Gravar</translation>
     </message>
 </context>
 <context>

@@ -534,6 +534,36 @@ private slots:
         QVERIFY(m_ctrl->cachedRanges().isEmpty());
     }
 
+    void voiceoverRecording()
+    {
+        QVERIFY(m_ctrl->openProject(QUrl::fromLocalFile(m_dir.filePath(QStringLiteral("p.clivcut")))));
+        m_ctrl->seek(1e6);
+        const int clipsBefore = [&] {
+            int n = 0;
+            for (const auto &t : m_ctrl->tracks())
+                n += t.toMap().value("clips").toList().size();
+            return n;
+        }();
+        if (!m_ctrl->startRecording())
+            QSKIP("sem dispositivo de captura neste ambiente");
+        QVERIFY(m_ctrl->recording());
+        QTest::qWait(800);
+        QVERIFY(m_ctrl->recordElapsed() > 0.3e6);
+        m_ctrl->stopRecording();
+        QVERIFY(!m_ctrl->recording());
+        int clipsAfter = 0;
+        for (const auto &t : m_ctrl->tracks())
+            clipsAfter += t.toMap().value("clips").toList().size();
+        QCOMPARE(clipsAfter, clipsBefore + 1);
+        // O clipe novo começa onde a gravação começou.
+        bool atStart = false;
+        for (const auto &t : m_ctrl->tracks())
+            for (const auto &c : t.toMap().value("clips").toList())
+                if (std::abs(c.toMap().value("start").toDouble() - 1e6) < 1000 && t.toMap().value("kind") == QStringLiteral("audio"))
+                    atStart = true;
+        QVERIFY(atStart);
+    }
+
     void scopes()
     {
         // Meio quadro vermelho puro, meio cinza médio.
