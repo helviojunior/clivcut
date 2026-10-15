@@ -21,7 +21,7 @@ Written in **C++20 + Qt 6 (Qt Quick / RHI) + FFmpeg**. Video compositing runs on
   - **Render preview** (Ctrl+R): pre-renders the in/out range or the whole timeline so heavy sections play smoothly. Rendered parts show as a green bar on the ruler, and an edit only invalidates the parts it touches.
   - **Automatic proxies** for videos above 1080p, generated in the background. The player's "Proxy" button toggles between proxy and original; export always uses the original.
 - **Timeline:**
-  - Magnetic main track plus overlay, text and audio tracks, with mute, hide and lock.
+  - Free clip placement on the main track (gaps allowed), with an optional magnet that keeps it gap-free, plus overlay, text and audio tracks, with mute, hide and lock.
   - Split (Ctrl+B), delete left/right of the playhead (Q/W), trim, move between tracks and ripple delete.
   - Snapping, zoom, markers, duplicate and freeze frame.
   - **Copy, cut and paste** clips, including across projects via the system clipboard, carrying the media along.

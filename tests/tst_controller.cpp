@@ -50,6 +50,7 @@ private slots:
     void importAndPlace()
     {
         m_ctrl->newProject(640, 360, 30);
+        m_ctrl->setMagnet(true); // os testes abaixo usam a faixa principal compacta
         m_ctrl->importMedia({QUrl::fromLocalFile(m_video)});
         QCOMPARE(m_ctrl->assets().size(), 1);
         const QString assetId = m_ctrl->assets().first().toMap().value("id").toString();

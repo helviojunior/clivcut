@@ -230,7 +230,7 @@ struct Project {
     /// Fundo desfocado: o clipe da faixa principal ampliado e borrado atrás de tudo (0 = só a cor).
     double backgroundBlur = 0;
     /// Faixa principal magnética: clipes sempre encostados, sem buracos.
-    bool mainTrackMagnet = true;
+    bool mainTrackMagnet = false;
     /// tracks[0] é a faixa principal de vídeo. Faixas visuais seguintes ficam por cima.
     std::vector<Track> tracks;
     std::map<QString, MediaAsset> assets;

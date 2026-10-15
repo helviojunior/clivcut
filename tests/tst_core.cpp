@@ -95,6 +95,7 @@ private slots:
     void mainTrackMagnetInsert()
     {
         Project p = createProject();
+        p.mainTrackMagnet = true;
         auto a = videoAsset(p, 4 * kSecond);
         edit::insertClip(p, createMediaClip(a, 0), 0);
         edit::insertClip(p, createMediaClip(a, 100 * kSecond), 0); // vai para o fim, sem buraco
@@ -105,6 +106,22 @@ private slots:
         const QString id = edit::insertClip(p, mid, 0);
         QCOMPARE(p.tracks[0].clips[0].id, id);
         QCOMPARE(p.duration(), 12 * kSecond);
+    }
+
+    void mainTrackFreeMove()
+    {
+        // Sem ímã (padrão), a faixa principal aceita buracos e clipes no meio deles.
+        Project p = createProject();
+        QVERIFY(!p.mainTrackMagnet);
+        auto a = videoAsset(p, 2 * kSecond);
+        const QString first = edit::insertClip(p, createMediaClip(a, 0), 0);
+        const QString second = edit::insertClip(p, createMediaClip(a, 2 * kSecond), 0);
+        QVERIFY(edit::moveClip(p, second, 0, 6 * kSecond));
+        QCOMPARE(edit::clipById(p, second)->start, 6 * kSecond);
+        QCOMPARE(edit::clipById(p, first)->start, Micros(0));
+        const QString gap = edit::insertClip(p, createMediaClip(a, 3 * kSecond), 0);
+        QCOMPARE(edit::findClip(p, gap)->track, 0);
+        QCOMPARE(p.tracks.size(), size_t(1));
     }
 
     void splitAndSource()
@@ -141,6 +158,7 @@ private slots:
     void trimRespectsSource()
     {
         Project p = createProject();
+        p.mainTrackMagnet = true;
         auto a = videoAsset(p, 5 * kSecond);
         const QString id = edit::insertClip(p, createMediaClip(a, 0), 0);
         QVERIFY(edit::trimClip(p, id, edit::Edge::End, 20 * kSecond));
@@ -167,6 +185,7 @@ private slots:
     void deleteWithRipple()
     {
         Project p = createProject();
+        p.mainTrackMagnet = true;
         auto a = videoAsset(p, 2 * kSecond);
         edit::insertClip(p, createMediaClip(a, 0), 0);
         const QString b = edit::insertClip(p, createMediaClip(a, 10 * kSecond), 0);
