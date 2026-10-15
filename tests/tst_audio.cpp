@@ -5,6 +5,7 @@
 #include "engine/AudioMixer.h"
 #include "engine/TimeStretch.h"
 #include "engine/VoiceIsolation.h"
+#include "engine/WhisperModels.h"
 #include "media/AudioDecoder.h"
 #include "media/Loudness.h"
 #include "media/MediaProbe.h"
@@ -231,7 +232,7 @@ private slots:
         if (!engine::voiceIsolationAvailable())
             QSKIP("compilado sem ONNX Runtime");
         const QString model = qEnvironmentVariable("CLIVCUT_VOICE_MODEL",
-            QDir::home().filePath(QStringLiteral(".local/share/clivcut/models/deepfilternet3_streaming.onnx")));
+            QDir(engine::whisperModelsDir()).filePath(QStringLiteral("deepfilternet3_streaming.onnx")));
         if (!QFileInfo::exists(model))
             QSKIP("modelo de isolamento de voz não instalado");
         // 2 s só de ruído rosa, depois um tom de fala sintético (vogais com harmônicos) + ruído.
